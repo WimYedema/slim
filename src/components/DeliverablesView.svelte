@@ -13,6 +13,7 @@
 		TSHIRT_SIZES,
 		SIZE_ROW_HEIGHT,
 		UNESTIMATED_ROW_HEIGHT,
+		inheritedPeople,
 	} from '../lib/types'
 
 	interface Props {
@@ -42,21 +43,6 @@
 		newTitle = ''
 	}
 
-	/** People inherited from linked opportunities, by role */
-	function inheritedPeople(deliverableId: string, group: 'contributors' | 'consumers'): string[] {
-		const dLinks = linksForDeliverable(links, deliverableId)
-		const names = new Set<string>()
-		for (const link of dLinks) {
-			const opp = opportunities.find((o) => o.id === link.opportunityId)
-			if (!opp) continue
-			for (const p of opp.people) {
-				if (group === 'contributors' && p.role === 'expert') names.add(p.name)
-				if (group === 'consumers' && (p.role === 'stakeholder' || p.role === 'blocker')) names.add(p.name)
-			}
-		}
-		return [...names].sort()
-	}
-
 	/** Orphan deliverables — linked to no opportunity */
 	const orphanCount = $derived(deliverables.filter((d) => linksForDeliverable(links, d.id).length === 0).length)
 
@@ -64,7 +50,7 @@
 
 	/** All contributors for a deliverable: inherited experts + extras */
 	function allContributors(deliverableId: string): Set<string> {
-		const names = new Set<string>(inheritedPeople(deliverableId, 'contributors'))
+		const names = new Set<string>(inheritedPeople(deliverableId, 'contributors', links, opportunities))
 		const d = deliverables.find((d) => d.id === deliverableId)
 		if (d) for (const n of d.extraContributors) names.add(n)
 		return names
@@ -85,7 +71,7 @@
 
 	/** Toggle contributor assignment on a deliverable */
 	function toggleContributor(deliverable: Deliverable, name: string) {
-		const inherited = inheritedPeople(deliverable.id, 'contributors')
+		const inherited = inheritedPeople(deliverable.id, 'contributors', links, opportunities)
 		if (inherited.includes(name)) return // can't toggle inherited
 		if (deliverable.extraContributors.includes(name)) {
 			onUpdate({ ...deliverable, extraContributors: deliverable.extraContributors.filter((n) => n !== name) })
@@ -427,7 +413,7 @@
 								{/each}
 								{#if contributorColumns.length > 0}
 									{@const contribs = allContributors(deliverable.id)}
-									{@const inherited = new Set(inheritedPeople(deliverable.id, 'contributors'))}
+									{@const inherited = new Set(inheritedPeople(deliverable.id, 'contributors', links, opportunities))}
 									<td class="matrix-section-divider"></td>
 									{#each contributorColumns as col (col.name)}
 										{@const assigned = contribs.has(col.name)}

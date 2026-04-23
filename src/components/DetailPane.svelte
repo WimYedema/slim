@@ -29,6 +29,8 @@
 		linksForOpportunity,
 		daysInStage,
 		agingLevel,
+		scoreClass,
+		formatDaysLeft,
 	} from '../lib/types'
 
 	interface Props {
@@ -75,9 +77,7 @@
 		return PERSPECTIVES.some((p) => cellHasSignal(opportunity.signals[stage][p]))
 	}
 
-	function scoreClass(score: Score): string {
-		return `score-${score}`
-	}
+
 
 	// Compute gap prompts for the current stage
 	const gapPrompts = $derived.by(() => {
@@ -218,11 +218,7 @@
 		onUpdate({ ...opportunity, commitments: opportunity.commitments.filter((c) => c.id !== id) })
 	}
 
-	function formatDaysLeft(daysLeft: number): string {
-		if (daysLeft < 0) return `${Math.abs(daysLeft)}d overdue`
-		if (daysLeft === 0) return 'due today'
-		return `${daysLeft}d left`
-	}
+
 
 	const urgency = $derived(commitmentUrgency(opportunity))
 

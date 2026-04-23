@@ -10,6 +10,8 @@
 		SCORE_SYMBOL,
 		SCORE_DISPLAY,
 		STAGES,
+		scoreClass,
+		stageLabel,
 	} from '../lib/types'
 	import { collectPeople, buildMeetingAgenda, personUrgency, completeMeeting, type MeetingAgenda, type MeetingData } from '../lib/meeting'
 
@@ -66,13 +68,7 @@
 		selectedPerson = selectedPerson === name ? null : name
 	}
 
-	function stageLabel(stageKey: string): string {
-		return STAGES.find((s) => s.key === stageKey)?.label ?? stageKey
-	}
 
-	function scoreClass(score: Score): string {
-		return `score-${score}`
-	}
 
 	function updateSignal(oppId: string, stage: Stage, perspective: Perspective, field: 'score' | 'verdict', value: string) {
 		const opp = opportunities.find((o) => o.id === oppId)

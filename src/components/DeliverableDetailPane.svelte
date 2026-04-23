@@ -8,6 +8,7 @@
 		linksForDeliverable,
 		STAGES,
 		TSHIRT_SIZES,
+		inheritedPeople as inheritedPeopleForDeliverable,
 	} from '../lib/types'
 
 	interface Props {
@@ -40,16 +41,7 @@
 
 	/** People inherited from linked opportunities */
 	function inheritedPeople(group: 'contributors' | 'consumers'): string[] {
-		const names = new Set<string>()
-		for (const link of dLinks) {
-			const opp = opportunities.find((o) => o.id === link.opportunityId)
-			if (!opp) continue
-			for (const p of opp.people) {
-				if (group === 'contributors' && p.role === 'expert') names.add(p.name)
-				if (group === 'consumers' && (p.role === 'stakeholder' || p.role === 'blocker')) names.add(p.name)
-			}
-		}
-		return [...names].sort()
+		return inheritedPeopleForDeliverable(deliverable.id, group, links, opportunities)
 	}
 
 	function setSize(size: TShirtSize | null) {

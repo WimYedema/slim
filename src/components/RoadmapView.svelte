@@ -17,6 +17,7 @@
 		stageIndex,
 		daysInStage,
 		agingLevel,
+		stageLabel,
 	} from '../lib/types'
 
 	interface Props {
@@ -202,10 +203,6 @@
 			unsized,
 			avgCertainty: certCount > 0 ? Math.round((certSum / certCount) * 10) / 10 : null,
 		}
-	}
-
-	function stageLabel(stage: string): string {
-		return STAGES.find((s) => s.key === stage)?.label ?? stage
 	}
 
 	function linkedDeliverableNames(oppId: string): string[] {

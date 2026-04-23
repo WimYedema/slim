@@ -432,3 +432,42 @@ export function ternaryPosition(opp: Opportunity): { x: number; y: number } {
 
 	return { x, y }
 }
+
+// ── Shared display helpers (extracted from components) ──
+
+/** CSS class for a score value — used by multiple views */
+export function scoreClass(score: Score): string {
+	return `score-${score}`
+}
+
+/** Human label for a stage key */
+export function stageLabel(stage: Stage): string {
+	return STAGES.find((s) => s.key === stage)?.label ?? stage
+}
+
+/** Format days until deadline as a human-readable string */
+export function formatDaysLeft(daysLeft: number): string {
+	if (daysLeft < 0) return `${Math.abs(daysLeft)}d overdue`
+	if (daysLeft === 0) return 'due today'
+	return `${daysLeft}d left`
+}
+
+/** Get people inherited from linked opportunities, by role group */
+export function inheritedPeople(
+	deliverableId: string,
+	group: 'contributors' | 'consumers',
+	links: OpportunityDeliverableLink[],
+	opportunities: Opportunity[],
+): string[] {
+	const dLinks = linksForDeliverable(links, deliverableId)
+	const names = new Set<string>()
+	for (const link of dLinks) {
+		const opp = opportunities.find((o) => o.id === link.opportunityId)
+		if (!opp) continue
+		for (const p of opp.people) {
+			if (group === 'contributors' && p.role === 'expert') names.add(p.name)
+			if (group === 'consumers' && (p.role === 'stakeholder' || p.role === 'blocker')) names.add(p.name)
+		}
+	}
+	return [...names].sort()
+}

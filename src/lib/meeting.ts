@@ -11,7 +11,7 @@ import type {
 	Certainty,
 	Score,
 } from './types'
-import { PERSPECTIVES, STAGES, stageIndex, linksForDeliverable, SCORE_SYMBOL } from './types'
+import { PERSPECTIVES, STAGES, CELL_QUESTIONS, stageIndex, linksForDeliverable, SCORE_SYMBOL } from './types'
 
 // ── Meeting records ──
 
@@ -59,9 +59,9 @@ function snapshotOpp(opp: Opportunity): OppSnapshot {
 	const scores: Record<string, Score> = {}
 	for (const stage of STAGES) {
 		for (const p of PERSPECTIVES) {
-			const sig = opp.signals[stage]?.[p]
+			const sig = opp.signals[stage.key]?.[p]
 			if (sig && sig.score !== 'none') {
-				scores[`${stage}:${p}`] = sig.score
+				scores[`${stage.key}:${p}`] = sig.score
 			}
 		}
 	}
@@ -81,14 +81,14 @@ function diffOpp(opp: Opportunity, prev: OppSnapshot): string[] {
 	// Check for new or changed scores
 	for (const stage of STAGES) {
 		for (const p of PERSPECTIVES) {
-			const key = `${stage}:${p}`
-			const sig = opp.signals[stage]?.[p]
+			const key = `${stage.key}:${p}`
+			const sig = opp.signals[stage.key]?.[p]
 			const curScore = sig && sig.score !== 'none' ? sig.score : null
 			const prevScore = prev.scores[key] ?? null
 			if (curScore !== prevScore) {
 				const prevLabel = prevScore ? SCORE_SYMBOL[prevScore] : '—'
 				const curLabel = curScore ? SCORE_SYMBOL[curScore] : '—'
-				descs.push(`${p}@${stage}: ${prevLabel} → ${curLabel}`)
+				descs.push(`${p}@${stage.key}: ${prevLabel} → ${curLabel}`)
 			}
 		}
 	}
@@ -347,29 +347,6 @@ export function buildMeetingAgenda(
 		opportunities: [],
 		changes: [],
 		lastMet: since,
-	}
-
-	const CELL_QUESTIONS: Record<Stage, Record<Perspective, string>> = {
-		explore: {
-			desirability: 'Who might want this?',
-			feasibility: 'Could we build it?',
-			viability: 'Does it fit our strategy?',
-		},
-		sketch: {
-			desirability: 'Who exactly is affected, and what does done look like?',
-			feasibility: 'What are the technical constraints and dependencies?',
-			viability: 'Does this align with strategy and scope?',
-		},
-		validate: {
-			desirability: 'Did users confirm they want this?',
-			feasibility: 'Did a spike confirm we can build it?',
-			viability: 'Does the business case hold?',
-		},
-		decompose: {
-			desirability: 'Which deliverables serve this need?',
-			feasibility: 'What is the estimated effort?',
-			viability: 'Is it worth the cost?',
-		},
 	}
 
 	for (const opp of opportunities) {
