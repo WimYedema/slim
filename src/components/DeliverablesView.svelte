@@ -562,7 +562,7 @@
 
 	.matrix-opp-stage {
 		display: block;
-		font-size: 0.6rem;
+		font-size: var(--fs-3xs);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: var(--c-text-faint);
@@ -570,21 +570,21 @@
 	}
 
 	.matrix-opp-stage.stage-validate {
-		color: var(--c-warm);
+		color: var(--c-stage-validate);
 	}
 
 	.matrix-opp-stage.stage-decompose {
-		color: var(--c-green);
+		color: var(--c-stage-decompose);
 	}
 
 	.matrix-gap-badge {
 		display: block;
 		margin-top: 3px;
-		font-size: 0.55rem;
+		font-size: var(--fs-3xs);
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
 		color: var(--c-red);
-		font-weight: 600;
+		font-weight: var(--fw-medium);
 	}
 
 	.empty-col {
@@ -601,7 +601,7 @@
 	}
 
 	.matrix-table tbody tr.row-selected {
-		background: color-mix(in srgb, var(--c-accent) 8%, var(--c-bg));
+		background: color-mix(in srgb, var(--c-accent) var(--opacity-subtle), var(--c-bg));
 	}
 
 	.matrix-table tbody tr.row-selected td:first-child {
@@ -609,15 +609,15 @@
 	}
 
 	.matrix-table tbody tr:not(:last-child) td {
-		border-bottom: 1px solid color-mix(in srgb, var(--c-border-soft) 40%, transparent);
+		border-bottom: 1px solid color-mix(in srgb, var(--c-border-soft) var(--opacity-strong), transparent);
 	}
 
 	.matrix-table tbody tr:first-child td {
-		border-top: 1px solid color-mix(in srgb, var(--c-border-soft) 40%, transparent);
+		border-top: 1px solid color-mix(in srgb, var(--c-border-soft) var(--opacity-strong), transparent);
 	}
 
 	.matrix-table tbody tr:last-child td {
-		border-bottom: 1px solid color-mix(in srgb, var(--c-border-soft) 40%, transparent);
+		border-bottom: 1px solid color-mix(in srgb, var(--c-border-soft) var(--opacity-strong), transparent);
 	}
 
 	.matrix-del-name {
@@ -626,13 +626,13 @@
 		left: 0;
 		z-index: 1;
 		white-space: nowrap;
-		font-weight: 500;
+		font-weight: var(--fw-medium);
 		color: var(--c-text);
 		padding-right: var(--sp-md) !important;
 	}
 
 	.matrix-del-link {
-		font-size: 0.65rem;
+		font-size: var(--fs-2xs);
 		color: var(--c-text-muted);
 		text-decoration: none;
 		margin-left: var(--sp-xs);
@@ -649,10 +649,10 @@
 	}
 
 	.matrix-row-badge {
-		font-size: 0.55rem;
+		font-size: var(--fs-3xs);
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
-		font-weight: 600;
+		font-weight: var(--fw-medium);
 		margin-left: var(--sp-sm);
 		padding: 0 3px;
 		border-radius: 2px;
@@ -700,7 +700,7 @@
 		border: none;
 		cursor: pointer;
 		padding: var(--sp-xs) var(--sp-sm);
-		line-height: 1;
+		line-height: var(--lh-tight);
 		border-radius: var(--radius-sm);
 		transition: background 0.1s ease;
 	}
@@ -734,7 +734,7 @@
 		color: var(--c-text-faint);
 		cursor: grab;
 		margin-right: var(--sp-xs);
-		font-size: 0.75rem;
+		font-size: var(--fs-2xs);
 		user-select: none;
 		opacity: 0;
 		transition: opacity 0.1s ease;
@@ -790,8 +790,8 @@
 	/* ── Size + Certainty column headers ── */
 	.matrix-col-label {
 		background: var(--c-bg);
-		font-size: 0.6rem;
-		font-weight: 600;
+		font-size: var(--fs-3xs);
+		font-weight: var(--fw-medium);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: var(--c-text-muted);
@@ -872,7 +872,7 @@
 		white-space: nowrap;
 		vertical-align: bottom;
 		padding: var(--sp-xs) 2px var(--sp-sm) 2px;
-		font-weight: 400;
+		font-weight: var(--fw-normal);
 		font-size: var(--fs-xs);
 		color: var(--c-text-muted);
 	}
@@ -882,14 +882,14 @@
 	}
 
 	.matrix-contributor-count {
-		font-size: 0.6rem;
+		font-size: var(--fs-3xs);
 		color: var(--c-text-faint);
 	}
 
 	.matrix-contributor-dot {
 		display: block;
-		width: 14px;
-		height: 14px;
+		width: var(--dot-size-md);
+		height: var(--dot-size-md);
 		border-radius: 50%;
 		border: 1.5px solid var(--c-border-soft);
 		background: transparent;
@@ -917,7 +917,7 @@
 
 	.matrix-external-cell {
 		text-align: center;
-		font-size: 0.75rem;
+		font-size: var(--fs-2xs);
 		color: var(--c-warm);
 		cursor: help;
 		border: none !important;
@@ -931,7 +931,7 @@
 		flex-wrap: wrap;
 		gap: var(--sp-sm);
 		margin-top: var(--sp-md);
-		font-size: 0.65rem;
+		font-size: var(--fs-2xs);
 		color: var(--c-text-muted);
 	}
 
@@ -943,8 +943,8 @@
 
 	.legend-dot {
 		display: inline-block;
-		width: 10px;
-		height: 10px;
+		width: var(--dot-size-xs);
+		height: var(--dot-size-xs);
 		border-radius: var(--radius-full);
 	}
 

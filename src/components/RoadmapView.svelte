@@ -441,7 +441,7 @@
 	thead th {
 		text-align: left;
 		font-size: var(--fs-xs);
-		font-weight: 600;
+		font-weight: var(--fw-medium);
 		color: var(--c-text-muted);
 		padding: var(--sp-xs) var(--sp-sm);
 		border-bottom: 2px solid var(--c-border-soft);
@@ -509,7 +509,7 @@
 		border: none;
 		font: inherit;
 		font-size: var(--fs-lg);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		color: var(--c-text);
 		cursor: default;
 		padding: 0;
@@ -517,7 +517,7 @@
 
 	.horizon-count {
 		font-size: var(--fs-xs);
-		font-weight: 400;
+		font-weight: var(--fw-normal);
 		color: var(--c-text-muted);
 		background: var(--c-neutral-bg);
 		padding: 1px 6px;
@@ -527,7 +527,7 @@
 	.horizon-input {
 		font: inherit;
 		font-size: var(--fs-lg);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		color: var(--c-text);
 		background: var(--c-surface);
 		border: 1px solid var(--c-accent);
@@ -566,7 +566,7 @@
 	}
 
 	.effort-size {
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		color: var(--c-text-soft);
 		background: var(--c-neutral-bg);
 		padding: 1px 6px;
@@ -582,7 +582,7 @@
 	.cert-dot {
 		font-size: 7px;
 		color: var(--c-border-soft);
-		line-height: 1;
+		line-height: var(--lh-tight);
 	}
 
 	.cert-dot.filled {
@@ -628,16 +628,16 @@
 	}
 
 	.opp-title {
-		font-weight: 600;
+		font-weight: var(--fw-medium);
 		color: var(--c-text);
 	}
 
 	.urgency-badge {
-		font-size: 0.65rem;
+		font-size: var(--fs-2xs);
 		padding: 1px 5px;
 		border-radius: var(--radius-sm);
 		margin-left: var(--sp-xs);
-		font-weight: 600;
+		font-weight: var(--fw-medium);
 	}
 
 	.urgency-badge.overdue {
@@ -654,8 +654,8 @@
 
 	.stage-badge {
 		display: inline-block;
-		font-size: 0.65rem;
-		font-weight: 600;
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-medium);
 		padding: 1px 6px;
 		border-radius: var(--radius-sm);
 		text-transform: uppercase;
@@ -664,22 +664,22 @@
 
 	.stage-explore {
 		background: var(--c-neutral-bg);
-		color: var(--c-text-muted);
+		color: var(--c-stage-explore);
 	}
 
 	.stage-sketch {
-		background: var(--c-accent-bg);
-		color: var(--c-accent-text);
+		background: var(--c-warm-bg);
+		color: var(--c-stage-sketch);
 	}
 
 	.stage-validate {
-		background: var(--c-warm-bg);
-		color: var(--c-warm);
+		background: var(--c-accent-bg);
+		color: var(--c-stage-validate);
 	}
 
 	.stage-decompose {
 		background: var(--c-green-bg);
-		color: var(--c-green);
+		color: var(--c-stage-decompose);
 	}
 
 	/* ── Signal dots (matching ListView) ── */
@@ -688,12 +688,12 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 17px;
-		height: 17px;
+		width: var(--dot-size);
+		height: var(--dot-size);
 		border-radius: 50%;
-		font-size: 9px;
-		font-weight: 700;
-		line-height: 1;
+		font-size: var(--fs-3xs);
+		font-weight: var(--fw-bold);
+		line-height: var(--lh-tight);
 		flex-shrink: 0;
 		box-sizing: border-box;
 	}
@@ -715,7 +715,7 @@
 
 	.dot.score-none {
 		background: none;
-		border: 2px dashed color-mix(in srgb, var(--c-text-ghost) 50%, transparent);
+		border: 2px dashed color-mix(in srgb, var(--c-text-ghost) var(--opacity-strong), transparent);
 		color: var(--c-text-ghost);
 	}
 

@@ -460,8 +460,8 @@
 		background: transparent;
 		color: var(--c-text-soft);
 		font-family: system-ui, sans-serif;
-		font-size: 1.1rem;
-		font-weight: 700;
+		font-size: var(--fs-lg);
+		font-weight: var(--fw-bold);
 		line-height: 0;
 		padding: 0;
 		cursor: pointer;
@@ -474,7 +474,7 @@
 	.funnel-add-btn:hover {
 		border-color: var(--c-accent);
 		color: var(--c-accent);
-		background: color-mix(in srgb, var(--c-accent) 8%, transparent);
+		background: color-mix(in srgb, var(--c-accent) var(--opacity-subtle), transparent);
 	}
 
 	.funnel-add-input {
@@ -514,15 +514,15 @@
 		opacity: 0.4;
 	}
 	.funnel-group.funnel-active .funnel-segment {
-		fill: color-mix(in srgb, var(--c-accent) 25%, transparent);
+		fill: color-mix(in srgb, var(--c-accent) var(--opacity-emphasis), transparent);
 	}
 
 	.funnel-segment {
-		fill: color-mix(in srgb, var(--c-text-muted) 15%, transparent);
+		fill: color-mix(in srgb, var(--c-text-muted) var(--opacity-moderate), transparent);
 	}
 
 	.funnel-segment.funnel-empty {
-		fill: color-mix(in srgb, var(--c-border) 20%, transparent);
+		fill: color-mix(in srgb, var(--c-border) var(--opacity-moderate), transparent);
 	}
 
 	.funnel-divider {
@@ -536,14 +536,14 @@
 	}
 
 	.funnel-text-label {
-		font-size: 10px;
-		font-weight: 600;
+		font-size: var(--fs-3xs);
+		font-weight: var(--fw-medium);
 		fill: var(--c-text-soft);
 	}
 
 	.funnel-text-count {
-		font-size: 11px;
-		font-weight: 700;
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-bold);
 		fill: var(--c-text);
 	}
 
@@ -554,9 +554,9 @@
 		padding: var(--sp-xs) var(--sp-sm) var(--sp-sm);
 	}
 
-	.bucket-blocked { background: color-mix(in srgb, var(--c-red) 5%, transparent); }
-	.bucket-attention { background: color-mix(in srgb, var(--c-warm) 6%, transparent); }
-	.bucket-clear { background: color-mix(in srgb, var(--c-green-signal) 5%, transparent); }
+	.bucket-blocked { background: color-mix(in srgb, var(--c-red) var(--opacity-subtle), transparent); }
+	.bucket-attention { background: color-mix(in srgb, var(--c-warm) var(--opacity-subtle), transparent); }
+	.bucket-clear { background: color-mix(in srgb, var(--c-green-signal) var(--opacity-subtle), transparent); }
 
 	.bucket-header {
 		display: flex;
@@ -568,7 +568,7 @@
 
 	.bucket-label {
 		font-size: var(--fs-xs);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
 	}
@@ -580,7 +580,7 @@
 	.bucket-count {
 		font-size: var(--fs-xs);
 		color: var(--c-text-muted);
-		background: color-mix(in srgb, var(--c-surface) 50%, transparent);
+		background: color-mix(in srgb, var(--c-surface) var(--opacity-strong), transparent);
 		border-radius: var(--radius-sm);
 		padding: 0 6px;
 		min-width: 1.4em;
@@ -615,7 +615,7 @@
 	}
 
 	.list-row:hover {
-		background: color-mix(in srgb, var(--c-surface) 60%, transparent);
+		background: color-mix(in srgb, var(--c-surface) var(--opacity-strong), transparent);
 	}
 
 	/* Off-theme aging: cool tint that feels foreign against the warm palette */
@@ -624,7 +624,7 @@
 		opacity: 0.3;
 	}
 	.list-row.stage-highlighted {
-		background: color-mix(in srgb, var(--c-accent) 6%, transparent);
+		background: color-mix(in srgb, var(--c-accent) var(--opacity-subtle), transparent);
 	}
 
 	.list-row.just-added {
@@ -632,12 +632,12 @@
 	}
 
 	@keyframes flash-new {
-		0% { background: color-mix(in srgb, var(--c-accent) 30%, transparent); }
+		0% { background: color-mix(in srgb, var(--c-accent) var(--opacity-emphasis), transparent); }
 		100% { background: transparent; }
 	}
 
 	.list-row.selected {
-		background: color-mix(in srgb, var(--c-accent) 10%, transparent);
+		background: color-mix(in srgb, var(--c-accent) var(--opacity-moderate), transparent);
 		border-left: 3px solid var(--c-accent);
 		padding-left: calc(var(--sp-sm) - 3px);
 	}
@@ -648,7 +648,7 @@
 
 	/* Blocked rows: left accent for visual urgency */
 	.bucket-blocked .list-row {
-		border-left: 3px solid color-mix(in srgb, var(--c-red) 40%, transparent);
+		border-left: 3px solid color-mix(in srgb, var(--c-red) var(--opacity-strong), transparent);
 		padding-left: calc(var(--sp-sm) - 3px);
 	}
 
@@ -673,12 +673,12 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 17px;
-		height: 17px;
+		width: var(--dot-size);
+		height: var(--dot-size);
 		border-radius: 50%;
-		font-size: 9px;
-		font-weight: 700;
-		line-height: 1;
+		font-size: var(--fs-3xs);
+		font-weight: var(--fw-bold);
+		line-height: var(--lh-tight);
 		flex-shrink: 0;
 		box-sizing: border-box;
 	}
@@ -700,7 +700,7 @@
 
 	.dot.score-none {
 		background: none;
-		border: 2px dashed color-mix(in srgb, var(--c-text-ghost) 50%, transparent);
+		border: 2px dashed color-mix(in srgb, var(--c-text-ghost) var(--opacity-strong), transparent);
 		color: var(--c-text-ghost);
 	}
 
@@ -708,7 +708,7 @@
 
 	.col-title {
 		font-size: var(--fs-sm);
-		font-weight: 600;
+		font-weight: var(--fw-medium);
 		color: var(--c-text);
 		white-space: nowrap;
 		overflow: hidden;
@@ -717,20 +717,20 @@
 	}
 
 	.bucket-blocked .col-title {
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 	}
 
 	.col-title-stage {
-		font-size: 0.7rem;
-		font-weight: 600;
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-medium);
 		color: var(--c-text-ghost);
 		margin-left: var(--sp-xs);
 		vertical-align: middle;
 	}
 
 	.origin-tag, .exit-tag {
-		font-size: 0.65rem;
-		font-weight: 600;
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-medium);
 		margin-left: var(--sp-xs);
 		padding: 0 4px;
 		border-radius: var(--radius-sm);
@@ -739,12 +739,12 @@
 
 	.origin-tag {
 		color: var(--c-accent);
-		background: color-mix(in srgb, var(--c-accent) 10%, transparent);
+		background: color-mix(in srgb, var(--c-accent) var(--opacity-moderate), transparent);
 	}
 
 	.horizon-tag {
-		font-size: 0.65rem;
-		font-weight: 600;
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-medium);
 		margin-left: 4px;
 		padding: 0 3px;
 		border-radius: var(--radius-sm);
@@ -755,12 +755,12 @@
 
 	.exit-tag {
 		color: var(--c-red);
-		background: color-mix(in srgb, var(--c-red) 10%, transparent);
+		background: color-mix(in srgb, var(--c-red) var(--opacity-moderate), transparent);
 	}
 
 	.aging-badge {
-		font-size: 0.65rem;
-		font-weight: 600;
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-medium);
 		margin-left: 4px;
 		padding: 0 3px;
 		border-radius: var(--radius-sm);
@@ -769,7 +769,7 @@
 	.aging-fresh { color: var(--c-green-signal); }
 	.aging-aging {
 		color: var(--c-warm);
-		border: 1px solid color-mix(in srgb, var(--c-warm) 30%, transparent);
+		border: 1px solid color-mix(in srgb, var(--c-warm) var(--opacity-emphasis), transparent);
 		padding: 0 5px;
 		border-radius: 9px;
 	}
@@ -778,7 +778,7 @@
 		background: var(--c-red);
 		padding: 1px 6px;
 		border-radius: 9px;
-		font-size: 0.7rem;
+		font-size: var(--fs-2xs);
 	}
 
 	/* --- Column: stage progression --- */
@@ -792,8 +792,8 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 9px;
-		font-weight: 600;
+		font-size: var(--fs-3xs);
+		font-weight: var(--fw-medium);
 		width: 16px;
 		height: 16px;
 		border-radius: 3px;
@@ -803,13 +803,13 @@
 
 	.stage-pip.past {
 		color: var(--c-text-muted);
-		background: color-mix(in srgb, var(--c-text-muted) 15%, transparent);
+		background: color-mix(in srgb, var(--c-text-muted) var(--opacity-moderate), transparent);
 	}
 
 	.stage-pip.active {
 		color: var(--c-surface);
 		background: var(--c-text);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 	}
 
 	/* --- Column: nudge action --- */
@@ -848,10 +848,10 @@
 		width: 22px;
 		height: 22px;
 		border-radius: 50%;
-		border: 1px solid color-mix(in srgb, var(--c-green-signal) 40%, transparent);
-		background: color-mix(in srgb, var(--c-green-signal) 10%, transparent);
+		border: 1px solid color-mix(in srgb, var(--c-green-signal) var(--opacity-strong), transparent);
+		background: color-mix(in srgb, var(--c-green-signal) var(--opacity-moderate), transparent);
 		color: var(--c-green-signal);
-		font-size: 11px;
+		font-size: var(--fs-2xs);
 		cursor: pointer;
 		display: inline-flex;
 		align-items: center;
@@ -861,7 +861,7 @@
 	}
 
 	.advance-btn:hover {
-		background: color-mix(in srgb, var(--c-green-signal) 25%, transparent);
+		background: color-mix(in srgb, var(--c-green-signal) var(--opacity-emphasis), transparent);
 		border-color: var(--c-green-signal);
 	}
 
@@ -874,7 +874,7 @@
 
 	.discontinued-header {
 		font-size: var(--fs-xs);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
 		color: var(--c-text-ghost);

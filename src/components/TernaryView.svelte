@@ -42,10 +42,10 @@
 	const DOT_R = 10
 
 	const STAGE_COLORS: Record<Stage, string> = {
-		explore: 'var(--c-text-ghost)',
-		sketch: 'var(--c-warm)',
-		validate: 'var(--c-accent)',
-		decompose: 'var(--c-green-signal)',
+		explore: 'var(--c-stage-explore)',
+		sketch: 'var(--c-stage-sketch)',
+		validate: 'var(--c-stage-validate)',
+		decompose: 'var(--c-stage-decompose)',
 	}
 
 	function oppsForStage(stage: Stage): Opportunity[] {
@@ -213,7 +213,7 @@
 
 	.stage-name {
 		font-size: var(--fs-sm);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 	}
 
 	.stage-count {
@@ -236,15 +236,15 @@
 	.corner-label {
 		fill: var(--c-text-muted);
 		font-family: var(--font);
-		font-size: 10px;
-		font-weight: 700;
+		font-size: var(--fs-3xs);
+		font-weight: var(--fw-bold);
 	}
 
 	.dot-label {
 		fill: var(--c-surface);
 		font-family: var(--font);
 		font-size: 8px;
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		pointer-events: none;
 	}
 
@@ -255,8 +255,8 @@
 	.tip-title {
 		fill: var(--c-text);
 		font-family: var(--font);
-		font-size: 9px;
-		font-weight: 700;
+		font-size: var(--fs-3xs);
+		font-weight: var(--fw-bold);
 	}
 
 	.tip-meta {
@@ -268,7 +268,7 @@
 	.empty-label {
 		fill: var(--c-text-ghost);
 		font-family: var(--font);
-		font-size: 10px;
+		font-size: var(--fs-3xs);
 		font-style: italic;
 	}
 

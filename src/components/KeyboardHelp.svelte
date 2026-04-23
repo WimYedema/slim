@@ -96,7 +96,7 @@
 		cursor: pointer;
 		color: var(--c-text-muted);
 		padding: var(--sp-xs);
-		line-height: 1;
+		line-height: var(--lh-tight);
 	}
 
 	.kb-columns {
@@ -147,6 +147,6 @@
 		padding: 1px 5px;
 		min-width: 1.4em;
 		text-align: center;
-		line-height: 1.4;
+		line-height: var(--lh-normal);
 	}
 </style>

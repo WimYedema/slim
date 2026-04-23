@@ -110,7 +110,7 @@
 
 	.qa-tab.active {
 		color: var(--c-text);
-		font-weight: 600;
+		font-weight: var(--fw-medium);
 		background: var(--c-hover);
 		border-color: var(--c-accent);
 	}
@@ -157,6 +157,6 @@
 		border: 1px solid var(--c-border);
 		border-radius: 3px;
 		padding: 0 4px;
-		line-height: 1.4;
+		line-height: var(--lh-normal);
 	}
 </style>

@@ -95,10 +95,10 @@
 	const MID_Y = (PLOT_T + PLOT_B) / 2
 
 	const STAGE_COLORS: Record<Stage, string> = {
-		explore: 'var(--c-text-ghost)',
-		sketch: 'var(--c-warm)',
-		validate: 'var(--c-accent)',
-		decompose: 'var(--c-green-signal)',
+		explore: 'var(--c-stage-explore)',
+		sketch: 'var(--c-stage-sketch)',
+		validate: 'var(--c-stage-validate)',
+		decompose: 'var(--c-stage-decompose)',
 	}
 
 	function targetPos(opp: Opportunity, l: LensConfig): { cx: number; cy: number } {
@@ -433,28 +433,28 @@
 	.quadrant-name {
 		fill: var(--c-text-soft);
 		font-family: var(--font);
-		font-size: 13px;
-		font-weight: 700;
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-bold);
 	}
 
 	.quadrant-action {
 		fill: var(--c-text-ghost);
 		font-family: var(--font);
-		font-size: 10px;
+		font-size: var(--fs-3xs);
 		font-style: italic;
 	}
 
 	.axis-label {
 		fill: var(--c-text-muted);
 		font-family: var(--font);
-		font-size: 11px;
-		font-weight: 700;
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-bold);
 	}
 
 	.size-legend {
 		fill: var(--c-text-ghost);
 		font-family: var(--font);
-		font-size: 9px;
+		font-size: var(--fs-3xs);
 		font-style: italic;
 	}
 
@@ -465,21 +465,21 @@
 	.dot-label {
 		fill: var(--c-surface);
 		font-family: var(--font);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		pointer-events: none;
 	}
 
 	.tip-title {
 		fill: var(--c-text);
 		font-family: var(--font);
-		font-size: 10px;
-		font-weight: 700;
+		font-size: var(--fs-3xs);
+		font-weight: var(--fw-bold);
 	}
 
 	.tip-meta {
 		fill: var(--c-text-muted);
 		font-family: var(--font);
-		font-size: 9px;
+		font-size: var(--fs-3xs);
 	}
 
 	.tip-scores {
@@ -505,8 +505,8 @@
 	}
 
 	.legend-dot {
-		width: 10px;
-		height: 10px;
+		width: var(--dot-size-xs);
+		height: var(--dot-size-xs);
 		border-radius: var(--radius-full);
 	}
 </style>

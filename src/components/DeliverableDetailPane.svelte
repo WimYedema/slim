@@ -251,7 +251,7 @@
 	.ddp-title-display {
 		font-family: var(--font);
 		font-size: var(--fs-xl);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		margin: 0;
 		color: var(--c-text);
 	}
@@ -264,7 +264,7 @@
 		color: var(--c-text-ghost);
 		cursor: pointer;
 		padding: 0 4px;
-		line-height: 1;
+		line-height: var(--lh-tight);
 		flex-shrink: 0;
 	}
 
@@ -283,14 +283,14 @@
 		color: var(--c-text-muted);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		font-weight: 600;
+		font-weight: var(--fw-medium);
 	}
 
 	.ddp-input {
 		font: inherit;
 		background: transparent;
 		border: none;
-		border-bottom: 1px solid color-mix(in srgb, var(--c-border) 40%, transparent);
+		border-bottom: 1px solid color-mix(in srgb, var(--c-border) var(--opacity-strong), transparent);
 		padding: 1px 0;
 		color: var(--c-text);
 		transition: border-color var(--tr-fast);
@@ -503,7 +503,7 @@
 		font-size: var(--fs-xs);
 		padding: 2px var(--sp-xs);
 		border-radius: var(--radius-sm);
-		background: color-mix(in srgb, var(--c-accent) 10%, var(--c-surface));
+		background: color-mix(in srgb, var(--c-accent) var(--opacity-moderate), var(--c-surface));
 		color: var(--c-text);
 		display: flex;
 		align-items: center;
@@ -522,7 +522,7 @@
 		font-size: var(--fs-xs);
 		color: var(--c-text-muted);
 		padding: 0;
-		line-height: 1;
+		line-height: var(--lh-tight);
 	}
 
 	.ddp-chip-remove:hover {
@@ -537,7 +537,7 @@
 		font-size: var(--fs-xs);
 		color: var(--c-text-muted);
 		padding: 0 4px;
-		line-height: 1.4;
+		line-height: var(--lh-normal);
 	}
 
 	.ddp-chip-input {

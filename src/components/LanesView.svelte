@@ -35,10 +35,10 @@
 	const H = PAD_T + PERSPECTIVES.length * (LANE_H + LANE_GAP) + 60
 
 	const STAGE_COLORS: Record<Stage, string> = {
-		explore: 'var(--c-text-ghost)',
-		sketch: 'var(--c-warm)',
-		validate: 'var(--c-accent)',
-		decompose: 'var(--c-green-signal)',
+		explore: 'var(--c-stage-explore)',
+		sketch: 'var(--c-stage-sketch)',
+		validate: 'var(--c-stage-validate)',
+		decompose: 'var(--c-stage-decompose)',
 	}
 
 	const LANE_FILLS: Record<Perspective, string> = {
@@ -305,14 +305,14 @@
 	.tick-label {
 		fill: var(--c-text-ghost);
 		font-family: var(--font);
-		font-size: 9px;
+		font-size: var(--fs-3xs);
 	}
 
 	.lane-label {
 		fill: var(--c-text);
 		font-family: var(--font);
-		font-size: 12px;
-		font-weight: 700;
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-bold);
 	}
 
 	.dot-group circle {
@@ -323,7 +323,7 @@
 		fill: var(--c-surface);
 		font-family: var(--font);
 		font-size: 7px;
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		pointer-events: none;
 		transition: opacity 0.2s ease;
 	}
@@ -331,14 +331,14 @@
 	.active-title {
 		fill: var(--c-text);
 		font-family: var(--font);
-		font-size: 13px;
-		font-weight: 700;
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-bold);
 	}
 
 	.active-meta {
 		fill: var(--c-text-muted);
 		font-family: var(--font);
-		font-size: 10px;
+		font-size: var(--fs-3xs);
 	}
 
 	.stage-legend {
@@ -359,8 +359,8 @@
 	}
 
 	.legend-dot {
-		width: 10px;
-		height: 10px;
+		width: var(--dot-size-xs);
+		height: var(--dot-size-xs);
 		border-radius: var(--radius-full);
 	}
 

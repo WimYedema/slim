@@ -399,7 +399,7 @@
 		min-width: 200px;
 		font-family: var(--font);
 		font-size: var(--fs-2xl);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		color: var(--c-text);
 		background: transparent;
 		border: 1px solid transparent;
@@ -441,7 +441,7 @@
 		border-radius: var(--radius-sm);
 		padding: var(--sp-xs) var(--sp-sm);
 		resize: vertical;
-		line-height: 1.4;
+		line-height: var(--lh-normal);
 	}
 
 	.description-input::placeholder {
@@ -469,7 +469,7 @@
 		cursor: pointer;
 		padding: 0 var(--sp-sm);
 		font-family: var(--font);
-		line-height: 1;
+		line-height: var(--lh-tight);
 	}
 
 	.close-btn:hover {
@@ -488,7 +488,7 @@
 
 	.section-label {
 		font-size: var(--fs-xs);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		color: var(--c-text-muted);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
@@ -542,7 +542,7 @@
 		cursor: pointer;
 		padding: 0 2px;
 		font-family: var(--font);
-		line-height: 1;
+		line-height: var(--lh-tight);
 	}
 
 	.person-remove:hover {
@@ -661,14 +661,14 @@
 
 	.header-cell {
 		font-size: var(--fs-xs);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		color: var(--c-text-muted);
 		text-align: center;
 	}
 
 	.row-stage {
 		font-size: var(--fs-sm);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		color: var(--c-text);
 	}
 
@@ -713,16 +713,16 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 12px;
-		height: 12px;
+		width: var(--dot-size-sm);
+		height: var(--dot-size-sm);
 		border-radius: var(--radius-full);
 		background: transparent;
 		border: 2px solid var(--c-text-ghost);
 		box-sizing: border-box;
 		font-size: 8px;
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		color: var(--c-surface);
-		line-height: 1;
+		line-height: var(--lh-tight);
 	}
 
 	.score-pill.score-none .score-indicator {
@@ -817,7 +817,7 @@
 
 	.panel-stage {
 		font-size: var(--fs-sm);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		color: var(--c-text);
 	}
 
@@ -827,7 +827,7 @@
 
 	.panel-perspective {
 		font-size: var(--fs-sm);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		color: var(--c-accent-text);
 	}
 
@@ -853,7 +853,7 @@
 	.field-name {
 		font-size: var(--fs-xs);
 		color: var(--c-text-muted);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 	}
 
 	.field-input {

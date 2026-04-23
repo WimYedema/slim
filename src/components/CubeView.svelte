@@ -29,10 +29,10 @@
 	const SCALE = 160
 
 	const STAGE_COLORS: Record<Stage, string> = {
-		explore: '#b0b0b0',
-		sketch: '#e8a735',
-		validate: '#4f8ff7',
-		decompose: '#3dba6a',
+		explore: 'var(--c-stage-explore)',
+		sketch: 'var(--c-stage-sketch)',
+		validate: 'var(--c-stage-validate)',
+		decompose: 'var(--c-stage-decompose)',
 	}
 
 	// 3D projection: rotate around Y then X, orthographic
@@ -354,8 +354,8 @@
 
 	.axis-label {
 		font-family: var(--font);
-		font-size: 12px;
-		font-weight: 700;
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-bold);
 	}
 
 	.axis-d { fill: var(--c-accent); }
@@ -369,21 +369,21 @@
 	.dot-label {
 		fill: var(--c-surface);
 		font-family: var(--font);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		pointer-events: none;
 	}
 
 	.tip-title {
 		fill: var(--c-text);
 		font-family: var(--font);
-		font-size: 10px;
-		font-weight: 700;
+		font-size: var(--fs-3xs);
+		font-weight: var(--fw-bold);
 	}
 
 	.tip-meta {
 		fill: var(--c-text-muted);
 		font-family: var(--font);
-		font-size: 9px;
+		font-size: var(--fs-3xs);
 	}
 
 	.tip-scores {
@@ -410,8 +410,8 @@
 	}
 
 	.legend-dot {
-		width: 10px;
-		height: 10px;
+		width: var(--dot-size-xs);
+		height: var(--dot-size-xs);
 		border-radius: var(--radius-full);
 	}
 

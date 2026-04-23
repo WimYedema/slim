@@ -137,7 +137,7 @@
 	.column-header h2 {
 		margin: 0;
 		font-size: var(--fs-xl);
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 	}
 
 	.thinking-mode {
@@ -217,7 +217,7 @@
 		cursor: pointer;
 		padding: 0 var(--sp-xs);
 		font-family: var(--font);
-		line-height: 1;
+		line-height: var(--lh-tight);
 	}
 
 	.card-remove:hover {
@@ -234,24 +234,24 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 10px;
-		height: 10px;
+		width: var(--dot-size-xs);
+		height: var(--dot-size-xs);
 	}
 
 	.dot-indicator {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 10px;
-		height: 10px;
+		width: var(--dot-size-xs);
+		height: var(--dot-size-xs);
 		border-radius: var(--radius-full);
 		background: transparent;
 		border: 1.5px solid var(--c-text-ghost);
 		box-sizing: border-box;
 		font-size: 7px;
-		font-weight: 700;
+		font-weight: var(--fw-bold);
 		color: var(--c-surface);
-		line-height: 1;
+		line-height: var(--lh-tight);
 	}
 
 	.card-dot.score-none .dot-indicator {
