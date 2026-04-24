@@ -87,9 +87,9 @@
 						role="listitem"
 					>
 						<span class="card-title">{card.title}</span>
-						<span class="card-scores">
+						<span class="card-scores" role="group" aria-label="Signal scores">
 							{#each PERSPECTIVES as p}
-								<span class="card-dot score-{scores[p]}" title="{PERSPECTIVE_SHORT[p]}: {SCORE_DISPLAY[scores[p]].label}"><span class="dot-indicator">{SCORE_SYMBOL[scores[p]]}</span></span>
+								<span class="card-dot score-{scores[p]}" title="{PERSPECTIVE_SHORT[p]}: {SCORE_DISPLAY[scores[p]].label}" role="img" aria-label="{PERSPECTIVE_SHORT[p]}: {SCORE_DISPLAY[scores[p]].label}"><span class="dot-indicator">{SCORE_SYMBOL[scores[p]]}</span></span>
 							{/each}
 						</span>
 						<button

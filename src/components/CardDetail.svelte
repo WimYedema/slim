@@ -271,8 +271,7 @@
 							<div class="matrix-cell">
 								<div class="score-cell-row">
 									{#if state === 'completed'}
-										<span class="score-pill {scoreClass(signal.score)} locked"
-											><span class="score-indicator"></span></span>
+										<span class="score-pill {scoreClass(signal.score)} locked"								role="img" aria-label="{PERSPECTIVE_LABELS[p]}: {SCORE_DISPLAY[signal.score].label}"											><span class="score-indicator"></span></span>
 										<span class="score-cell locked">
 											{#if signal.verdict}
 												<span class="cell-verdict">{signal.verdict}</span>
@@ -284,8 +283,7 @@
 										<button
 											class="score-pill {scoreClass(signal.score)}"
 											onclick={(e) => cycleScore(stage.key, p, e)}
-											title="{SCORE_DISPLAY[signal.score].label} — click to change"
-										><span class="score-indicator"></span></button>
+											title="{SCORE_DISPLAY[signal.score].label} — click to change"										aria-label="{PERSPECTIVE_LABELS[p]}: {SCORE_DISPLAY[signal.score].label}"										><span class="score-indicator"></span></button>
 										<button
 											class="score-cell"
 											class:selected={isSelected}

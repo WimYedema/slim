@@ -7,17 +7,17 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 const commitHash = execSync('git rev-parse --short HEAD').toString().trim()
 
 export default defineConfig({
-    plugins: [svelte(), viteSingleFile()],
-    define: {
-        'process.env': {},
-        global: 'globalThis',
-        __BUILD_HASH__: JSON.stringify(commitHash),
-    },
-    resolve: {
-        conditions: process.env.VITEST ? ['browser'] : undefined,
-    },
-    test: {
-        environment: 'jsdom',
-        setupFiles: ['src/test-setup.ts'],
-    },
+	plugins: [svelte(), viteSingleFile()],
+	define: {
+		'process.env': {},
+		global: 'globalThis',
+		__BUILD_HASH__: JSON.stringify(commitHash),
+	},
+	resolve: {
+		conditions: process.env.VITEST ? ['browser'] : undefined,
+	},
+	test: {
+		environment: 'jsdom',
+		setupFiles: ['src/test-setup.ts'],
+	},
 })

@@ -322,6 +322,8 @@
 							{#each orderedCols as opp (opp.id)}
 								{@const covered = isFullyCovered(opp)}
 								{@const empty = hasNoLinks(opp)}
+								{@const oppLinks = linksForOpportunity(links, opp.id)}
+								{@const fullCount = oppLinks.filter(l => l.coverage === 'full').length}
 								<th
 									class="matrix-opp-header"
 									class:covered
@@ -338,6 +340,9 @@
 									</button>
 									<span class="matrix-opp-stage" class:stage-validate={opp.stage === 'validate'} class:stage-decompose={opp.stage === 'decompose'}>
 										{STAGES.find((s) => s.key === opp.stage)?.label ?? opp.stage}
+									</span>
+									<span class="matrix-opp-coverage" title="{fullCount} full, {oppLinks.length - fullCount} partial of {oppLinks.length} linked">
+										{oppLinks.length === 0 ? '' : `${fullCount}/${oppLinks.length}`}
 									</span>
 									{#if empty}
 										<span class="matrix-gap-badge" title="No deliverables linked yet">gap</span>
@@ -388,15 +393,16 @@
 									{/if}
 								</td>
 								<td class="matrix-size-cell">
-									<button class="size-btn" onclick={() => cycleSize(deliverable)} title="Click to cycle size">
+									<button class="btn-ghost size-btn" onclick={() => cycleSize(deliverable)} title="Click to cycle size">
 										{deliverable.size ?? '—'}
 									</button>
 								</td>
 								<td class="matrix-certainty-cell">
-									<button class="certainty-btn" onclick={() => cycleCertainty(deliverable)} title="Click to cycle certainty">
+									<button class="btn-ghost certainty-btn" onclick={() => cycleCertainty(deliverable)} title="Certainty: {deliverable.certainty ?? 'unset'} of 5" aria-label="Certainty: {deliverable.certainty ?? 'unset'} of 5">
 										{#each [1, 2, 3, 4, 5] as level}
 											<span class="cert-bar" class:filled={deliverable.certainty != null && level <= deliverable.certainty}></span>
 										{/each}
+										<span class="cert-label">{deliverable.certainty ?? '–'}</span>
 									</button>
 								</td>
 								{#each orderedCols as opp (opp.id)}
@@ -407,7 +413,8 @@
 											class:full={link?.coverage === 'full'}
 											class:partial={link?.coverage === 'partial'}
 											onclick={() => cycleMatrixCell(opp.id, deliverable.id)}
-											title={link ? (link.coverage === 'full' ? 'Full → click to unlink' : 'Partial → click for full') : 'Click to link (partial)'}
+											title={link ? (link.coverage === 'full' ? 'Full coverage' : 'Partial coverage') : 'Not linked'}
+											aria-label="{deliverable.title} × {opp.title}: {link ? link.coverage : 'none'}"
 										></button>
 									</td>
 								{/each}
@@ -575,6 +582,13 @@
 
 	.matrix-opp-stage.stage-decompose {
 		color: var(--c-stage-decompose);
+	}
+
+	.matrix-opp-coverage {
+		display: block;
+		font-size: var(--fs-3xs);
+		color: var(--c-text-muted);
+		font-weight: var(--fw-normal);
 	}
 
 	.matrix-gap-badge {
@@ -810,14 +824,7 @@
 	}
 
 	.size-btn {
-		background: none;
-		border: none;
-		font: inherit;
-		font-size: var(--fs-xs);
 		color: var(--c-text);
-		cursor: pointer;
-		padding: 2px var(--sp-xs);
-		border-radius: var(--radius-sm);
 		min-width: 28px;
 	}
 
@@ -826,11 +833,6 @@
 	}
 
 	.certainty-btn {
-		background: none;
-		border: none;
-		cursor: pointer;
-		padding: 2px var(--sp-xs);
-		border-radius: var(--radius-sm);
 		display: flex;
 		align-items: center;
 		gap: 1.5px;
@@ -850,6 +852,13 @@
 
 	.cert-bar.filled {
 		background: var(--c-accent);
+	}
+
+	.cert-label {
+		font-size: var(--fs-3xs);
+		color: var(--c-text-muted);
+		margin-left: 2px;
+		min-width: 1ch;
 	}
 
 	/* ── Variable row height + unestimated blur ── */

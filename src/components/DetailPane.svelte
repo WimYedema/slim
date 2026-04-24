@@ -240,6 +240,7 @@
 
 	let showExitMenu = $state(false)
 	let exitReasonInput = $state('')
+	let parkUntilInput = $state('')
 
 	function handleExit(exitState: ExitState) {
 		onUpdate({
@@ -247,9 +248,11 @@
 			discontinuedAt: Date.now(),
 			exitState,
 			exitReason: exitReasonInput.trim() || undefined,
+			parkUntil: exitState === 'parked' && parkUntilInput.trim() ? parkUntilInput.trim() : undefined,
 		})
 		showExitMenu = false
 		exitReasonInput = ''
+		parkUntilInput = ''
 	}
 
 	function addAndLink(title: string) {
@@ -301,14 +304,17 @@
 	<div class="pane-meta">
 		{#if opportunity.discontinuedAt}
 			<span class="stage-badge discontinued-badge">{EXIT_STATES.find((e) => e.key === opportunity.exitState)?.label ?? 'Discontinued'}</span>
+			{#if opportunity.parkUntil}
+				<span class="park-until-badge" title="Revisit at {opportunity.parkUntil}">until {opportunity.parkUntil}</span>
+			{/if}
 			{#if opportunity.exitReason}
 				<span class="exit-reason" title={opportunity.exitReason}>{opportunity.exitReason}</span>
 			{/if}
-			<button class="reactivate-btn" onclick={() => onUpdate({ ...opportunity, discontinuedAt: undefined, exitState: undefined, exitReason: undefined })}>↩ Reactivate</button>
+			<button class="btn-solid reactivate-btn" onclick={() => onUpdate({ ...opportunity, discontinuedAt: undefined, exitState: undefined, exitReason: undefined, parkUntil: undefined })}>↩ Reactivate</button>
 		{:else}
 			{#if prevStage(opportunity.stage)}
 				<button
-					class="stage-back"
+					class="btn-icon stage-back"
 					onclick={() => { const prev = prevStage(opportunity.stage); if (prev) onUpdate({ ...opportunity, stage: prev, stageEnteredAt: Date.now() }) }}
 					title="Move back to {STAGES.find((s) => s.key === prevStage(opportunity.stage))?.label}"
 				>←</button>
@@ -334,16 +340,61 @@
 			{/if}
 			{#if showExitMenu}
 				<div class="exit-menu">
-					<input type="text" class="exit-reason-input" placeholder="Why?" bind:value={exitReasonInput} onkeydown={(e) => { if (e.key === 'Escape') { showExitMenu = false; exitReasonInput = '' } }} />
-					{#each EXIT_STATES as es}
-						<button class="exit-option" onclick={() => handleExit(es.key)} title={es.description}>{es.icon} {es.label}</button>
+					<input type="text" class="exit-reason-input" placeholder="Why?" bind:value={exitReasonInput} onkeydown={(e) => { if (e.key === 'Escape') { showExitMenu = false; exitReasonInput = ''; parkUntilInput = '' } }} />
+					<div class="exit-park-row">
+						<button class="btn-solid exit-option" onclick={() => handleExit('parked')} title={EXIT_STATES.find(e => e.key === 'parked')!.description}>⏸ Park</button>
+						<input type="text" class="park-until-input" placeholder="Revisit at…" list="horizon-options" bind:value={parkUntilInput} />
+						<datalist id="horizon-options">
+							{#each allHorizons as h}
+								<option value={h}></option>
+							{/each}
+						</datalist>
+					</div>
+					{#each EXIT_STATES.filter(es => es.key !== 'parked') as es}
+						<button class="btn-solid exit-option" onclick={() => handleExit(es.key)} title={es.description}>{es.icon} {es.label}</button>
 					{/each}
-					<button class="exit-cancel" onclick={() => { showExitMenu = false; exitReasonInput = '' }}>Cancel</button>
+					<button class="btn-ghost exit-cancel" onclick={() => { showExitMenu = false; exitReasonInput = ''; parkUntilInput = '' }}>Cancel</button>
 				</div>
 			{:else}
-				<button class="discontinue-btn" onclick={() => showExitMenu = true}>✗</button>
+				<button class="btn-icon discontinue-btn" onclick={() => showExitMenu = true}>✗</button>
 			{/if}
 		{/if}
+	</div>
+
+	<div class="pane-metadata">
+		<div class="pane-origin">
+			<span class="origin-label">Origin</span>
+			<div class="origin-toggles">
+				{#each ORIGIN_TYPES as ot}
+					<button
+						class="origin-btn"
+						class:active={opportunity.origin === ot.key}
+						title={ot.description}
+						onclick={() => onUpdate({ ...opportunity, origin: opportunity.origin === ot.key ? undefined : ot.key })}
+					>{ot.label}</button>
+				{/each}
+			</div>
+		</div>
+		<div class="pane-horizon">
+			<label class="horizon-label" for="horizon-input">Horizon</label>
+			<input
+				id="horizon-input"
+				class="horizon-input"
+				type="text"
+				list="horizon-options"
+				value={opportunity.horizon}
+				onchange={(e) => {
+					const v = (e.target as HTMLInputElement).value.trim()
+					if (v && v !== opportunity.horizon) onUpdate({ ...opportunity, horizon: v })
+				}}
+				onkeydown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+			/>
+			<datalist id="horizon-options">
+				{#each allHorizons as h}
+					<option value={h}></option>
+				{/each}
+			</datalist>
+		</div>
 	</div>
 
 	{#if displayPrompts.length > 0}
@@ -372,14 +423,6 @@
 		</div>
 	{/if}
 
-	<textarea
-		class="desc-input"
-		placeholder="Notes…"
-		bind:value={editDescription}
-		onblur={() => { if (editDescription !== opportunity.description) onUpdate({ ...opportunity, description: editDescription }) }}
-		rows="2"
-	></textarea>
-
 	<div class="signal-grid">
 		{#each PERSPECTIVES as p}
 			{@const hasAnySignal = STAGES.some((s) => cellHasSignal(opportunity.signals[s.key][p]))}
@@ -395,7 +438,7 @@
 							{#each STAGES as stage}
 								{@const sig = opportunity.signals[stage.key][p]}
 								{#if cellHasSignal(sig)}
-									<span class="score-btn-mini {scoreClass(sig.score)}">{SCORE_SYMBOL[sig.score]}</span>
+									<span class="score-btn-mini {scoreClass(sig.score)}" role="img" aria-label="{stage.label}: {SCORE_DISPLAY[sig.score].label}">{SCORE_SYMBOL[sig.score]}</span>
 								{/if}
 							{/each}
 						</span>
@@ -411,7 +454,7 @@
 						{#if state === 'completed' && !expandedCells.has(cellKey(stage.key, p))}
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<div class="signal-row-compact" role="button" tabindex="0" onclick={() => toggleExpand(stage.key, p)} title="Click to edit">
-							<span class="score-btn-mini {scoreClass(signal.score)}">{SCORE_SYMBOL[signal.score]}</span>
+							<span class="score-btn-mini {scoreClass(signal.score)}" role="img" aria-label="{SCORE_DISPLAY[signal.score].label}">{SCORE_SYMBOL[signal.score]}</span>
 							<span class="compact-verdict">{signal.verdict || '—'}{#if delegation}<span class="compact-owner"> ({delegation.person.name})</span>{/if}</span>
 						</div>
 						{:else}
@@ -475,25 +518,41 @@
 										<button class="assign-btn" onclick={() => addingFor = { perspective: p, stage: stage.key }}>+ ask</button>
 									{/if}
 								</span>
-								<div class="score-toggle" role="radiogroup" aria-label="{PERSPECTIVE_LABELS[p]} — {stage.label}">
-									{#each (['none', 'positive', 'uncertain', 'negative'] as const) as s}
+								<div class="score-toggle" role="radiogroup" aria-label="{PERSPECTIVE_LABELS[p]} — {stage.label}"
+									onkeydown={(e: KeyboardEvent) => {
+										const keys = ['ArrowLeft', 'ArrowRight']
+										if (!keys.includes(e.key)) return
+										e.preventDefault()
+										const opts = ['none', 'positive', 'uncertain', 'negative'] as const
+										const cur = opts.indexOf(signal.score)
+										const next = e.key === 'ArrowRight' ? (cur + 1) % 4 : (cur + 3) % 4
+										updateSignalField(stage.key, p, 'score', opts[next]);
+										(e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('.score-btn')[next]?.focus()
+									}}
+								>
+									{#each (['none', 'positive', 'uncertain', 'negative'] as const) as s, i}
 										<button
 											class="score-btn {scoreClass(s)}"
 											class:active={signal.score === s}
+											role="radio"
+											aria-checked={signal.score === s}
+											tabindex={signal.score === s || (signal.score === 'none' && i === 0) ? 0 : -1}
 											onclick={() => updateSignalField(stage.key, p, 'score', s)}
 											title={SCORE_DISPLAY[s].label}
-											aria-pressed={signal.score === s}
 										>{SCORE_SYMBOL[s]}</button>
 									{/each}
 								</div>
 							</div>
-							<input
-								type="text"
-								class="verdict-input"
-								placeholder={CELL_QUESTIONS[stage.key][p]}
-								value={signal.verdict}
-								oninput={(e) => updateSignalField(stage.key, p, 'verdict', (e.target as HTMLInputElement).value)}
-							/>
+							<div class="verdict-field">
+								<label class="verdict-label">{CELL_QUESTIONS[stage.key][p]}</label>
+								<input
+									type="text"
+									class="verdict-input"
+									placeholder="Your verdict…"
+									value={signal.verdict}
+									oninput={(e) => updateSignalField(stage.key, p, 'verdict', (e.target as HTMLInputElement).value)}
+								/>
+							</div>
 						</div>
 						{/if}
 					{/if}
@@ -503,80 +562,56 @@
 		{/each}
 	</div>
 
-	<div class="pane-metadata">
-		<div class="pane-origin">
-			<span class="origin-label">Origin</span>
-			<div class="origin-toggles">
-				{#each ORIGIN_TYPES as ot}
-					<button
-						class="origin-btn"
-						class:active={opportunity.origin === ot.key}
-						title={ot.description}
-						onclick={() => onUpdate({ ...opportunity, origin: opportunity.origin === ot.key ? undefined : ot.key })}
-					>{ot.label}</button>
-				{/each}
+	<div id="commitments-section" class="commitments-section">
+		<div class="commitments-header">
+			<span class="section-label">Promises</span>
+			<span class="commitment-count">{opportunity.commitments.length}</span>
+		</div>
+		{#each opportunity.commitments as c (c.id)}
+			{@const si = stageIndex(opportunity.stage)}
+			{@const met = stageIndex(c.milestone) < si}
+			{@const daysLeft = Math.ceil((c.by - Date.now()) / 86_400_000)}
+			<div class="commitment-row" class:met class:overdue={!met && daysLeft < 0} class:urgent={!met && daysLeft >= 0 && daysLeft <= 7}>
+				<span class="commitment-text">
+					{STAGES.find((s) => s.key === c.milestone)?.label} for {c.to}
+				</span>
+				<span class="commitment-deadline">
+					{#if met}
+						✓ met
+					{:else}
+						{formatDaysLeft(daysLeft)}
+					{/if}
+				</span>
+				<button class="commitment-remove" onclick={() => removeCommitment(c.id)} aria-label="Remove commitment">×</button>
 			</div>
-		</div>
-		<div class="pane-horizon">
-			<label class="horizon-label" for="horizon-input">Horizon</label>
-			<input
-				id="horizon-input"
-				class="horizon-input"
-				type="text"
-				list="horizon-options"
-				value={opportunity.horizon}
-				onchange={(e) => {
-					const v = (e.target as HTMLInputElement).value.trim()
-					if (v && v !== opportunity.horizon) onUpdate({ ...opportunity, horizon: v })
-				}}
-				onkeydown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-			/>
-			<datalist id="horizon-options">
-				{#each allHorizons as h}
-					<option value={h}></option>
-				{/each}
-			</datalist>
-		</div>
+		{/each}
+		{#if showAddCommitment}
+			<div class="commitment-add-form">
+				<input type="text" class="commitment-input" placeholder="Promised to…" bind:value={commitTo} />
+				<select class="commitment-select" bind:value={commitMilestone}>
+					{#each STAGES as stage}
+						<option value={stage.key}>{stage.label}</option>
+					{/each}
+				</select>
+				<input type="date" class="commitment-date" bind:value={commitByDate} />
+				<button class="commitment-save" onclick={addCommitment} disabled={!commitTo.trim() || !commitByDate}>✓</button>
+				<button class="commitment-cancel" onclick={() => { showAddCommitment = false; commitTo = ''; commitByDate = '' }}>×</button>
+			</div>
+		{:else}
+			<button class="btn-ghost add-commitment-btn" onclick={() => showAddCommitment = true}>+ promise</button>
+		{/if}
 	</div>
 
-	{#if opportunity.commitments.length > 0 || showAddCommitment}
-		<div id="commitments-section" class="commitments-section">
-			{#each opportunity.commitments as c (c.id)}
-				{@const si = stageIndex(opportunity.stage)}
-				{@const met = stageIndex(c.milestone) < si}
-				{@const daysLeft = Math.ceil((c.by - Date.now()) / 86_400_000)}
-				<div class="commitment-row" class:met class:overdue={!met && daysLeft < 0} class:urgent={!met && daysLeft >= 0 && daysLeft <= 7}>
-					<span class="commitment-text">
-						{STAGES.find((s) => s.key === c.milestone)?.label} for {c.to}
-					</span>
-					<span class="commitment-deadline">
-						{#if met}
-							✓ met
-						{:else}
-							{formatDaysLeft(daysLeft)}
-						{/if}
-					</span>
-					<button class="commitment-remove" onclick={() => removeCommitment(c.id)} aria-label="Remove commitment">×</button>
-				</div>
-			{/each}
-			{#if showAddCommitment}
-				<div class="commitment-add-form">
-					<input type="text" class="commitment-input" placeholder="Promised to…" bind:value={commitTo} />
-					<select class="commitment-select" bind:value={commitMilestone}>
-						{#each STAGES as stage}
-							<option value={stage.key}>{stage.label}</option>
-						{/each}
-					</select>
-					<input type="date" class="commitment-date" bind:value={commitByDate} />
-					<button class="commitment-save" onclick={addCommitment} disabled={!commitTo.trim() || !commitByDate}>✓</button>
-					<button class="commitment-cancel" onclick={() => { showAddCommitment = false; commitTo = ''; commitByDate = '' }}>×</button>
-				</div>
-			{/if}
-		</div>
-	{/if}
-	{#if !showAddCommitment}
-		<button class="add-commitment-btn" onclick={() => showAddCommitment = true}>+ promise</button>
-	{/if}
+	<label class="pane-field">
+		<span class="pane-label">Notes</span>
+		<textarea
+			class="desc-input"
+			placeholder="Notes…"
+			bind:value={editDescription}
+			onblur={() => { if (editDescription !== opportunity.description) onUpdate({ ...opportunity, description: editDescription }) }}
+			rows="2"
+		></textarea>
+	</label>
 
 	{#if opportunity.stage === 'decompose' || linkedDeliverables.length > 0}
 		<div class="deliverables-section">
@@ -607,6 +642,12 @@
 						title={link.coverage === 'full' ? 'Full coverage — click to mark partial' : 'Partial coverage — click to mark full'}
 					>{link.coverage === 'full' ? '●' : '◐'}</button>
 					<span class="deliverable-title">{#if deliverable.externalUrl}<a href={deliverable.externalUrl} target="_blank" rel="noopener">{deliverable.title}</a>{:else}{deliverable.title}{/if}</span>
+					{#if deliverable.size}
+						<span class="deliverable-size-badge">{deliverable.size}</span>
+					{/if}
+					{#if deliverable.certainty != null}
+						<span class="deliverable-certainty" title="Certainty {deliverable.certainty}/5">{'●'.repeat(deliverable.certainty)}{'○'.repeat(5 - deliverable.certainty)}</span>
+					{/if}
 					{#if consumers.length > 0}
 						<span class="deliverable-stakeholders" title="Present to: {consumers.join(', ')}">→ {consumers.join(', ')}</span>
 					{/if}
@@ -666,7 +707,7 @@
 		line-height: var(--lh-normal);
 		background: transparent;
 		border: none;
-		border-bottom: 1px solid transparent;
+		border-bottom: 1px solid color-mix(in srgb, var(--c-border) var(--opacity-strong), transparent);
 		padding: 0;
 		transition: border-color var(--tr-fast);
 	}
@@ -700,6 +741,8 @@
 		display: flex;
 		align-items: center;
 		gap: var(--sp-sm);
+		padding-bottom: var(--sp-sm);
+		border-bottom: 1px solid var(--c-border);
 	}
 
 	.pane-horizon {
@@ -710,9 +753,11 @@
 	}
 
 	.pane-horizon .horizon-label {
+		font-family: var(--font);
 		font-size: var(--fs-xs);
 		color: var(--c-text-muted);
 		flex-shrink: 0;
+		font-weight: var(--fw-medium);
 	}
 
 	.pane-horizon .horizon-input {
@@ -744,14 +789,6 @@
 
 	.stage-back {
 		font-size: var(--fs-2xs);
-		color: var(--c-text-ghost);
-		background: none;
-		border: none;
-		cursor: pointer;
-		padding: 2px 4px;
-		font-family: var(--font);
-		border-radius: var(--radius-sm);
-		transition: color var(--tr-fast), background var(--tr-fast);
 	}
 
 	.stage-back:hover {
@@ -767,14 +804,6 @@
 	.discontinue-btn {
 		margin-left: auto;
 		font-size: var(--fs-2xs);
-		color: var(--c-text-ghost);
-		background: none;
-		border: none;
-		cursor: pointer;
-		padding: 2px var(--sp-xs);
-		border-radius: var(--radius-sm);
-		font-family: var(--font);
-		transition: color var(--tr-fast), background var(--tr-fast);
 	}
 
 	.discontinue-btn:hover {
@@ -785,14 +814,7 @@
 	.reactivate-btn {
 		font-size: var(--fs-2xs);
 		font-weight: var(--fw-medium);
-		color: var(--c-text-muted);
-		background: none;
-		border: 1px dashed var(--c-border);
-		border-radius: var(--radius-sm);
-		padding: 2px var(--sp-xs);
-		cursor: pointer;
-		font-family: var(--font);
-		transition: color var(--tr-fast), border-color var(--tr-fast);
+		border-style: dashed;
 	}
 
 	.reactivate-btn:hover {
@@ -819,7 +841,7 @@
 	}
 
 	.exit-reason-input {
-		font-family: var(--font-reading);
+		font: inherit;
 		font-size: var(--fs-xs);
 		color: var(--c-text);
 		background: transparent;
@@ -840,15 +862,40 @@
 		font-style: italic;
 	}
 
-	.exit-option {
+	.exit-park-row {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-xs);
+	}
+
+	.park-until-input {
+		font: inherit;
 		font-size: var(--fs-xs);
-		font-family: var(--font);
-		background: var(--c-surface);
-		border: 1px solid var(--c-border);
+		color: var(--c-text);
+		background: transparent;
+		border: none;
+		border-bottom: 1px solid var(--c-border);
+		padding: 2px 0;
+		width: 90px;
+		outline: none;
+		transition: border-color var(--tr-fast);
+	}
+
+	.park-until-input:focus {
+		border-bottom-color: var(--c-accent);
+	}
+
+	.park-until-input::placeholder {
+		color: var(--c-text-ghost);
+		font-style: italic;
+	}
+
+	.park-until-badge {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+		background: color-mix(in srgb, var(--c-text) 6%, transparent);
+		padding: 1px 6px;
 		border-radius: var(--radius-sm);
-		padding: 2px var(--sp-xs);
-		cursor: pointer;
-		transition: background var(--tr-fast), border-color var(--tr-fast);
 	}
 
 	.exit-option:hover {
@@ -857,14 +904,7 @@
 	}
 
 	.exit-cancel {
-		font-size: var(--fs-xs);
-		font-family: var(--font);
-		background: none;
-		border: 1px dashed var(--c-border);
-		border-radius: var(--radius-sm);
-		padding: 2px var(--sp-xs);
-		cursor: pointer;
-		color: var(--c-text-muted);
+		border-style: dashed;
 	}
 
 	.aging-indicator {
@@ -896,9 +936,11 @@
 	}
 
 	.origin-label {
+		font-family: var(--font);
 		font-size: var(--fs-xs);
 		color: var(--c-text-muted);
 		white-space: nowrap;
+		font-weight: var(--fw-medium);
 	}
 
 	.origin-toggles {
@@ -1015,6 +1057,19 @@
 		transition: background var(--tr-fast);
 	}
 
+	.gap-prompt::after {
+		content: '↓';
+		font-size: var(--fs-2xs);
+		color: var(--c-text-ghost);
+		opacity: 0;
+		transition: opacity var(--tr-fast);
+		margin-left: auto;
+	}
+
+	.gap-prompt:hover:not(.resolved)::after {
+		opacity: 1;
+	}
+
 	.gap-prompt:hover:not(.resolved) {
 		background: color-mix(in srgb, var(--c-warm) var(--opacity-moderate), transparent);
 	}
@@ -1032,7 +1087,7 @@
 	.gap-dot.objection { outline: 2px solid var(--c-red); outline-offset: 1px; }
 
 	.gap-question {
-		font-size: var(--fs-2xs);
+		font-size: var(--fs-xs);
 		color: var(--c-text);
 		font-style: italic;
 	}
@@ -1040,11 +1095,11 @@
 	/* --- Notes --- */
 
 	.desc-input {
-		font-family: var(--font-reading);
-		font-size: var(--fs-2xs);
+		font: inherit;
+		font-size: var(--fs-xs);
 		color: var(--c-text);
 		background: transparent;
-		border: 1px solid transparent;
+		border: 1px solid color-mix(in srgb, var(--c-border) var(--opacity-strong), transparent);
 		border-radius: var(--radius-sm);
 		padding: var(--sp-xs);
 		resize: vertical;
@@ -1061,6 +1116,19 @@
 		color: var(--c-text-ghost);
 	}
 
+	.pane-field {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.pane-label {
+		font-family: var(--font);
+		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+		font-weight: var(--fw-medium);
+	}
+
 	/* --- Commitments --- */
 
 	.commitments-section {
@@ -1069,11 +1137,22 @@
 		gap: 2px;
 	}
 
+	.commitments-header {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-xs);
+	}
+
+	.commitment-count {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-ghost);
+	}
+
 	.commitment-row {
 		display: flex;
 		align-items: center;
 		gap: var(--sp-xs);
-		font-size: var(--fs-2xs);
+		font-size: var(--fs-xs);
 		padding: 2px var(--sp-xs);
 		border-radius: var(--radius-sm);
 	}
@@ -1112,7 +1191,7 @@
 	}
 
 	.commitment-remove {
-		font-size: var(--fs-2xs);
+		font-size: var(--fs-xs);
 		color: var(--c-text-ghost);
 		background: none;
 		border: none;
@@ -1130,12 +1209,12 @@
 		display: flex;
 		align-items: center;
 		gap: 4px;
-		font-size: var(--fs-2xs);
+		font-size: var(--fs-xs);
 	}
 
 	.commitment-input {
-		font-family: var(--font-reading);
-		font-size: var(--fs-2xs);
+		font: inherit;
+		font-size: var(--fs-xs);
 		color: var(--c-text);
 		background: transparent;
 		border: none;
@@ -1150,8 +1229,8 @@
 	}
 
 	.commitment-select {
-		font-family: var(--font-reading);
-		font-size: var(--fs-2xs);
+		font: inherit;
+		font-size: var(--fs-xs);
 		color: var(--c-text);
 		background: var(--c-surface);
 		border: 1px solid var(--c-border);
@@ -1160,8 +1239,8 @@
 	}
 
 	.commitment-date {
-		font-family: var(--font-reading);
-		font-size: var(--fs-2xs);
+		font: inherit;
+		font-size: var(--fs-xs);
 		color: var(--c-text);
 		background: var(--c-surface);
 		border: 1px solid var(--c-border);
@@ -1170,7 +1249,7 @@
 	}
 
 	.commitment-save, .commitment-cancel {
-		font-size: var(--fs-2xs);
+		font-size: var(--fs-xs);
 		background: none;
 		border: none;
 		cursor: pointer;
@@ -1343,6 +1422,23 @@
 		max-width: 120px;
 	}
 
+	.deliverable-size-badge {
+		font-size: var(--fs-2xs);
+		font-family: var(--font);
+		color: var(--c-text-muted);
+		background: color-mix(in srgb, var(--c-border) 40%, transparent);
+		padding: 0 var(--sp-2xs);
+		border-radius: var(--radius-sm);
+		flex-shrink: 0;
+	}
+
+	.deliverable-certainty {
+		font-size: 6px;
+		letter-spacing: -1px;
+		color: var(--c-text-ghost);
+		flex-shrink: 0;
+	}
+
 	.deliverable-unlink {
 		background: none;
 		border: none;
@@ -1421,6 +1517,10 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-md);
+		background: var(--c-bg);
+		padding: var(--sp-sm);
+		border-radius: var(--radius-sm);
+		margin-top: var(--sp-xs);
 	}
 
 	.perspective-section {
@@ -1707,6 +1807,12 @@
 		background: color-mix(in srgb, var(--c-text) var(--opacity-subtle), var(--c-surface));
 	}
 
+	.score-btn:focus-visible {
+		outline: none;
+		box-shadow: 0 0 0 2px var(--c-accent);
+		z-index: 1;
+	}
+
 	.score-btn.active.score-none {
 		background: var(--c-neutral-bg);
 		color: var(--c-text-muted);
@@ -1737,6 +1843,19 @@
 		font-weight: var(--fw-medium);
 		color: var(--c-text-muted);
 		min-width: 4em;
+	}
+
+	.verdict-field {
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+	}
+
+	.verdict-label {
+		font-family: var(--font);
+		font-size: var(--fs-3xs);
+		color: var(--c-text-ghost);
+		font-style: italic;
 	}
 
 	.verdict-input {

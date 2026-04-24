@@ -240,7 +240,7 @@
 		<div class="lens-tabs">
 			{#each LENSES as l}
 				<button
-					class="lens-btn"
+					class="btn-ghost lens-btn"
 					class:active={activeLens === l.key}
 					onclick={() => (activeLens = l.key)}
 				>{l.label}</button>
@@ -393,15 +393,7 @@
 	}
 
 	.lens-btn {
-		font-family: var(--font);
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-		background: transparent;
-		border: none;
-		border-radius: var(--radius-sm);
 		padding: var(--sp-xs) var(--sp-sm);
-		cursor: pointer;
-		transition: background var(--tr-fast), color var(--tr-fast);
 	}
 
 	.lens-btn:hover {

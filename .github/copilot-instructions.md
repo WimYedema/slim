@@ -38,7 +38,7 @@ Stage advancement requires all three perspectives scored (no `none`) and no obje
 | `Stage` | 'explore' | 'sketch' | 'validate' | 'decompose' |
 | `Perspective` | 'desirability' | 'feasibility' | 'viability' |
 | `OriginType` | 'demand' | 'supply' | 'incident' | 'debt' |
-| `ExitState` | 'killed' | 'parked' | 'incubating' | 'merged' |
+| `ExitState` | 'killed' | 'parked' | 'merged' |
 | `AgingLevel` | 'fresh' | 'aging' | 'stale' (computed from days in stage) |
 
 ## Tech Stack
@@ -85,11 +85,13 @@ No runtime dependencies. No P2P, no server, no database.
 
 | Component | Purpose |
 |---|---|
-| `ListView.svelte` | Opportunities list: interactive funnel, triage buckets, cards, aging badges, add UX, keyboard nav |
+| `BriefingView.svelte` | News feed: board-wide changes, urgency-ranked, time-windowed (planned) |
+| `PipelineView.svelte` | Opportunities by stage or horizon, nested deliverables, triage buckets, zoom (planned — currently ListView + RoadmapView) |
+| `ListView.svelte` | (Legacy) Opportunities list: interactive funnel, triage buckets, cards, aging badges, add UX, keyboard nav |
 | `DetailPane.svelte` | Opportunity detail: signal grid, stage navigation, exit states, commitments, notes, metadata |
-| `DeliverablesView.svelte` | Coverage matrix: deliverable rows, opportunity columns, contributor columns, zoom, drag-reorder |
+| `DeliverablesView.svelte` | Execution matrix: deliverable rows, opportunity columns, contributor columns, zoom, drag-reorder |
 | `DeliverableDetailPane.svelte` | Deliverable detail: size, certainty, links, contributors, consumers |
-| `RoadmapView.svelte` | Horizon-grouped table: drag-drop, risk flags (objections, aging, unscored, mismatch), effort summaries |
+| `RoadmapView.svelte` | (Legacy) Horizon-grouped table: drag-drop, risk flags — to be folded into PipelineView |
 | `MeetingView.svelte` | Per-person agenda: changes since last meeting, commitments, awaiting input, inline scoring |
 | `KeyboardHelp.svelte` | Shortcut reference overlay (? key) |
 | `QuickAdd.svelte` | Quick-add dialog (n key, Tab to switch opportunity/deliverable) |

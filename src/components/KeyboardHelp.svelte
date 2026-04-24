@@ -28,10 +28,11 @@
 			<section class="kb-section">
 				<h3>Views</h3>
 				<dl class="kb-list">
-					<div class="kb-row"><dt><kbd>1</kbd></dt><dd>Opportunities</dd></div>
-					<div class="kb-row"><dt><kbd>2</kbd></dt><dd>Deliverables</dd></div>
-					<div class="kb-row"><dt><kbd>3</kbd></dt><dd>Roadmap</dd></div>
+					<div class="kb-row"><dt><kbd>1</kbd></dt><dd>Briefing</dd></div>
+					<div class="kb-row"><dt><kbd>2</kbd></dt><dd>Pipeline</dd></div>
+					<div class="kb-row"><dt><kbd>3</kbd></dt><dd>Deliverables</dd></div>
 					<div class="kb-row"><dt><kbd>4</kbd></dt><dd>Meetings</dd></div>
+					<div class="kb-row"><dt><kbd>Tab</kbd></dt><dd>Toggle Stage / Horizon grouping</dd></div>
 				</dl>
 			</section>
 			<section class="kb-section">

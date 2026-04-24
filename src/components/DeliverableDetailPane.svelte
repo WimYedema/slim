@@ -30,8 +30,17 @@
 	let addingContributor = $state(false)
 	let addingConsumer = $state(false)
 	let newPersonName = $state('')
+	let showExternalFields = $state(false)
+	let confirmDelete = $state(false)
+
+	let editTitle = $state(deliverable.title)
+
+	// Keep editTitle in sync when deliverable prop changes
+	$effect(() => { editTitle = deliverable.title })
 
 	const dLinks = $derived(linksForDeliverable(links, deliverable.id))
+
+	const hasExternalData = $derived(!!deliverable.externalUrl || !!deliverable.externalDependency)
 
 	/** Opportunities not yet linked to this deliverable */
 	const unlinkedOpportunities = $derived.by(() => {
@@ -70,90 +79,79 @@
 </script>
 
 <div class="ddp">
-	<div class="ddp-header">
-		<h2 class="ddp-title-display">{deliverable.title}</h2>
-		<button class="ddp-close" onclick={onClose}>×</button>
+	<header class="ddp-header">
+		<input
+			type="text"
+			class="ddp-title-input"
+			bind:value={editTitle}
+			onblur={() => { if (editTitle.trim() && editTitle !== deliverable.title) onUpdate({ ...deliverable, title: editTitle.trim() }) }}
+			onkeydown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }}
+		/>
+		<button class="ddp-close" onclick={onClose} aria-label="Close">×</button>
+	</header>
+
+	<div class="ddp-summary-bar">
+		<div class="ddp-size-picker">
+			{#each TSHIRT_SIZES as size}
+				<button
+					class="ddp-size-btn"
+					class:active={deliverable.size === size}
+					onclick={() => setSize(deliverable.size === size ? null : size)}
+				>{size}</button>
+			{/each}
+		</div>
+		<div class="ddp-certainty-picker">
+			{#each [1, 2, 3, 4, 5] as level}
+				<button
+					class="ddp-cert-btn"
+					class:active={deliverable.certainty != null && level <= deliverable.certainty}
+					onclick={() => setCertainty(deliverable.certainty === level ? null : level as Certainty)}
+					title="Certainty level {level}"
+				></button>
+			{/each}
+		</div>
+		<span class="ddp-summary-links">{dLinks.length} link{dLinks.length !== 1 ? 's' : ''}{#if dLinks.length > 0}{@const fullCount = dLinks.filter((l) => l.coverage === 'full').length} · {fullCount} full{/if}</span>
 	</div>
 
-	<!-- Title -->
-	<label class="ddp-field">
-		<span class="ddp-label">Title</span>
-		<input
-			type="text"
-			class="ddp-input"
-			value={deliverable.title}
-			onblur={(e) => {
-				const v = (e.target as HTMLInputElement).value.trim()
-				if (v && v !== deliverable.title) onUpdate({ ...deliverable, title: v })
-			}}
-			onkeydown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-		/>
-	</label>
+	{#if hasExternalData || showExternalFields}
+		<!-- External URL -->
+		<label class="ddp-field">
+			<span class="ddp-label">External link</span>
+			<input
+				type="text"
+				class="ddp-input"
+				placeholder="Jira / Linear URL…"
+				value={deliverable.externalUrl}
+				onblur={(e) => {
+					const v = (e.target as HTMLInputElement).value.trim()
+					if (v !== deliverable.externalUrl) onUpdate({ ...deliverable, externalUrl: v })
+				}}
+				onkeydown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+			/>
+		</label>
 
-	<!-- External URL -->
-	<label class="ddp-field">
-		<span class="ddp-label">External link</span>
-		<input
-			type="text"
-			class="ddp-input"
-			placeholder="Jira / Linear URL…"
-			value={deliverable.externalUrl}
-			onblur={(e) => {
-				const v = (e.target as HTMLInputElement).value.trim()
-				if (v !== deliverable.externalUrl) onUpdate({ ...deliverable, externalUrl: v })
-			}}
-			onkeydown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-		/>
-	</label>
-
-	<!-- Size + Certainty -->
-	<div class="ddp-row">
-		<div class="ddp-field">
-			<span class="ddp-label">Size</span>
-			<div class="ddp-size-picker">
-				{#each TSHIRT_SIZES as size}
-					<button
-						class="ddp-size-btn"
-						class:active={deliverable.size === size}
-						onclick={() => setSize(deliverable.size === size ? null : size)}
-					>{size}</button>
-				{/each}
-			</div>
-		</div>
-		<div class="ddp-field">
-			<span class="ddp-label">Certainty</span>
-			<div class="ddp-certainty-picker">
-				{#each [1, 2, 3, 4, 5] as level}
-					<button
-						class="ddp-cert-btn"
-						class:active={deliverable.certainty != null && level <= deliverable.certainty}
-						onclick={() => setCertainty(deliverable.certainty === level ? null : level as Certainty)}
-						title="Certainty level {level}"
-					></button>
-				{/each}
-			</div>
-		</div>
-	</div>
-
-	<!-- External dependency -->
-	<label class="ddp-field">
-		<span class="ddp-label">External dependency</span>
-		<input
-			type="text"
-			class="ddp-input"
-			placeholder="e.g. API access from Partner X"
-			value={deliverable.externalDependency}
-			onblur={(e) => {
-				const v = (e.target as HTMLInputElement).value.trim()
-				if (v !== deliverable.externalDependency) onUpdate({ ...deliverable, externalDependency: v })
-			}}
-			onkeydown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-		/>
-	</label>
+		<!-- External dependency -->
+		<label class="ddp-field">
+			<span class="ddp-label">External dependency</span>
+			<input
+				type="text"
+				class="ddp-input"
+				placeholder="e.g. API access from Partner X"
+				value={deliverable.externalDependency}
+				onblur={(e) => {
+					const v = (e.target as HTMLInputElement).value.trim()
+					if (v !== deliverable.externalDependency) onUpdate({ ...deliverable, externalDependency: v })
+				}}
+				onkeydown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+			/>
+		</label>
+	{:else}
+		<button class="btn-ghost ddp-add-detail" onclick={() => showExternalFields = true}>+ add external details</button>
+	{/if}
 
 	<!-- Linked opportunities -->
 	<div class="ddp-section">
-		<span class="ddp-label">Opportunities</span>
+		<span class="ddp-section-label">Opportunities</span>
 		{#if dLinks.length === 0}
 			<p class="ddp-empty">Not linked to any opportunity</p>
 		{:else}
@@ -189,7 +187,7 @@
 				<span class="ddp-empty">All opportunities linked</span>
 			{/if}
 		{:else}
-			<button class="ddp-add-link" onclick={() => linkingOpportunity = true}>+ link opportunity</button>
+			<button class="btn-ghost ddp-add-link" onclick={() => linkingOpportunity = true}>+ link opportunity</button>
 		{/if}
 	</div>
 
@@ -198,7 +196,7 @@
 		{@const inherited = inheritedPeople(group)}
 		{@const extras = deliverable[field]}
 		<div class="ddp-section">
-			<span class="ddp-label">{label}</span>
+			<span class="ddp-section-label">{label}</span>
 			<div class="ddp-chips">
 				{#each inherited as name}
 					<span class="ddp-chip inherited" title="From linked opportunity">{name}</span>
@@ -226,7 +224,12 @@
 
 	<!-- Delete -->
 	<div class="ddp-danger">
-		<button class="ddp-delete" onclick={() => { onRemove(deliverable.id); onClose() }}>Delete deliverable</button>
+		{#if confirmDelete}
+			<button class="btn-ghost ddp-delete ddp-delete-confirm" onclick={() => { onRemove(deliverable.id); onClose() }}>Confirm delete</button>
+			<button class="btn-ghost ddp-delete-cancel" onclick={() => confirmDelete = false}>Cancel</button>
+		{:else}
+			<button class="btn-ghost ddp-delete" onclick={() => confirmDelete = true}>Delete deliverable</button>
+		{/if}
 	</div>
 </div>
 
@@ -244,16 +247,45 @@
 	.ddp-header {
 		display: flex;
 		align-items: flex-start;
-		justify-content: space-between;
 		gap: var(--sp-sm);
 	}
 
-	.ddp-title-display {
+	.ddp-title-input {
+		flex: 1;
+		margin: 0;
 		font-family: var(--font);
 		font-size: var(--fs-xl);
 		font-weight: var(--fw-bold);
-		margin: 0;
 		color: var(--c-text);
+		line-height: var(--lh-normal);
+		background: transparent;
+		border: none;
+		border-bottom: 1px solid color-mix(in srgb, var(--c-border) var(--opacity-strong), transparent);
+		padding: 0;
+		transition: border-color var(--tr-fast);
+	}
+
+	.ddp-title-input:hover {
+		border-bottom-color: var(--c-border);
+	}
+
+	.ddp-title-input:focus {
+		outline: none;
+		border-bottom-color: var(--c-accent);
+	}
+
+	.ddp-summary-bar {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-sm);
+		padding-bottom: var(--sp-sm);
+		border-bottom: 1px solid var(--c-border);
+	}
+
+	.ddp-summary-links {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+		margin-left: auto;
 	}
 
 	.ddp-close {
@@ -278,16 +310,21 @@
 		gap: 2px;
 	}
 
+	.ddp-add-detail {
+		font-size: var(--fs-2xs);
+		align-self: flex-start;
+	}
+
 	.ddp-label {
+		font-family: var(--font);
 		font-size: var(--fs-xs);
 		color: var(--c-text-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
 		font-weight: var(--fw-medium);
 	}
 
 	.ddp-input {
 		font: inherit;
+		font-size: var(--fs-xs);
 		background: transparent;
 		border: none;
 		border-bottom: 1px solid color-mix(in srgb, var(--c-border) var(--opacity-strong), transparent);
@@ -305,11 +342,6 @@
 		border-bottom-color: var(--c-accent);
 	}
 
-	.ddp-row {
-		display: flex;
-		gap: var(--sp-lg);
-	}
-
 	/* Size picker */
 	.ddp-size-picker {
 		display: flex;
@@ -320,7 +352,8 @@
 		background: transparent;
 		border: 1px solid var(--c-border-soft);
 		border-radius: var(--radius-sm);
-		font: inherit;
+		font-family: var(--font);
+		font-size: var(--fs-xs);
 		color: var(--c-text-muted);
 		cursor: pointer;
 		padding: 2px var(--sp-xs);
@@ -371,6 +404,18 @@
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
+		background: var(--c-bg);
+		padding: var(--sp-sm);
+		border-radius: var(--radius-sm);
+	}
+
+	.ddp-section-label {
+		font-family: var(--font);
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-medium);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--c-text-muted);
 	}
 
 	.ddp-empty {
@@ -392,6 +437,7 @@
 		background: none;
 		border: none;
 		cursor: pointer;
+		font: inherit;
 		font-size: var(--fs-sm);
 		color: var(--c-text-muted);
 		padding: 0;
@@ -408,6 +454,7 @@
 		border: none;
 		cursor: pointer;
 		font: inherit;
+		font-size: var(--fs-xs);
 		color: var(--c-accent-text);
 		padding: 0;
 		text-align: left;
@@ -449,12 +496,7 @@
 
 	/* Link picker */
 	.ddp-add-link {
-		background: none;
-		border: none;
-		font: inherit;
-		font-size: var(--fs-xs);
 		color: var(--c-accent);
-		cursor: pointer;
 		padding: 0;
 	}
 
@@ -500,6 +542,7 @@
 	}
 
 	.ddp-chip {
+		font-family: var(--font);
 		font-size: var(--fs-xs);
 		padding: 2px var(--sp-xs);
 		border-radius: var(--radius-sm);
@@ -519,6 +562,7 @@
 		background: none;
 		border: none;
 		cursor: pointer;
+		font: inherit;
 		font-size: var(--fs-xs);
 		color: var(--c-text-muted);
 		padding: 0;
@@ -534,6 +578,7 @@
 		border: 1px dashed var(--c-border-soft);
 		border-radius: var(--radius-sm);
 		cursor: pointer;
+		font: inherit;
 		font-size: var(--fs-xs);
 		color: var(--c-text-muted);
 		padding: 0 4px;
@@ -556,20 +601,29 @@
 		margin-top: auto;
 		padding-top: var(--sp-md);
 		border-top: 1px solid var(--c-border-soft);
+		display: flex;
+		gap: var(--sp-sm);
+		align-items: center;
 	}
 
 	.ddp-delete {
-		background: none;
-		border: none;
-		font: inherit;
-		font-size: var(--fs-xs);
 		color: var(--c-red);
-		cursor: pointer;
 		padding: 0;
 		opacity: 0.6;
 	}
 
 	.ddp-delete:hover {
 		opacity: 1;
+	}
+
+	.ddp-delete-confirm {
+		opacity: 1;
+		font-weight: var(--fw-bold);
+	}
+
+	.ddp-delete-cancel {
+		color: var(--c-text-muted);
+		padding: 0;
+		font-size: var(--fs-2xs);
 	}
 </style>

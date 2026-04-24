@@ -1,6 +1,7 @@
-import type { Opportunity, Deliverable, OpportunityDeliverableLink } from './types'
-import { defaultHorizon } from './types'
+import type { BoardSnapshot } from './briefing'
 import type { MeetingData } from './meeting'
+import type { Deliverable, Opportunity, OpportunityDeliverableLink } from './types'
+import { defaultHorizon } from './types'
 
 const STORAGE_KEY = 'upstream-board'
 const MEETING_KEY = 'upstream-meetings'
@@ -11,6 +12,8 @@ export interface BoardData {
 	links: OpportunityDeliverableLink[]
 	/** Horizons with no opportunities yet (user-created empty buckets) */
 	customHorizons?: string[]
+	/** Last-seen snapshot for the briefing diff engine */
+	briefingSnapshot?: BoardSnapshot
 }
 
 export function saveBoard(data: BoardData): void {
@@ -27,7 +30,11 @@ export function loadBoard(): BoardData | null {
 		if (!raw) return null
 		const data = JSON.parse(raw) as BoardData
 		// Basic shape validation
-		if (!Array.isArray(data.opportunities) || !Array.isArray(data.deliverables) || !Array.isArray(data.links)) {
+		if (
+			!Array.isArray(data.opportunities) ||
+			!Array.isArray(data.deliverables) ||
+			!Array.isArray(data.links)
+		) {
 			return null
 		}
 		// Backfill fields for data saved before these features
@@ -35,6 +42,8 @@ export function loadBoard(): BoardData | null {
 		for (const opp of data.opportunities) {
 			if (!opp.horizon) opp.horizon = fallback
 			if (!opp.stageEnteredAt) opp.stageEnteredAt = opp.updatedAt ?? opp.createdAt
+			// Migrate incubating → parked (no parkUntil)
+			if ((opp.exitState as string) === 'incubating') opp.exitState = 'parked'
 		}
 		return data
 	} catch {

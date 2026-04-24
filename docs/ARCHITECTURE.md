@@ -50,21 +50,26 @@ App.svelte ($state)
 ├── links: OpportunityDeliverableLink[]
 ├── customHorizons: string[]
 ├── meetingData: MeetingData
+├── briefingData: BriefingData          # board-wide snapshot + seen items
 ├── selectedOppId: string | null
 ├── selectedDeliverableId: string | null
-├── currentView: ViewMode
+├── currentView: ViewMode               # 'briefing' | 'pipeline' | 'deliverables' | 'meetings'
+├── pipelineGrouping: 'stage' | 'horizon'
+├── zoomedGroup: string | null          # stage key or horizon label when zoomed in
 ├── undoStack: BoardData[]
 └── derived values ($derived)
     ├── allHorizons (union of opp horizons + custom)
     ├── selectedOpp / selectedDeliverable (lookups)
+    ├── briefingItems (computed from snapshot diff)
     └── various computed props passed to views
 ```
 
 ### Persistence
 
-Two localStorage keys:
+Three localStorage keys:
 - `upstream-board` — serialized `BoardData` (opportunities, deliverables, links, customHorizons)
 - `upstream-meetings` — serialized `MeetingData` (lastDiscussed timestamps, records, snapshots)
+- `upstream-briefing` — serialized `BriefingData` (board snapshot at last visit, seen item IDs, `lastBriefingAt` timestamp)
 
 Auto-saved on every state change via a `$effect` in `App.svelte`. Loaded on mount with backfill for fields added after initial data was saved (horizon, stageEnteredAt).
 
@@ -125,36 +130,48 @@ The agenda is computed by diffing current board state against the stored snapsho
 ## Module Structure
 
 ```
-src/upstream/
+src/
 ├── main.ts                          # Entry point, mounts App
 ├── App.svelte                       # Root component, all state, undo, persistence
 ├── lib/
 │   ├── types.ts                     # All data types, constants, pure functions
 │   ├── store.ts                     # localStorage read/write (BoardData, MeetingData)
-│   └── meeting.ts                   # Meeting agenda computation, person collection, change detection
+│   ├── meeting.ts                   # Meeting agenda computation, person collection, change detection
+│   └── briefing.ts                  # Board-wide change detection, importance tiers (planned)
 └── components/
-    ├── ListView.svelte              # Opportunities list: funnel, triage, cards, add UX
+    ├── BriefingView.svelte          # News feed: board-wide changes, urgency-ranked (planned)
+    ├── PipelineView.svelte          # Opportunities by stage or horizon, nested deliverables, zoom
     ├── DetailPane.svelte            # Opportunity detail: signal grid, stage nav, exit, commitments
-    ├── DeliverablesView.svelte      # Coverage matrix: rows, columns, contributor columns, zoom
+    ├── DeliverablesView.svelte      # Execution matrix: rows, columns, contributor columns, zoom
     ├── DeliverableDetailPane.svelte # Deliverable detail: size, certainty, links, people
-    ├── RoadmapView.svelte           # Horizon-grouped table: drag-drop, risk flags, effort summaries
     ├── MeetingView.svelte           # Per-person agenda: changes, commitments, awaiting input
     ├── KeyboardHelp.svelte          # Shortcut reference overlay (? key)
     └── QuickAdd.svelte              # Quick-add dialog (n key)
 ```
 
+### View evolution
+
+The original PoC had four views: Opportunities (ListView), Deliverables, Roadmap, Meetings. The redesign merges Opportunities and Roadmap into **Pipeline** (same data, two grouping modes: by stage / by horizon) and adds **Briefing** as the first view. The four views are now organized by temporal intent: news → act → plan → talk.
+
+| View | Replaces | Key change |
+|---|---|---|
+| Briefing | (new) | Board-wide actionable news feed |
+| Pipeline | Opportunities + Roadmap | Two grouping modes (stage/horizon) + zoom into single group |
+| Deliverables | Deliverables | Unchanged — execution-order planning matrix |
+| Meetings | Meetings | Unchanged — per-person agenda builder |
+
 ### Unused/experimental components (not wired into App)
 
 These exist in the codebase but are not currently reachable from the UI:
 
+- `ListView.svelte` — original opportunities triage list (to be replaced by PipelineView)
+- `RoadmapView.svelte` — original horizon-grouped table (folded into PipelineView)
 - `CardDetail.svelte` — earlier card detail experiment
 - `CubeView.svelte` — 3D portfolio cube visualization
 - `LanesView.svelte` — Kanban-style lane layout
 - `PipelineBoard.svelte` — earlier pipeline board experiment
 - `ScatterView.svelte` — scatter plot visualization
 - `TernaryView.svelte` — ternary triangle visualization using barycentric coordinates
-
-These may be revived as alternative views in future versions.
 
 ### Module responsibilities
 
@@ -163,6 +180,7 @@ These may be revived as alternative views in future versions.
 | `types.ts` | Data shapes (`Opportunity`, `Deliverable`, `OpportunityDeliverableLink`, `CellSignal`, etc.), constants (`STAGES`, `PERSPECTIVES`, `CELL_QUESTIONS`, `ORIGIN_TYPES`, `EXIT_STATES`), pure query functions (`stageConsent`, `daysInStage`, `agingLevel`, `commitmentUrgency`, `perspectiveWeight`, `ternaryPosition`) |
 | `store.ts` | localStorage wrappers: `saveBoard`/`loadBoard`/`clearBoard`, `saveMeetingData`/`loadMeetingData`. Includes backfill logic for schema migrations. |
 | `meeting.ts` | `collectPeople` (aggregate all people across opportunities/deliverables), `buildMeetingAgenda` (diff current state vs. snapshot), `personUrgency` (compute urgency for sidebar sorting), `completeMeeting` (stamp snapshot) |
+| `briefing.ts` | (Planned) Board-wide change detection, importance tier classification, seen/unseen state management, time-windowed filtering |
 
 ---
 

@@ -23,14 +23,20 @@ The current PoC has a single implicit role: the **PO** (product owner). Future v
 
 ### Views
 
-The app has four top-level tabs, switchable via click or keyboard (1–4):
+The app has four top-level views, switchable via click or keyboard (1–4), organized by **temporal intent** — matching the PO's natural daily workflow:
 
-1. **Opportunities** — a smart-sorted triage list with an interactive funnel and inline detail pane
-2. **Deliverables** — a cross-reference matrix (deliverables x opportunities) with contributor columns and inline detail pane
-3. **Roadmap** — horizon-grouped table with drag-drop, risk flags, and effort summaries
+1. **Briefing** — an actionable news feed of board-wide changes, ranked by urgency × recency
+2. **Pipeline** — opportunities grouped by stage (default) or by horizon, with nested deliverables and zoom into single groups
+3. **Deliverables** — a cross-reference matrix (deliverables × opportunities) for execution-order planning with contributor columns and inline detail pane
 4. **Meetings** — per-person agenda builder with change detection and inline scoring
 
-All views except Meetings use a split layout: list/matrix on the left, detail pane on the right. The Meetings view uses a person sidebar on the left.
+All views except Briefing use a split layout: list/matrix on the left, detail pane on the right. The Briefing view is a single-column news feed. The Meetings view uses a person sidebar on the left.
+
+**Pipeline modes**: The Pipeline view has two grouping modes toggled in the header:
+- **By stage** — funnel visualization + triage buckets (Blocked → Needs Input → On Track)
+- **By horizon** — horizon groups with effort summaries and risk flags
+
+**Pipeline zoom**: Click a stage or horizon header to zoom into that group, showing expanded detail for every opportunity. Press `Esc` to zoom back out.
 
 ### Keyboard Shortcuts
 
@@ -40,9 +46,10 @@ Press **?** to see the full shortcut reference. Key bindings:
 |---|---|
 | j / Down | Next item in list |
 | k / Up | Previous item in list |
-| Enter | Edit selected title |
-| Escape | Close pane / dialog |
-| 1–4 | Switch views (Opportunities, Deliverables, Roadmap, Meetings) |
+| Enter | Edit selected title / zoom into group |
+| Escape | Close pane / dialog / zoom out |
+| 1–4 | Switch views (Briefing, Pipeline, Deliverables, Meetings) |
+| Tab | Toggle Pipeline grouping (stage ↔ horizon) |
 | n | Quick-add dialog (Tab to toggle opportunity/deliverable mode) |
 | / | Focus the add input in current view |
 | e | Edit selected title (focuses title input) |
@@ -94,7 +101,9 @@ New opportunities default to:
 
 ---
 
-## 2. The Opportunity Pipeline
+## 2. The Pipeline
+
+> **Note:** This section describes the Pipeline view (key **2**), which replaces the earlier Opportunities and Roadmap views. The Pipeline shows opportunities grouped by stage (default) or by horizon, with deliverables nested under each opportunity.
 
 ### 2.1 Understanding the Signal Grid
 
@@ -213,7 +222,7 @@ Origin tags appear in the list view next to the horizon label. They help POs mon
 
 ### 2.8 The Funnel
 
-The funnel bar at the top of the Opportunities tab is a proportional visualization:
+The funnel bar at the top of the Pipeline view (in stage mode) is a proportional visualization:
 
 ```
  Explore (4)  ========
@@ -350,16 +359,19 @@ The pane shows:
 
 ---
 
-## 6. The Roadmap
+## 6. Horizon Mode (Pipeline by Horizon)
 
-### 6.1 Understanding the Roadmap
+> **Note:** Horizon grouping is now a mode within the Pipeline view (press **Tab** to toggle), not a separate tab. The functionality described here is accessed from the Pipeline view.
 
-The Roadmap tab (press **3**) shows opportunities grouped by horizon, sorted chronologically. Each horizon group has:
+### 6.1 Understanding Horizon Mode
+
+Toggle the Pipeline view to horizon mode (press **Tab** or click the grouping toggle). Opportunities are grouped by horizon, sorted chronologically. Each horizon group has:
 
 - A **header row** with the horizon label (double-click to rename), effort summary (size breakdown, average certainty dots, unsized count), and a remove button for empty custom horizons
 - **Opportunity rows** within the group, draggable between horizons
+- **Click the header** to zoom into that horizon, showing expanded detail for every opportunity
 
-### 6.2 Roadmap Row Details
+### 6.2 Horizon Row Details
 
 Each opportunity row shows:
 - Drag handle for reordering between horizons
@@ -376,18 +388,49 @@ Each opportunity row shows:
 
 ### 6.3 Managing Horizons
 
-- **Add a horizon**: use the input at the bottom of the roadmap
+- **Add a horizon**: use the input at the bottom of the horizon view
 - **Rename a horizon**: double-click the label and type
 - **Remove a horizon**: click the remove button (only visible on empty custom horizons)
 - **Move opportunities between horizons**: drag and drop between horizon groups
 
 ### 6.4 Detail Pane
 
-Clicking a roadmap row opens the standard opportunity detail pane on the right, with the same editing capabilities as in the Opportunities tab.
+Clicking a row opens the standard opportunity detail pane on the right, with the same editing capabilities as in stage mode.
 
 ---
 
-## 7. Meeting Prep
+## 7. The Briefing (planned)
+
+### 7.1 Understanding the Briefing
+
+The Briefing view (press **1**) is the PO's morning start screen — an actionable news feed of what changed since the last visit.
+
+Items are ranked by **urgency × recency** and grouped into importance tiers:
+
+| Tier | Examples | How long it stays |
+|---|---|---|
+| **Breaking** | Objection scored, commitment overdue, item discontinued | 7 days |
+| **Important** | Stage advanced, commitment due within 7d, aging to stale | 3 days |
+| **Update** | Score added, deliverable linked, size changed | 24 hours |
+| **Minor** | Verdict edited, notes changed, horizon updated | 12 hours |
+
+Each item shows an **action verb** ("Review objection on X", "Score feasibility on Z") and is clickable — it navigates to the relevant item in the Pipeline view, scrolling to the specific section.
+
+### 7.2 Item States
+
+- **Unread** — full visual prominence, bold styling
+- **Seen** — PO clicked/expanded it; the item stays but drops to quiet styling with a "✓ Reviewed" label
+- **Gone** — aged past the time window; removed on next visit
+
+### 7.3 The Briefing Clock
+
+The briefing compares current board state against a **board-wide snapshot** stored at `lastBriefingAt`. This is distinct from the per-person meeting snapshots — meeting snapshots track what a specific person has been told, while the briefing snapshot tracks what the PO has seen.
+
+Opening the Briefing view updates `lastBriefingAt`, so the next visit will only show new changes.
+
+---
+
+## 8. Meeting Prep
 
 ### 7.1 Understanding the Meetings View
 
@@ -424,32 +467,31 @@ Note: meeting completion cannot currently be undone. Forgetting to score a cell 
 
 ---
 
-## 8. Cross-View Navigation
+## 9. Cross-View Navigation
 
-### 8.1 From Deliverables to Opportunities
+### 9.1 From Briefing to Pipeline
+
+1. Click any briefing item — the app switches to the Pipeline view, selects the relevant opportunity, and scrolls the detail pane to the specific section (e.g. commitments, signal grid cell)
+
+### 9.2 From Deliverables to Pipeline
 
 1. In the deliverable detail pane, click an opportunity name in the linked opportunities list
-2. The app switches to the Opportunities tab and selects that opportunity
+2. The app switches to the Pipeline view and selects that opportunity
 3. The opportunity's detail pane opens
 
-### 8.2 From Opportunities to Deliverables
+### 9.3 From Pipeline to Deliverables
 
 1. In the opportunity detail pane's Deliverables section (visible at Decompose stage or when links exist), click a deliverable name
-2. Future: navigation to the Deliverables tab with that row selected (not yet implemented)
+2. Future: navigation to the Deliverables view with that row selected (not yet implemented)
 
-### 8.3 From the Matrix to Opportunities
+### 9.4 From the Deliverables Matrix to Pipeline
 
 1. Click an opportunity column header in the matrix
-2. The app switches to the Opportunities tab and selects that opportunity
-
-### 8.4 From the Roadmap to Detail
-
-1. Click an opportunity row in the roadmap
-2. The detail pane opens on the right with full editing capability
+2. The app switches to the Pipeline view and selects that opportunity
 
 ---
 
-## 9. Data Management
+## 10. Data Management
 
 ### 9.1 Persistence
 

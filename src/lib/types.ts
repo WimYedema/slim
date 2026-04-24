@@ -8,19 +8,40 @@ export const PERSPECTIVES: Perspective[] = ['desirability', 'feasibility', 'viab
 export type OriginType = 'demand' | 'supply' | 'incident' | 'debt'
 
 export const ORIGIN_TYPES: { key: OriginType; label: string; description: string }[] = [
-	{ key: 'demand', label: 'Request', description: 'Someone asked for it — users, customers, or stakeholders' },
-	{ key: 'supply', label: 'Idea', description: 'We thought of it — a capability, innovation, or technical opportunity' },
+	{
+		key: 'demand',
+		label: 'Request',
+		description: 'Someone asked for it — users, customers, or stakeholders',
+	},
+	{
+		key: 'supply',
+		label: 'Idea',
+		description: 'We thought of it — a capability, innovation, or technical opportunity',
+	},
 	{ key: 'incident', label: 'Incident', description: 'An urgent disruption — production is down' },
-	{ key: 'debt', label: 'Debt', description: 'Accumulated concerns — pattern of bugs or workarounds' },
+	{
+		key: 'debt',
+		label: 'Debt',
+		description: 'Accumulated concerns — pattern of bugs or workarounds',
+	},
 ]
 
 /** Exit state when an opportunity leaves the active pipeline */
-export type ExitState = 'killed' | 'parked' | 'incubating' | 'merged'
+export type ExitState = 'killed' | 'parked' | 'merged'
 
 export const EXIT_STATES: { key: ExitState; label: string; icon: string; description: string }[] = [
-	{ key: 'killed', label: 'Kill', icon: '✗', description: 'Evaluated and rejected — a lens failed or priorities shifted' },
-	{ key: 'parked', label: 'Park', icon: '⏸', description: 'Not rejected, just not now — revisit when conditions change' },
-	{ key: 'incubating', label: 'Incubate', icon: '🌱', description: 'Deliberately resting — the idea needs to marinate' },
+	{
+		key: 'killed',
+		label: 'Kill',
+		icon: '✗',
+		description: 'Evaluated and rejected — a lens failed or priorities shifted',
+	},
+	{
+		key: 'parked',
+		label: 'Park',
+		icon: '⏸',
+		description: 'Not now — optionally set a horizon to revisit',
+	},
 	{ key: 'merged', label: 'Merge', icon: '⤵', description: 'Subsumed by another opportunity' },
 ]
 
@@ -28,9 +49,17 @@ export const EXIT_STATES: { key: ExitState; label: string; icon: string; descrip
 export type PersonRole = 'blocker' | 'expert' | 'stakeholder'
 
 export const PERSON_ROLES: { key: PersonRole; label: string; description: string }[] = [
-	{ key: 'blocker', label: 'Blocker', description: 'Unblocks progress — someone needs something from them' },
+	{
+		key: 'blocker',
+		label: 'Blocker',
+		description: 'Unblocks progress — someone needs something from them',
+	},
 	{ key: 'expert', label: 'Expert', description: 'Provides knowledge for a specific perspective' },
-	{ key: 'stakeholder', label: 'Stakeholder', description: 'Cares about the outcome, wants to stay informed' },
+	{
+		key: 'stakeholder',
+		label: 'Stakeholder',
+		description: 'Cares about the outcome, wants to stay informed',
+	},
 ]
 
 /** When a perspective was delegated to a person */
@@ -100,6 +129,8 @@ export interface Opportunity {
 	exitReason?: string
 	/** Timestamp when discontinued, or undefined if active */
 	discontinuedAt?: number
+	/** When to revisit a parked opportunity — freeform horizon label */
+	parkUntil?: string
 	/** PO believes all deliverables have been identified */
 	decompositionComplete?: boolean
 	/** Roadmap horizon — freeform label, defaults to YYYYQ[1-4] */
@@ -118,6 +149,18 @@ export function defaultHorizon(): string {
 	const q = Math.ceil((d.getMonth() + 1) / 3)
 	if (q < 4) return `${d.getFullYear()}Q${q + 1}`
 	return `${d.getFullYear() + 1}Q1`
+}
+
+/** Current quarter label, e.g. "2026Q2" */
+export function currentQuarter(): string {
+	const d = new Date()
+	const q = Math.ceil((d.getMonth() + 1) / 3)
+	return `${d.getFullYear()}Q${q}`
+}
+
+/** True if the horizon string sorts strictly after the current quarter */
+export function isFutureHorizon(horizon: string): boolean {
+	return horizon.localeCompare(currentQuarter(), undefined, { numeric: true }) > 0
 }
 
 export const STAGES: { key: Stage; label: string; thinking: string }[] = [
@@ -257,7 +300,7 @@ export function agingLevel(opp: Opportunity): AgingLevel {
 
 /** Human label for an origin type key */
 export function originLabel(origin: OriginType): string {
-	return ORIGIN_TYPES.find(o => o.key === origin)?.label ?? origin
+	return ORIGIN_TYPES.find((o) => o.key === origin)?.label ?? origin
 }
 
 export function cellHasSignal(signal: CellSignal): boolean {
@@ -298,7 +341,17 @@ export interface OpportunityDeliverableLink {
 }
 
 export function createDeliverable(title: string): Deliverable {
-	return { id: crypto.randomUUID(), title, externalUrl: '', updatedAt: Date.now(), extraContributors: [], extraConsumers: [], size: null, certainty: null, externalDependency: '' }
+	return {
+		id: crypto.randomUUID(),
+		title,
+		externalUrl: '',
+		updatedAt: Date.now(),
+		extraContributors: [],
+		extraConsumers: [],
+		size: null,
+		certainty: null,
+		externalDependency: '',
+	}
 }
 
 export const TSHIRT_SIZES: TShirtSize[] = ['XS', 'S', 'M', 'L', 'XL']
@@ -308,17 +361,25 @@ export const SIZE_ROW_HEIGHT: Record<TShirtSize, number> = { XS: 18, S: 28, M: 4
 export const UNESTIMATED_ROW_HEIGHT = 40
 
 /** Get all deliverable links for an opportunity */
-export function linksForOpportunity(links: OpportunityDeliverableLink[], opportunityId: string): OpportunityDeliverableLink[] {
+export function linksForOpportunity(
+	links: OpportunityDeliverableLink[],
+	opportunityId: string,
+): OpportunityDeliverableLink[] {
 	return links.filter((l) => l.opportunityId === opportunityId)
 }
 
 /** Get all opportunity links for a deliverable */
-export function linksForDeliverable(links: OpportunityDeliverableLink[], deliverableId: string): OpportunityDeliverableLink[] {
+export function linksForDeliverable(
+	links: OpportunityDeliverableLink[],
+	deliverableId: string,
+): OpportunityDeliverableLink[] {
 	return links.filter((l) => l.deliverableId === deliverableId)
 }
 
 /** Most urgent unmet commitment: returns days until deadline (negative = overdue), or undefined if none */
-export function commitmentUrgency(opp: Opportunity): { commitment: Commitment; daysLeft: number } | undefined {
+export function commitmentUrgency(
+	opp: Opportunity,
+): { commitment: Commitment; daysLeft: number } | undefined {
 	const now = Date.now()
 	const si = stageIndex(opp.stage)
 	// Only unmet commitments (milestone not yet reached)
@@ -342,14 +403,26 @@ export function currentStageScores(opp: Opportunity): Record<Perspective, Score>
 }
 
 /** Find the person assigned to a perspective at a specific stage */
-export function perspectiveOwner(opp: Opportunity, perspective: Perspective, stage: Stage): PersonLink | undefined {
-	return opp.people.find((p) => p.perspectives.some((a) => a.perspective === perspective && a.stage === stage))
+export function perspectiveOwner(
+	opp: Opportunity,
+	perspective: Perspective,
+	stage: Stage,
+): PersonLink | undefined {
+	return opp.people.find((p) =>
+		p.perspectives.some((a) => a.perspective === perspective && a.stage === stage),
+	)
 }
 
 /** Get assignment details for a perspective at a specific stage */
-export function perspectiveAssignment(opp: Opportunity, perspective: Perspective, stage: Stage): { person: PersonLink; assignment: PerspectiveAssignment } | undefined {
+export function perspectiveAssignment(
+	opp: Opportunity,
+	perspective: Perspective,
+	stage: Stage,
+): { person: PersonLink; assignment: PerspectiveAssignment } | undefined {
 	for (const person of opp.people) {
-		const assignment = person.perspectives.find((a) => a.perspective === perspective && a.stage === stage)
+		const assignment = person.perspectives.find(
+			(a) => a.perspective === perspective && a.stage === stage,
+		)
 		if (assignment) return { person, assignment }
 	}
 	return undefined
@@ -394,7 +467,11 @@ export function consentStatus(score: Score): ConsentStatus {
 }
 
 /** Check consent across all perspectives at the current stage */
-export function stageConsent(opp: Opportunity): { status: 'ready' | 'blocked' | 'incomplete'; objections: Perspective[]; unheard: Perspective[] } {
+export function stageConsent(opp: Opportunity): {
+	status: 'ready' | 'blocked' | 'incomplete'
+	objections: Perspective[]
+	unheard: Perspective[]
+} {
 	const objections: Perspective[] = []
 	const unheard: Perspective[] = []
 	for (const p of PERSPECTIVES) {
@@ -466,7 +543,8 @@ export function inheritedPeople(
 		if (!opp) continue
 		for (const p of opp.people) {
 			if (group === 'contributors' && p.role === 'expert') names.add(p.name)
-			if (group === 'consumers' && (p.role === 'stakeholder' || p.role === 'blocker')) names.add(p.name)
+			if (group === 'consumers' && (p.role === 'stakeholder' || p.role === 'blocker'))
+				names.add(p.name)
 		}
 	}
 	return [...names].sort()

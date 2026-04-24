@@ -76,6 +76,25 @@ graph LR
 - One deliverable may serve multiple opportunities (partially or fully).
 - A deliverable can *partially* cover an opportunity — delivering some of its value but not all.
 
+Each link carries two properties:
+
+| Property | Values | Question it answers |
+|---|---|---|
+| **Coverage** | full / partial | "How much of the opportunity does this deliverable address?" |
+| **Flavor** | must-have / stretch / cleanup | "How critical is this deliverable to the opportunity?" |
+
+Coverage and flavor are orthogonal — a partial-coverage deliverable can be must-have (it's essential but doesn't cover everything), and a full-coverage deliverable can be stretch (nice to have but the opportunity ships without it).
+
+Flavor is **per-link, not per-deliverable.** The Partner dashboard is must-have for Webhooks but stretch for SSO — same work item, different criticality depending on which opportunity you're looking at. The three flavors:
+
+- **Must-have** — the opportunity can't ship without this deliverable
+- **Stretch** — adds value but the opportunity is viable without it
+- **Cleanup** — doesn't add visible value but needed for sustainability (test coverage, refactoring, migration, tech debt remediation)
+
+Flavor is optional (defaults to unclassified). It becomes most useful at the Decompose stage, where the PO decides what goes into sprints: "which of these 4 deliverables can I cut if we run out of time?" Without flavor, all deliverables look equally important. With it, the PO can quickly see the critical path vs. the deferrable work.
+
+> **PoC status:** Coverage is implemented. Flavor is not yet implemented — planned for a future iteration.
+
 Jira forces a tree (one parent epic per story), which either loses the multi-parent links or forces artificial duplication. The false hierarchy isn't just about two axes — it's that the mapping between them is many-to-many, not hierarchical at all.
 
 Upstream must model this as a **link graph**, not a parent-child tree. This lets the PO answer questions that current tools can't:
@@ -301,8 +320,7 @@ Opportunities don't always move forward — they get killed, parked, or merged. 
 | Exit state | Meaning | Can reopen? |
 |---|---|---|
 | **Killed** | Evaluated and rejected — a lens failed, or priorities shifted | Yes — enters as a new opportunity linked to the original |
-| **Parked** | Not rejected, just not now — includes a trigger condition ("revisit when X happens") | Yes — returns to the stage it left |
-| **Incubating** | Deliberately resting — no trigger, no blocker, the idea needs to marinate (Wallas's incubation stage). Ages slowly or not at all. A greenhouse, not a waiting room. | Yes — returns when insight forms |
+| **Parked** | Not rejected, just not now — optionally set a horizon to revisit (e.g. "2026Q3"). When the horizon arrives, the briefing surfaces a revisit-due nudge. | Yes — returns to the stage it left |
 | **Merged** | Duplicate or subsumed by another opportunity | No — it *is* the other one now |
 | **Delivered** | Decomposed, exported, and built | — |
 
@@ -394,34 +412,69 @@ The PO creates a board and gets a shareable link (same pattern as a Skatting roo
 
 ## UX Architecture
 
-The model is rich — pipeline, maturity, people links, origin types, decision records, three lenses, many-to-many graphs, horizons. If the PO has to think about all of that, we've built Jira 2.0. The answer is **progressive disclosure across four views**, each serving a different cadence and audience.
+The model is rich — pipeline, maturity, people links, origin types, decision records, three lenses, many-to-many graphs, horizons. If the PO has to think about all of that, we've built Jira 2.0. The answer is **progressive disclosure across four views**, organized by **temporal intent** — matching the PO's natural workflow, not the data model.
 
-### View 1: Opportunities — The Triage List (daily glance)
+### Organizing principle: the PO's morning
 
-A smart-sorted list, not a Kanban board. Three triage buckets — **Blocked**, **Needs Input**, **On Track** — surface what needs attention without the PO scanning every card. A funnel bar at the top shows stage distribution at a glance.
+The four views follow the workflow a PO naturally falls into each day:
 
-The PO's daily interaction:
-1. **Add** — type a title, hit enter. Opportunity appears in Explore.
-2. **Triage** — scan the top of the list: blocked items first, then items needing input, then on-track.
-3. **Act** — click a card to open the detail pane; advance, score, or assign from there.
+1. **"What happened?"** — scan changes, address urgent items
+2. **"What do I push?"** — work the active pipeline
+3. **"What's the build order?"** — plan execution sequence
+4. **"Who do I talk to?"** — prepare for conversations
 
-Each card shows: title, stage badge, health dots (D/F/V signal state), and a contextual nudge — a one-line prompt based on gap analysis ("Fill feasibility before advancing", "Objection — resolve", "Ready to advance to Validate").
+This is a **news → act → plan → talk** progression. The views are ordered by temporal scope: the last hours → the current sprint → the next quarter → the next meeting. Each view answers a different question with a different cadence.
 
-> **Design decision (PoC):** The spec originally described Layer 1 as a 5-column Kanban board. The PoC replaced this with a triage-sorted list because the PO's daily question is "what needs my attention?" not "what's in each column?" The funnel bar preserves stage distribution visibility. A Kanban view may be added later as an alternative layout over the same data.
+### View 1: Briefing — The News Feed (daily start)
 
-### View 2: Deliverables — The Coverage Matrix (weekly planning)
+An actionable news feed showing what changed since the PO last looked, ranked by urgency × recency. Modeled after phone news apps: important items are prominent, addressed items fade but don't vanish, and everything ages out naturally.
 
-A cross-reference table: deliverables as rows, opportunities as columns, coverage dots (none / partial / full) as cells. Answers: "which work serves which goals, and how completely?"
+**Importance tiers** determine visual prominence and persistence:
 
-Additional columns: T-shirt size, certainty bars, contributor grid (who's building/consuming each deliverable). Rows sorted by leverage score. Orphan badges flag deliverables that serve no opportunity. Gap badges flag opportunities with no deliverables.
+| Tier | Examples | Persistence |
+|---|---|---|
+| **Breaking** | Objection scored, commitment overdue, item discontinued | 7 days |
+| **Important** | Stage advanced, commitment due within 7d, item aging to stale | 3 days |
+| **Update** | New score added, deliverable linked/unlinked, size/certainty changed | 24 hours |
+| **Minor** | Verdict text edited, notes changed, horizon updated | 12 hours |
 
-### View 3: Roadmap — The Stakeholder View (quarterly review)
+**Item states** follow a read/acknowledged pattern:
+- **Unread** — new change, full visual prominence
+- **Seen** — PO clicked/expanded it, drops to quiet styling
+- **Gone** — aged out of the time window, removed on next visit
 
-Opportunities grouped by **horizon** (delivery intent). Each horizon header shows a T-shirt size breakdown (e.g. "2×S 1×M 3×L"), average certainty, and unsized count. Drag-and-drop moves opportunities between horizons.
+**Each item is actionable:** it carries a verb ("Review objection on X", "Respond to commitment for Y", "Score feasibility on Z") and clicking it navigates to the relevant item in the Pipeline view, scrolling to the specific section (e.g. commitments, signal grid cell).
 
-This is not a Gantt chart or dependency timeline. It's a **commitment horizon view** — separating "when do we intend to deliver" (horizon) from "how confident are we" (stage). A Validate-stage item in Q2 is a validated bet. An Explore-stage item in Q2 is a risky commitment — and the roadmap makes that visible.
+**Clock:** The briefing window is driven by a stored `lastBriefingAt` timestamp — when the PO last opened the Briefing view. This is board-scoped (not per-person like meeting snapshots).
 
-> **Design decision (PoC):** The spec said "not a roadmapping tool (no timeline view, no Gantt)." The Roadmap view emerged from a Pichler-inspired insight: goal-oriented roadmaps (horizons as intent, not timelines as promises) complement the pipeline without competing with it. The objection was to Gantt-style dependency charts, not to horizon grouping.
+> **Design decision:** The earlier PoC had no dedicated "what changed?" view. Change detection existed only inside Meetings (per-person snapshot diffs). The Briefing view promotes change detection to a board-wide, first-class concept because "what happened?" is the PO's first question every morning, not just a meeting-prep artifact.
+
+### View 2: Pipeline — The Opportunity Funnel (daily work)
+
+The PO's working view for opportunity triage and progression. Shows all active opportunities with their linked deliverables nested underneath.
+
+**Two grouping modes**, toggled in the view header:
+
+- **By stage** (default) — opportunities grouped into Explore / Sketch / Validate / Decompose sections with a funnel visualization at the top
+- **By horizon** — same opportunities grouped by delivery intent (e.g. "2026Q3", "LATER") with effort summaries per horizon
+
+**Zoom** — clicking a stage or horizon header zooms into that slice, showing expanded detail for every opportunity in the group: inline signal grids, linked deliverables with size/certainty, commitment deadlines, people involved. `Esc` zooms back out. This replaces the click-open-close-click cycle for "work through everything in Validate today."
+
+Each opportunity card shows: stage badge, title, signal health dots (3 perspectives at current stage), aging indicator, and a contextual nudge. Expanding (▸/▾) reveals nested deliverables with coverage dots, size badges, and certainty indicators.
+
+**Triage buckets** (Blocked → Needs Input → On Track) sort opportunities within each group to surface what needs attention first.
+
+The detail pane opens on the right when an opportunity or deliverable is selected, same split-pane layout as before.
+
+> **Design decision:** The earlier PoC had separate Opportunities and Roadmap views (Views 1 and 3). These are now merged because they show the same data with different groupings. A mode toggle is lighter than a separate tab, and the PO stays in one context. The zoomed-in mode replaces what was previously only achievable by opening items one at a time.
+
+### View 3: Deliverables — The Execution Matrix (weekly planning)
+
+A cross-reference table: deliverables as rows, opportunities as columns, coverage dots (none / partial / full) as cells. This is the **build-order planning** view — where the PO arranges deliverables into an execution sequence.
+
+The Pipeline view shows deliverables *in the context of their parent opportunities* (value-first). The Deliverables view shows them as *independent plannable units* (execution-first). These are different mental modes: "which opportunities need work?" vs. "in what order do we build things?"
+
+Additional columns: T-shirt size, certainty bars, contributor grid (who's building/consuming each deliverable). Rows are draggable to set build priority. Orphan badges flag deliverables that serve no opportunity. Gap badges flag opportunities with no deliverables.
 
 ### View 4: Meetings — The 1:1 Prep (before each meeting)
 
@@ -483,10 +536,13 @@ A single-page app where:
 
 | Feature | Status |
 |---|---|
+| Briefing view (board-wide news feed) | Not yet — planned |
+| Pipeline view with stage/horizon grouping | Partial — stage-grouped triage list exists |
+| Pipeline zoom (single-stage/horizon detail) | Not yet — planned |
 | Triage list with smart sort + nudges | ✅ |
 | Signal grid (4 stages × 3 perspectives) with consent gating | ✅ |
 | Coverage matrix with contributor columns | ✅ |
-| Roadmap with horizon grouping + size breakdown | ✅ |
+| Roadmap with horizon grouping + size breakdown | ✅ (to be folded into Pipeline as grouping mode) |
 | Meeting prep with snapshot-based change detection | ✅ |
 | People links, delegation, commitments | ✅ |
 | Persistence (localStorage) | ✅ |

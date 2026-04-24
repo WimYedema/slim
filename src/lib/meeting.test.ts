@@ -1,19 +1,19 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-	collectPeople,
-	personUrgency,
 	buildMeetingAgenda,
-	completeMeeting,
 	buildPersonSnapshot,
+	collectPeople,
+	completeMeeting,
 	type MeetingData,
+	personUrgency,
 } from './meeting'
 import {
-	createOpportunity,
-	createDeliverable,
-	type Opportunity,
-	type Deliverable,
-	type OpportunityDeliverableLink,
 	type CellSignal,
+	createDeliverable,
+	createOpportunity,
+	type Deliverable,
+	type Opportunity,
+	type OpportunityDeliverableLink,
 	type Score,
 } from './types'
 
@@ -28,7 +28,13 @@ function makeOpp(overrides: Partial<Opportunity> = {}): Opportunity {
 	return { ...base, ...overrides }
 }
 
-function setStageScores(opp: Opportunity, stage: Opportunity['stage'], d: Score, f: Score, v: Score): Opportunity {
+function setStageScores(
+	opp: Opportunity,
+	stage: Opportunity['stage'],
+	d: Score,
+	f: Score,
+	v: Score,
+): Opportunity {
 	return {
 		...opp,
 		signals: {
@@ -55,9 +61,7 @@ describe('collectPeople', () => {
 				{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] },
 				{ id: 'p2', name: 'Bob', role: 'stakeholder', perspectives: [] },
 			],
-			commitments: [
-				{ id: 'c1', to: 'Carol', milestone: 'sketch', by: Date.now() },
-			],
+			commitments: [{ id: 'c1', to: 'Carol', milestone: 'sketch', by: Date.now() }],
 		})
 		const people = collectPeople([opp], [])
 		expect(people.size).toBe(3)
@@ -126,10 +130,20 @@ describe('personUrgency', () => {
 	it('counts unscored assigned cells', () => {
 		const opp = makeOpp({
 			stage: 'explore',
-			people: [{
-				id: 'p1', name: 'Bob', role: 'expert',
-				perspectives: [{ perspective: 'feasibility', stage: 'explore', assignedAt: Date.now() - 3 * 86_400_000 }],
-			}],
+			people: [
+				{
+					id: 'p1',
+					name: 'Bob',
+					role: 'expert',
+					perspectives: [
+						{
+							perspective: 'feasibility',
+							stage: 'explore',
+							assignedAt: Date.now() - 3 * 86_400_000,
+						},
+					],
+				},
+			],
 		})
 		const result = personUrgency('Bob', [opp])
 		expect(result.unscoredCells).toBe(1)
@@ -139,10 +153,14 @@ describe('personUrgency', () => {
 	it('does not count scored cells as unscored', () => {
 		let opp = makeOpp({
 			stage: 'explore',
-			people: [{
-				id: 'p1', name: 'Bob', role: 'expert',
-				perspectives: [{ perspective: 'feasibility', stage: 'explore', assignedAt: Date.now() }],
-			}],
+			people: [
+				{
+					id: 'p1',
+					name: 'Bob',
+					role: 'expert',
+					perspectives: [{ perspective: 'feasibility', stage: 'explore', assignedAt: Date.now() }],
+				},
+			],
 		})
 		opp = setStageScores(opp, 'explore', 'none', 'positive', 'none')
 		const result = personUrgency('Bob', [opp])
@@ -152,9 +170,7 @@ describe('personUrgency', () => {
 	it('is case-insensitive for name matching', () => {
 		const opp = makeOpp({
 			stage: 'explore',
-			commitments: [
-				{ id: 'c1', to: 'alice', milestone: 'sketch', by: Date.now() - 86_400_000 },
-			],
+			commitments: [{ id: 'c1', to: 'alice', milestone: 'sketch', by: Date.now() - 86_400_000 }],
 		})
 		const result = personUrgency('Alice', [opp])
 		expect(result.overdueCommitments).toBe(1)
@@ -179,10 +195,14 @@ describe('buildMeetingAgenda', () => {
 	it('includes unscored cells assigned to the person', () => {
 		const opp = makeOpp({
 			stage: 'explore',
-			people: [{
-				id: 'p1', name: 'Bob', role: 'expert',
-				perspectives: [{ perspective: 'feasibility', stage: 'explore', assignedAt: Date.now() }],
-			}],
+			people: [
+				{
+					id: 'p1',
+					name: 'Bob',
+					role: 'expert',
+					perspectives: [{ perspective: 'feasibility', stage: 'explore', assignedAt: Date.now() }],
+				},
+			],
 		})
 		const agenda = buildMeetingAgenda('Bob', [opp], [], [])
 		expect(agenda.unscoredCells).toHaveLength(1)
@@ -192,10 +212,14 @@ describe('buildMeetingAgenda', () => {
 	it('detects conflicts (positive vs negative at same stage)', () => {
 		let opp = makeOpp({
 			stage: 'explore',
-			people: [{
-				id: 'p1', name: 'Alice', role: 'expert',
-				perspectives: [{ perspective: 'desirability', stage: 'explore', assignedAt: Date.now() }],
-			}],
+			people: [
+				{
+					id: 'p1',
+					name: 'Alice',
+					role: 'expert',
+					perspectives: [{ perspective: 'desirability', stage: 'explore', assignedAt: Date.now() }],
+				},
+			],
 		})
 		opp = setStageScores(opp, 'explore', 'positive', 'negative', 'none')
 		const agenda = buildMeetingAgenda('Alice', [opp], [], [])
@@ -220,10 +244,14 @@ describe('buildMeetingAgenda', () => {
 			stage: 'explore',
 			updatedAt: Date.now(),
 			createdAt: since - 86_400_000,
-			people: [{
-				id: 'p1', name: 'Dave', role: 'expert',
-				perspectives: [],
-			}],
+			people: [
+				{
+					id: 'p1',
+					name: 'Dave',
+					role: 'expert',
+					perspectives: [],
+				},
+			],
 		})
 		const agenda = buildMeetingAgenda('Dave', [opp], [], [], since)
 		expect(agenda.changes.length).toBeGreaterThanOrEqual(1)
@@ -313,7 +341,7 @@ describe('completeMeeting', () => {
 
 	it('preserves existing meeting records', () => {
 		const data: MeetingData = {
-			lastDiscussed: { 'Old': Date.now() - 86_400_000 },
+			lastDiscussed: { Old: Date.now() - 86_400_000 },
 			records: [{ personName: 'Old', timestamp: Date.now() - 86_400_000, summary: ['test'] }],
 			snapshots: {},
 		}

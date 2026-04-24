@@ -163,11 +163,11 @@
 <div class="cube-container">
 	<div class="cube-toolbar">
 		<div class="snap-btns">
-			<button class="snap-btn" onclick={() => snapTo('dv')}>D × V</button>
-			<button class="snap-btn" onclick={() => snapTo('df')}>D × F</button>
-			<button class="snap-btn" onclick={() => snapTo('vf')}>V × F</button>
+			<button class="btn-ghost snap-btn" onclick={() => snapTo('dv')}>D × V</button>
+			<button class="btn-ghost snap-btn" onclick={() => snapTo('df')}>D × F</button>
+			<button class="btn-ghost snap-btn" onclick={() => snapTo('vf')}>V × F</button>
 		</div>
-		<button class="auto-btn" class:active={autoRotate} onclick={() => (autoRotate = !autoRotate)}>
+		<button class="btn-ghost auto-btn" class:active={autoRotate} onclick={() => (autoRotate = !autoRotate)}>
 			{autoRotate ? '⏸ Pause' : '▶ Rotate'}
 		</button>
 		<span class="drag-hint">Drag to rotate</span>
@@ -301,15 +301,7 @@
 	}
 
 	.snap-btn {
-		font-family: var(--font);
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-		background: transparent;
-		border: none;
-		border-radius: var(--radius-sm);
 		padding: var(--sp-xs) var(--sp-sm);
-		cursor: pointer;
-		transition: background var(--tr-fast), color var(--tr-fast);
 	}
 
 	.snap-btn:hover {
@@ -318,15 +310,8 @@
 	}
 
 	.auto-btn {
-		font-family: var(--font);
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-		background: transparent;
 		border: 1px solid var(--c-border-soft);
-		border-radius: var(--radius-sm);
 		padding: var(--sp-xs) var(--sp-sm);
-		cursor: pointer;
-		transition: background var(--tr-fast), color var(--tr-fast);
 	}
 
 	.auto-btn.active {

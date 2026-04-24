@@ -275,6 +275,14 @@
 </script>
 
 <div class="roadmap">
+	<div class="risk-legend" role="note" aria-label="Risk flag legend">
+		<span class="risk-legend-item"><span class="risk-flag risk-danger" aria-hidden="true">⊘</span> Objection</span>
+		<span class="risk-legend-item"><span class="risk-flag risk-danger" aria-hidden="true">⏳</span> Stale</span>
+		<span class="risk-legend-item"><span class="risk-flag risk-warn" aria-hidden="true">⏳</span> Aging</span>
+		<span class="risk-legend-item"><span class="risk-flag risk-warn" aria-hidden="true">○</span> Unscored</span>
+		<span class="risk-legend-item"><span class="risk-flag risk-warn" aria-hidden="true">∅</span> No deliverables</span>
+		<span class="risk-legend-item"><span class="risk-flag risk-danger" aria-hidden="true">⚡</span> Early stage, near horizon</span>
+	</div>
 	<table class="roadmap-table">
 		<thead>
 			<tr>
@@ -308,13 +316,28 @@
 								onblur={() => commitRenameHorizon(horizon)}
 							/>
 						{:else}
+							{@const blocked = opps.filter(o => riskFlags(o).some(f => f.level === 'danger')).length}
+							{@const atRisk = opps.filter(o => riskFlags(o).length > 0).length}
 							<div class="horizon-header">
 								<button class="horizon-label" ondblclick={() => startRenameHorizon(horizon)}>
 									{horizon}
 									<span class="horizon-count">{opps.length}</span>
 								</button>
+								{#if opps.length > 0}
+									<span class="horizon-health">
+										{#if blocked > 0}
+											<span class="health-danger">{blocked} blocked</span>
+										{/if}
+										{#if atRisk > blocked}
+											<span class="health-warn">{atRisk - blocked} at risk</span>
+										{/if}
+										{#if atRisk === 0}
+											<span class="health-clear">all clear</span>
+										{/if}
+									</span>
+								{/if}
 								{#if isEmptyCustom(horizon)}
-									<button class="remove-horizon-btn" onclick={() => onRemoveHorizon(horizon)} title="Remove empty horizon">×</button>
+									<button class="btn-icon remove-horizon-btn" onclick={() => onRemoveHorizon(horizon)} title="Remove empty horizon">×</button>
 								{/if}
 								{#if breakdown.sizes.length > 0 || breakdown.unsized > 0}
 									<span class="effort-summary">
@@ -369,14 +392,14 @@
 						</td>
 						{#each signals as sig}
 							<td class="col-signal">
-								<span class="dot score-{sig.score}" title="{PERSPECTIVE_LABELS[sig.perspective]}: {SCORE_DISPLAY[sig.score].label}">{SCORE_SYMBOL[sig.score]}</span>
+								<span class="dot score-{sig.score}" title="{PERSPECTIVE_LABELS[sig.perspective]}: {SCORE_DISPLAY[sig.score].label}" role="img" aria-label="{PERSPECTIVE_LABELS[sig.perspective]}: {SCORE_DISPLAY[sig.score].label}">{SCORE_SYMBOL[sig.score]}</span>
 							</td>
 						{/each}
 						<td class="col-risk">
 							{#if risks.length > 0}
-								<span class="risk-flags">
+								<span class="risk-flags" role="group" aria-label="Risk flags">
 									{#each risks as flag}
-										<span class="risk-flag risk-{flag.level}" title={flag.label}>{flag.icon}</span>
+										<span class="risk-flag risk-{flag.level}" title={flag.label} role="img" aria-label={flag.label}>{flag.icon}</span>
 									{/each}
 								</span>
 							{/if}
@@ -419,7 +442,7 @@
 			bind:value={newHorizonName}
 			onkeydown={(e) => { if (e.key === 'Enter') handleAddHorizon() }}
 		/>
-		<button class="add-horizon-btn" onclick={handleAddHorizon} disabled={!newHorizonName.trim()}>+ Add horizon</button>
+		<button class="btn-ghost add-horizon-btn" onclick={handleAddHorizon} disabled={!newHorizonName.trim()}>+ Add horizon</button>
 	</div>
 </div>
 
@@ -428,6 +451,22 @@
 		flex: 1;
 		overflow: auto;
 		padding: var(--sp-md);
+	}
+
+	.risk-legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-md);
+		padding: var(--sp-xs) var(--sp-sm);
+		margin-bottom: var(--sp-sm);
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+	}
+
+	.risk-legend-item {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-xs);
 	}
 
 	.roadmap-table {
@@ -524,6 +563,26 @@
 		border-radius: var(--radius-sm);
 	}
 
+	.horizon-health {
+		display: inline-flex;
+		gap: var(--sp-sm);
+		font-size: var(--fs-2xs);
+		margin-left: var(--sp-sm);
+	}
+
+	.health-danger {
+		color: var(--c-red);
+		font-weight: var(--fw-medium);
+	}
+
+	.health-warn {
+		color: var(--c-warm);
+	}
+
+	.health-clear {
+		color: var(--c-green-signal);
+	}
+
 	.horizon-input {
 		font: inherit;
 		font-size: var(--fs-lg);
@@ -538,16 +597,9 @@
 	}
 
 	.remove-horizon-btn {
-		background: none;
-		border: none;
-		font: inherit;
-		font-size: var(--fs-sm);
 		color: var(--c-text-ghost);
-		cursor: pointer;
 		padding: 0 var(--sp-xs);
 		margin-left: var(--sp-xs);
-		border-radius: var(--radius-sm);
-		transition: color var(--tr-fast);
 	}
 
 	.remove-horizon-btn:hover {
@@ -785,15 +837,8 @@
 	}
 
 	.add-horizon-btn {
-		background: none;
 		border: 1px solid var(--c-border-soft);
-		font: inherit;
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-		cursor: pointer;
 		padding: var(--sp-xs) var(--sp-sm);
-		border-radius: var(--radius-sm);
-		transition: background var(--tr-fast), color var(--tr-fast);
 	}
 
 	.add-horizon-btn:hover:not(:disabled) {

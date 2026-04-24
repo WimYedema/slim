@@ -1,6 +1,6 @@
 # Upstream — UX Review
 
-A critical review of the current PoC from multiple perspectives. Each reviewer walks through the tool with fresh eyes, noting what works, what confuses, and what's missing. Based on the actual PoC: four tabs (Opportunities, Deliverables, Roadmap, Meetings), localStorage persistence, full keyboard navigation, JSON/CSV import & export, 20-level undo, card aging, origin types, exit states with reason capture, interactive funnel, and meeting prep with snapshot-based change detection.
+A critical review of the current PoC from multiple perspectives. Each reviewer walks through the tool with fresh eyes, noting what works, what confuses, and what's missing. Based on the actual PoC: four tabs (Briefing, Pipeline, Deliverables, Meetings), localStorage persistence, full keyboard navigation, JSON/CSV import & export, 20-level undo, newspaper-style briefing with importance tiering, interactive funnel, stage/horizon grouping, signal grid with consent-based gating, meeting prep with snapshot-based change detection, and a rich detail pane with commitments, people assignments, and exit states.
 
 ---
 
@@ -285,13 +285,14 @@ Issues ranked by how many reviewers flagged them and severity:
 | 15 | **Coverage link notes** | Alex | Low | S | Not built |
 | 16 | **Custom attributes on deliverables** | Loyalist | Low | M | Not built |
 | 17 | **Lightweight mode for small teams** | Jordan | Low | M | Not built |
-| 18 | **Board-level changelog** | Maria | Low | M | Not built |
+| 18 | ~~**Board-level changelog**~~ | ~~Maria~~ | ~~Low~~ | — | Shipped (Briefing view) |
 | 19 | **"now"/"next" labels on roadmap** | Maria | Low | XS | Not built |
 | 20 | **Filtering on list view** | Alex | Medium | S | Not built |
 
 ### What Works Well (Keep)
 
 - **Two-axis model** (opportunities vs. deliverables with many-to-many links) — every reviewer understood and valued this
+- **Briefing as morning triage** — newspaper layout with tier-1 headlines, tier-2 wire feed, collapsed background
 - **Smart triage with contextual nudges** — the highest-value daily feature for POs
 - **Signal grid with consent-based gating** — better than scoring/ranking; forces structured thinking
 - **Coverage matrix with contributor columns** — solves a real problem that no mainstream tool addresses
@@ -299,7 +300,7 @@ Issues ranked by how many reviewers flagged them and severity:
 - **Exit states with reason capture** — kill/park/incubate/merge preserves decision history with rationale
 - **Card aging** — visual wear badges (fresh, aging, stale) based on days in current stage
 - **Origin types** — Request/Idea/Incident/Debt tags provide pipeline composition awareness
-- **Roadmap with risk flags** — surface maturity/horizon mismatches at a glance
+- **Pipeline with risk flags** — surface maturity/horizon mismatches at a glance
 - **Interactive funnel** — hover a stage segment to highlight matching items in the list
 - **Meeting prep with change detection** — auto-generated 1:1 agendas with snapshot-based diffs
 - **Keyboard-first navigation** — j/k/a/x/n/? plus number keys for views
@@ -319,8 +320,222 @@ Issues ranked by how many reviewers flagged them and severity:
 
 - Multi-user / P2P (significant effort, unblocks Sam's async workflow)
 - Custom attributes (power-user feature, the notes field is an escape hatch for now)
-- Board-level changelog (useful for stakeholders, not daily PO work)
 - Lightweight mode (design question: what do small teams actually skip?)
 - Horizon filter/collapse on roadmap (complements existing risk flags)
 - Mobile view (secondary platform)
 - Merge import (edge case for data migration)
+
+---
+
+## Round 2: Post-Briefing Review
+
+Five reviewers return after the Briefing view was added (Phase 9) and the Pipeline view replaced the separate List + Roadmap approach. Each reviewer spends 15 minutes with the updated tool.
+
+---
+
+### Alex — The Tactical PO (Return Visit)
+
+**Context**: Last reviewed the tool when it had Opportunities/Deliverables/Roadmap/Meetings tabs. Now sees Briefing/Pipeline/Deliverables/Meetings.
+
+#### First Reaction
+
+"OK, the first tab is now Briefing instead of a list. Let me open it fresh... I see 5 headline cards with red left borders at the top, then a wire feed list below. The headlines are things like 'Gone stale in Sketch — 31d without activity' and 'Commitment to DACH partner is 3d overdue.' Below the entity name, the stale ones show bullet-pointed questions: 'Who exactly is affected, and what does done look like?' That's... really good. It's not just telling me something is stuck — it's telling me what to ask."
+
+"The two-column layout for headlines is nice. On my wide monitor I see two headline cards side by side. On the narrow laptop it collapses to one. Responsive without me noticing."
+
+#### What Works
+
+**Newspaper hierarchy** — "Tier 1 gets headline cards with red border and background tint. Tier 2 is a compact wire feed — dot, description, entity name, time. Tier 3 is collapsed behind a 'Background (4)' toggle. I can scan 15 items in 10 seconds because the visual weight tells me what matters."
+
+**Stale questions as nudges** — "The CELL_QUESTIONS appearing under stale headlines are exactly the right nudge. Three bullets telling me what I forgot to ask. I click the headline, the detail pane opens right there — no view switch — and I can score the cells immediately."
+
+**News-first descriptions** — "'Gone stale in Sketch — 31d without activity' reads like a news headline. The entity name is on the second line, muted. I scan the description to decide if I care, then glance at the entity. That's the right reading order."
+
+**Peek-in-place** — "Clicking a briefing headline opens the detail pane on the right, same as in Pipeline. No tab switch, no loss of context. I can work through tier-1 items one by one without leaving the briefing. That's the triage workflow I wanted."
+
+**Mark all seen** — "After I've processed everything, I hit 'Mark all seen' and the briefing empties. Next time I open the tool, only genuine changes since this moment will appear. Clean reset."
+
+**Stale as event, not nag** — "I noticed that stale items only appear once — as news. If I mark seen without acting, the stale item doesn't reappear next time. That's respectful. Other tools would keep nagging. This trusts me to have seen it."
+
+#### What Could Be Better
+
+**Commitment overdue headlines lack context** — "The 'Commitment to DACH partner is 3d overdue' headline is useful, but when I click it, I'm in the full detail pane. I wish the headline itself told me what the commitment was about — the milestone text, not just the recipient."
+
+**No quick-park from headline** — "For stale items, 90% of the time I'll either score signals or park the opportunity. A small 'Park' action button on the headline card would save me the round-trip through the detail pane."
+
+**Grouped items are less scannable** — "The grouped items in the wire feed say things like 'New in Sketch: Dark mode, AI-generated reports, Multi-language support.' Useful, but when there are 4+ names, the line wraps and it looks cramped. Maybe truncate after 3 with '+2 more'?"
+
+**No count badge on the tab** — "When I'm in Pipeline view, I can't tell if there are tier-1 briefing items waiting for me. A small badge on the Briefing tab (like '3') would pull me back when something urgent happens."
+
+#### Verdict
+
+"The Briefing view is what was missing. Before, I had to scan the whole opportunity list to find what needed attention. Now the tool tells me. The newspaper layout with tiered urgency is exactly right — headline cards for urgent, wire feed for notable, collapsed for background. Adding the CELL_QUESTIONS as nudges on stale items is the cherry on top. This is now my morning start page."
+
+---
+
+### Jordan — The Solo PO (Return Visit)
+
+**Context**: Solo PO, team of 6. Was overwhelmed by 4 tabs last time. Now evaluating brief + pipeline.
+
+#### First Reaction
+
+"Wait — the Briefing tab is actually useful for me. Last time I said 4 tabs was a lot. But now tab 1 says: here are the 3 things you need to deal with. I don't even need to look at the other tabs most mornings."
+
+"The pipeline view is much better than the old separate list + roadmap. Stage grouping by default, Tab to switch to horizon grouping for my monthly board meeting. One view, two lenses. That's the right call."
+
+#### What Works
+
+**Briefing as daily start** — "Open the tool, see 2 headline cards and 5 wire items. Process the headlines (click → detail pane → score/park/advance), scan the wire feed, mark seen. Done in 2 minutes. My morning triage just got halved."
+
+**Pipeline replaces two views** — "I used to bounce between List and Roadmap. Now Pipeline gives me stages (daily triage) and horizons (board prep) in one view with a Tab toggle. One fewer mental model."
+
+**Unscored questions on stale items** — "For my team of 6, the stale items are common because I context-switch a lot. Seeing 'Could we build it?' and 'Does it fit our strategy?' under a stale headline reminds me what I forgot. I score those two cells and the stale item resolves itself."
+
+#### What Could Be Better
+
+**Empty briefing feels dead** — "After I mark all seen, the briefing says 'All caught up — nothing new since your last check.' Cool, but now it's a blank page. Could it show a summary — '8 opportunities, 3 in Sketch, 12 deliverables' — so the page is useful even when empty?"
+
+**Still no lightweight mode** — "The signal grid is 4 stages × 3 perspectives = 12 cells per opportunity. For a team of 6, that's still a lot of ceremony. If I could hide the Decompose row until I actually get there, the grid would feel more approachable."
+
+**Meetings tab still too heavy** — "I meet 3 people. The per-person agenda is nice but the Meeting view UI is designed for someone with 15 stakeholders. The person list sidebar, the snapshot comparison, the inline scoring — it's more UI than I need for a weekly 1:1 with my engineer."
+
+#### Verdict
+
+"The Briefing tab changes the equation. Last time I said 4 tabs was too many — now tab 1 is my daily driver and I only visit others when the briefing points me there. Pipeline combining list + roadmap is the right structural move. For small teams, the core loop is now: Briefing → click headline → act in detail pane → mark seen. Fast, focused, useful."
+
+---
+
+### Sam — The Engineering Lead (Return Visit)
+
+**Context**: Tech lead, cares about feasibility cells and async workflows. Now seeing the briefing.
+
+#### First Reaction
+
+"I still can't use this tool independently — it's single-user, and I need the PO to walk me through it. But the Briefing view is interesting from the PO's perspective: when they open the tool before our 1:1, they now see 'Sam hasn't scored Technical at Validate (3d)' as a tier-1 headline. That's my name on a red card. The PO doesn't need to search for what to ask me — the tool built the agenda."
+
+#### What Works
+
+**Unscored assignment headlines** — "The 'Sarah hasn't scored Technical at Validate (3d)' headline is a direct pointer. The PO opens our 1:1, clicks it, and lands on the exact cell that needs my input. No meeting prep needed."
+
+**Stale questions as engineering prompts** — "For stale opportunities, the questions like 'What are the technical constraints and dependencies?' are actually useful for me too. When the PO reads that during our 1:1, it structures the conversation around the right question."
+
+**Wire feed is scannable** — "The tier-2 items ('New in Validate — SSO login for enterprise', 'New in Decompose — Webhooks API') give me situational awareness in 5 seconds. I can see what's moving without having to browse every opportunity."
+
+#### What Could Be Better
+
+**My name in tier 1 feels like blame** — "'Sam hasn't scored Technical at Validate (3d)' with a red border feels accusatory. I'm a busy engineer who forgot about one cell. Maybe soften the language to something like 'Awaiting Technical input at Validate' and show the person name on the second line?"
+
+**No evidence preview** — "When I scored feasibility last time, I added an evidence URL (a Slack thread about the auth migration). In the briefing, I see 'Feasibility objection at Validate' but not the evidence. Showing the verdict one-liner in the wire feed would save me a click."
+
+**Still waiting for async** — "The core limitation hasn't changed: I can't open this tool on my own and fill in my cells. The Briefing tab makes the PO's experience better, but mine is still mediated."
+
+#### Verdict
+
+"The Briefing view makes the PO more prepared for our 1:1, which indirectly makes my experience better. I spend less time in meetings because the PO already knows exactly what to ask me. The unscored assignment headlines turn the tool into a meeting agenda generator. But the fundamental gap — me being able to use this independently — remains."
+
+---
+
+### The Spreadsheet Loyalist (Return Visit)
+
+**Context**: Power user with elaborate spreadsheets. Was blocked on CSV import. Now evaluating the briefing and pipeline.
+
+#### First Reaction
+
+"Briefing is the changelog I always wished my spreadsheet had. In Google Sheets, I added a 'Last Modified' column and conditional formatting, but I never had automated change detection. The tool sees that an opportunity went stale, that a commitment is overdue, that someone hasn't scored a cell — and surfaces all of it sorted by urgency. My spreadsheet will never do that."
+
+"The pipeline with Tab-toggled grouping is cleaner than my separate 'Stage View' and 'Timeline View' sheets. Less to maintain."
+
+#### What Works
+
+**Automated change detection** — "My spreadsheet requires me to remember what changed. This tool diffs against a snapshot and tells me. The 'Gone stale' headline only appears once — it's not a formula that recalculates every time I open the sheet. That's semantically richer than anything I can build in Sheets."
+
+**Tier hierarchy is self-sorting** — "My spreadsheet has conditional formatting for overdue items, but I have to manually sort by urgency. The briefing auto-sorts: red headlines at top, neutral wire feed below, background collapsed. The layout IS the sort."
+
+**Questions as actionable nudges** — "The CELL_QUESTIONS under stale headlines are like inline comments in my spreadsheet, except they're computed. The tool knows which cells are empty and shows the right question. My spreadsheet doesn't know its own schema."
+
+#### What Could Be Better
+
+**Still no CSV import** — "I have 40 opportunities in a spreadsheet. JSON import requires me to convert them by hand. A CSV importer that maps columns to fields (title → title, stage → stage) would let me migrate in one step."
+
+**No freeform notes on briefing items** — "When I see 'Commitment to DACH partner is 3d overdue,' I want to jot a quick note: 'Discussed in Slack, extended by 2 weeks.' There's no way to annotate briefing items. I'd add a sticky note to my spreadsheet, but here I have to open the detail pane and edit the commitment."
+
+**Export doesn't include briefing state** — "If I export JSON and re-import, does the briefing snapshot come with it? If not, the reimported board will show every item as 'new.' Meeting data is separate from board data — that could cause confusion on restore."
+
+#### Verdict
+
+"The Briefing view is the killer feature my spreadsheet will never replicate. Automated change detection with urgency sorting transforms a planning tool into a morning briefing tool. Combined with the pipeline's dual-mode grouping and the existing signal grid, this is now a more capable system than my 15-column spreadsheet. CSV import is the last migration barrier."
+
+---
+
+### Maria — The Stakeholder (Return Visit)
+
+**Context**: VP of Product. Reviews the pipeline monthly. Last wanted summary statistics and horizon filtering.
+
+#### First Reaction
+
+"The Briefing tab is interesting but not for me. It's the PO's daily view — too granular for a monthly review. I need: 'Show me what changed since last month's review.' The briefing shows changes since the last 'Mark seen' click, which is the PO's cadence, not mine."
+
+"The Pipeline view with horizon grouping is closer to what I need. Tab to switch to horizons, I see opportunities grouped by quarter with stage badges. But I still want summary statistics."
+
+#### What Works
+
+**Pipeline horizon view** — "Tab-toggled horizon grouping in the pipeline is what the old Roadmap view did, but now it's integrated with the stage view. The funnel still works, the risk flags are still there. One view, two organizational modes."
+
+**Briefing could work as a pre-meeting export** — "If the PO opened the briefing *before* our monthly review and walked me through the tier-1 headlines, that's actually a great structure for the meeting. 'Here are the 3 things that need your attention' followed by 'Here are 8 things that changed.' The newspaper hierarchy works as a presentation format."
+
+**Risk flags in pipeline rows** — "I can still see the symbols: objections, stale items, maturity-horizon mismatches. These are my primary decision inputs. The pipeline preserves all of them from the old roadmap."
+
+#### What Could Be Better
+
+**Multi-person briefing snapshots** — "The briefing shows changes since the PO marked seen. For my monthly review, I'd want changes since *my last review*, which is different from the PO's daily cadence. Multiple snapshot slots ('daily triage' vs. 'monthly review') would solve this."
+
+**Still no summary statistics** — "I want a line at the top of the pipeline: '22 opportunities: 8 Explore, 6 Sketch, 5 Validate, 3 Decompose. 4 at risk, 2 stale.' One-line dashboard. The funnel shows it visually but I want the numbers."
+
+**Briefing doesn't filter by horizon** — "Show me only tier-1 headlines for Q2 opportunities. With 20+ items, I need to focus on what's relevant to the quarter we're reviewing."
+
+**Read-only mode still missing** — "I don't want editing controls when reviewing. A 'presentation mode' that hides score buttons, add forms, and edit fields would make this appropriate for a boardroom meeting."
+
+#### Verdict
+
+"The Briefing is a strong addition for daily PO use but doesn't replace my need for summary-level views. The pipeline with horizon grouping is the right evolution of the roadmap. For my monthly review, the ideal flow would be: PO opens the tool, shows me the pipeline in horizon mode, and walks through the briefing headlines. The tool structures the conversation even if it's not perfectly tailored for the stakeholder persona."
+
+---
+
+## Updated Priority Summary (Post Round 2)
+
+| # | Issue | Flagged by | Severity | Effort | Status |
+|---|---|---|---|---|---|
+| 1 | **Tab badge for unseen tier-1 items** | Alex R2 | Medium | XS | Not built |
+| 2 | **Empty briefing shows board summary** | Jordan R2 | Low | XS | Not built |
+| 3 | **Softer language for unscored assignments** | Sam R2 | Medium | XS | Not built |
+| 4 | **Grouped items truncate after 3 names** | Alex R2 | Low | XS | Not built |
+| 5 | **Headline shows commitment milestone text** | Alex R2 | Low | XS | Not built |
+| 6 | **Quick-park action on stale headlines** | Alex R2 | Medium | S | Not built |
+| 7 | **Summary statistics line in pipeline** | Maria R1+R2 | Medium | S | Not built |
+| 8 | **Score semantics help text** | Sam R1 | Medium | XS | Not built |
+| 9 | **CSV import** | Loyalist R1+R2 | Medium | S | Not built |
+| 10 | **Meeting "Done" undo/confirm** | Alex R1 | Medium | S | Not built |
+| 11 | **Verdict preview in wire feed** | Sam R2 | Low | XS | Not built |
+| 12 | **Multi-snapshot slots (daily vs. monthly)** | Maria R2 | Low | M | Not built |
+| 13 | **Horizon filter in briefing** | Maria R2 | Low | S | Not built |
+| 14 | **Presentation / read-only mode** | Maria R1+R2 | Low | M | Not built |
+| 15 | **No multi-user / P2P** | Alex, Sam R1 | High | L | Not built |
+
+### What's Working Well (Validated in Round 2)
+
+- **Briefing as daily start page** — every PO reviewer confirmed this changes their workflow
+- **Newspaper hierarchy** — tier-1 headlines with card treatment, tier-2 wire feed, tier-3 collapsed
+- **Stale as one-time event** — respectful, not nagging; trust the user to have seen it
+- **CELL_QUESTIONS as stale nudges** — transforms a "stuck" alert into a structured action prompt
+- **Peek-in-place** — clicking briefing headlines opens detail pane without leaving the view
+- **Pipeline dual-mode** — stage/horizon toggle replaces two separate views
+- **Mark all seen** — clean snapshot reset with clear before/after state
+- **News-first descriptions** — "Gone stale in Sketch" scans faster than "AI-generated reports: stale"
+
+### Quick Wins (XS Effort, High Impact)
+
+1. **Tab badge** — show count of unseen tier-1 items on the Briefing tab
+2. **Softer assignment language** — "Awaiting Technical input at Validate" instead of "Sam hasn't scored..."
+3. **Score help text** — one-liner near score buttons explaining consent semantics
+4. **Grouped name truncation** — show 3 names + "(+N more)" to prevent line wrapping
+5. **Commitment milestone in headline** — include the promise text, not just the recipient

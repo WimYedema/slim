@@ -247,14 +247,29 @@
 							</div>
 							<span class="card-question">{cell.question}</span>
 							<div class="scoring-controls">
-								<div class="score-toggle" role="radiogroup" aria-label="{PERSPECTIVE_LABELS[cell.perspective]} — {stageLabel(cell.stage)}">
-									{#each (['none', 'positive', 'uncertain', 'negative'] as const) as s}
+								<div class="score-toggle" role="radiogroup" aria-label="{PERSPECTIVE_LABELS[cell.perspective]} — {stageLabel(cell.stage)}"
+									onkeydown={(e: KeyboardEvent) => {
+										const keys = ['ArrowLeft', 'ArrowRight']
+										if (!keys.includes(e.key)) return
+										e.preventDefault()
+										const opts = ['none', 'positive', 'uncertain', 'negative'] as const
+										const sig = getSignal(cell.opportunityId, cell.stage, cell.perspective)
+										const cur = opts.indexOf(sig.score)
+										const next = e.key === 'ArrowRight' ? (cur + 1) % 4 : (cur + 3) % 4
+										updateSignal(cell.opportunityId, cell.stage, cell.perspective, 'score', opts[next]);
+										(e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('.score-btn')[next]?.focus()
+									}}
+								>
+									{#each (['none', 'positive', 'uncertain', 'negative'] as const) as s, i}
+										{@const sig = getSignal(cell.opportunityId, cell.stage, cell.perspective)}
 										<button
 											class="score-btn {scoreClass(s)}"
-											class:active={getSignal(cell.opportunityId, cell.stage, cell.perspective).score === s}
+											class:active={sig.score === s}
+											role="radio"
+											aria-checked={sig.score === s}
+											tabindex={sig.score === s || (sig.score === 'none' && i === 0) ? 0 : -1}
 											onclick={() => updateSignal(cell.opportunityId, cell.stage, cell.perspective, 'score', s)}
 											title={SCORE_DISPLAY[s].label}
-											aria-pressed={getSignal(cell.opportunityId, cell.stage, cell.perspective).score === s}
 										>{SCORE_SYMBOL[s]}</button>
 									{/each}
 								</div>
@@ -740,6 +755,12 @@
 	.score-btn:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 	.score-btn:not(:first-child) { border-left: none; }
 	.score-btn:hover { background: color-mix(in srgb, var(--c-text) var(--opacity-subtle), var(--c-surface)); }
+
+	.score-btn:focus-visible {
+		outline: none;
+		box-shadow: 0 0 0 2px var(--c-accent);
+		z-index: 1;
+	}
 
 	.score-btn.active.score-none { background: var(--c-neutral-bg); color: var(--c-text-muted); border-color: var(--c-text-ghost); }
 	.score-btn.active.score-positive { background: var(--c-green-signal); color: var(--c-surface); border-color: var(--c-green-signal); }

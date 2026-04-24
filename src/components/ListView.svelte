@@ -305,6 +305,7 @@
 							points="{x},{leftY} {x + segW},{rightY} {x + segW},{rightY + rightH} {x},{leftY + leftH}"
 							class="funnel-segment"
 							class:funnel-empty={!hasItems}
+							style="--stage-color: var(--c-stage-{stage.key})"
 						/>
 						{#if i > 0}
 							<line x1={x} y1={leftY} x2={x} y2={leftY + leftH} class="funnel-divider" />
@@ -335,18 +336,18 @@
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<div class="list-row row-aging-{aging}" role="button" tabindex="0" class:selected={item.opp.id === selectedId} class:stage-dimmed={hoveredStage && item.opp.stage !== hoveredStage} class:stage-highlighted={hoveredStage === item.opp.stage} class:just-added={item.opp.id === lastAddedId} onclick={() => onSelect(item.opp.id)}>
 							{#if !compact}
-							<span class="col-stage">
+							<span class="col-stage" role="group" aria-label="Pipeline stage">
 								{#each STAGES as stage, i}
-									<span class="stage-pip" class:active={i === si} class:past={i < si}>{stage.label.charAt(0)}</span>
+									<span class="stage-pip" class:active={i === si} class:past={i < si} title={stage.label}>{stage.label.charAt(0)}</span>
 								{/each}
 							</span>
 							{/if}
 							<span class="col-title">{item.opp.title}{#if compact}<span class="col-title-stage">{STAGES.find((s) => s.key === item.opp.stage)?.label.charAt(0)}</span>{/if}{#if !compact}{#if days > 0}<span class="aging-badge aging-{aging}">{days}d</span>{/if}{/if}</span>
 							{#if !compact}
-							<span class="col-health">
+							<span class="col-health" role="group" aria-label="Signal scores">
 								{#each PERSPECTIVES as p}
 									{@const score = item.opp.signals[item.opp.stage][p].score}
-									<span class="dot score-{score}" title="{PERSPECTIVE_LABELS[p]}: {SCORE_DISPLAY[score].label}">{SCORE_SYMBOL[score]}</span>
+									<span class="dot score-{score}" title="{PERSPECTIVE_LABELS[p]}: {SCORE_DISPLAY[score].label}" role="img" aria-label="{PERSPECTIVE_LABELS[p]}: {SCORE_DISPLAY[score].label}">{SCORE_SYMBOL[score]}</span>
 								{/each}
 							</span>
 							<span class="col-nudge">
@@ -514,11 +515,11 @@
 		opacity: 0.4;
 	}
 	.funnel-group.funnel-active .funnel-segment {
-		fill: color-mix(in srgb, var(--c-accent) var(--opacity-emphasis), transparent);
+		fill: color-mix(in srgb, var(--stage-color) var(--opacity-emphasis), transparent);
 	}
 
 	.funnel-segment {
-		fill: color-mix(in srgb, var(--c-text-muted) var(--opacity-moderate), transparent);
+		fill: color-mix(in srgb, var(--stage-color) var(--opacity-moderate), transparent);
 	}
 
 	.funnel-segment.funnel-empty {
@@ -815,9 +816,8 @@
 	/* --- Column: nudge action --- */
 
 	.col-nudge {
-		font-size: var(--fs-xs);
-		color: var(--c-text-soft);
-		font-style: italic;
+		font-size: var(--fs-sm);
+		color: var(--c-text);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -827,14 +827,13 @@
 	}
 
 	.roadmap-warn {
-		font-style: normal;
 		color: var(--c-warm);
 		cursor: default;
 		flex-shrink: 0;
 	}
 
 	.bucket-blocked .col-nudge {
-		color: var(--c-text-muted);
+		color: var(--c-text-soft);
 	}
 
 	/* --- Column: advance action --- */

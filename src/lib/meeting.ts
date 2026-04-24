@@ -1,17 +1,24 @@
 import type {
-	Opportunity,
-	Deliverable,
-	OpportunityDeliverableLink,
-	Perspective,
-	Stage,
 	CellSignal,
-	PersonRole,
-	Commitment,
-	TShirtSize,
 	Certainty,
+	Commitment,
+	Deliverable,
+	Opportunity,
+	OpportunityDeliverableLink,
+	PersonRole,
+	Perspective,
 	Score,
+	Stage,
+	TShirtSize,
 } from './types'
-import { PERSPECTIVES, STAGES, CELL_QUESTIONS, stageIndex, linksForDeliverable, SCORE_SYMBOL } from './types'
+import {
+	CELL_QUESTIONS,
+	linksForDeliverable,
+	PERSPECTIVES,
+	SCORE_SYMBOL,
+	STAGES,
+	stageIndex,
+} from './types'
 
 // ── Meeting records ──
 
@@ -123,7 +130,8 @@ export function buildPersonSnapshot(
 
 	for (const opp of opportunities) {
 		if (opp.discontinuedAt) continue
-		const isLinked = opp.people.some((p) => p.name.toLowerCase() === lowerName) ||
+		const isLinked =
+			opp.people.some((p) => p.name.toLowerCase() === lowerName) ||
 			opp.commitments.some((c) => c.to.toLowerCase() === lowerName)
 		if (isLinked) oppSnaps[opp.id] = snapshotOpp(opp)
 	}
@@ -136,7 +144,10 @@ export function buildPersonSnapshot(
 		for (const link of dLinks) {
 			const opp = opportunities.find((o) => o.id === link.opportunityId)
 			if (!opp) continue
-			if (opp.people.some((p) => p.name.toLowerCase() === lowerName)) { inherited = true; break }
+			if (opp.people.some((p) => p.name.toLowerCase() === lowerName)) {
+				inherited = true
+				break
+			}
 		}
 		if (isContributor || isConsumer || inherited) {
 			delSnaps[d.id] = snapshotDel(d, dLinks.length)
@@ -168,7 +179,13 @@ export function collectPeople(
 	function ensure(name: string): BoardPerson {
 		let p = people.get(name)
 		if (!p) {
-			p = { name, roles: new Set(), opportunityIds: [], deliverableIds: [], isCommitmentTarget: false }
+			p = {
+				name,
+				roles: new Set(),
+				opportunityIds: [],
+				deliverableIds: [],
+				isCommitmentTarget: false,
+			}
 			people.set(name, p)
 		}
 		return p
@@ -258,7 +275,8 @@ export function personUrgency(name: string, opportunities: Opportunity[]): Perso
 	// Lower score = more urgent (for sorting)
 	let score = 0
 	if (overdueCommitments > 0) score -= 1000 + overdueCommitments * 100
-	if (worstCommitmentDays !== null && worstCommitmentDays <= 7) score -= 500 - worstCommitmentDays * 10
+	if (worstCommitmentDays !== null && worstCommitmentDays <= 7)
+		score -= 500 - worstCommitmentDays * 10
 	if (unscoredCells > 0) score -= oldestUnscoredDays * 10 + unscoredCells
 
 	return { overdueCommitments, worstCommitmentDays, unscoredCells, oldestUnscoredDays, score }
@@ -353,27 +371,49 @@ export function buildMeetingAgenda(
 		if (opp.discontinuedAt) continue
 
 		// Find this person's link on the opportunity
-		const personLinks = opp.people.filter(
-			(p) => p.name.toLowerCase() === personName.toLowerCase(),
-		)
+		const personLinks = opp.people.filter((p) => p.name.toLowerCase() === personName.toLowerCase())
 
 		// Detect changes since last meeting
 		const oppChanged = since !== null && (opp.updatedAt ?? opp.createdAt) > since
 		const isNewOpp = since !== null && opp.createdAt > since
 
-		if (oppChanged && (personLinks.length > 0 || opp.commitments.some((c) => c.to.toLowerCase() === personName.toLowerCase()))) {
+		if (
+			oppChanged &&
+			(personLinks.length > 0 ||
+				opp.commitments.some((c) => c.to.toLowerCase() === personName.toLowerCase()))
+		) {
 			if (isNewOpp) {
-				agenda.changes.push({ entityId: opp.id, entityTitle: opp.title, entityType: 'opportunity', description: 'New opportunity' })
+				agenda.changes.push({
+					entityId: opp.id,
+					entityTitle: opp.title,
+					entityType: 'opportunity',
+					description: 'New opportunity',
+				})
 			} else if (snapshot?.opportunities[opp.id]) {
 				const descs = diffOpp(opp, snapshot.opportunities[opp.id])
 				for (const desc of descs) {
-					agenda.changes.push({ entityId: opp.id, entityTitle: opp.title, entityType: 'opportunity', description: desc })
+					agenda.changes.push({
+						entityId: opp.id,
+						entityTitle: opp.title,
+						entityType: 'opportunity',
+						description: desc,
+					})
 				}
 				if (descs.length === 0) {
-					agenda.changes.push({ entityId: opp.id, entityTitle: opp.title, entityType: 'opportunity', description: 'Updated' })
+					agenda.changes.push({
+						entityId: opp.id,
+						entityTitle: opp.title,
+						entityType: 'opportunity',
+						description: 'Updated',
+					})
 				}
 			} else {
-				agenda.changes.push({ entityId: opp.id, entityTitle: opp.title, entityType: 'opportunity', description: 'Updated' })
+				agenda.changes.push({
+					entityId: opp.id,
+					entityTitle: opp.title,
+					entityType: 'opportunity',
+					description: 'Updated',
+				})
 			}
 		}
 
@@ -459,9 +499,7 @@ export function buildMeetingAgenda(
 		const isContributor = d.extraContributors.some(
 			(n) => n.toLowerCase() === personName.toLowerCase(),
 		)
-		const isConsumer = d.extraConsumers.some(
-			(n) => n.toLowerCase() === personName.toLowerCase(),
-		)
+		const isConsumer = d.extraConsumers.some((n) => n.toLowerCase() === personName.toLowerCase())
 
 		// Also check inherited role from opportunity experts/stakeholders
 		const dLinks = linksForDeliverable(links, d.id)
@@ -494,13 +532,28 @@ export function buildMeetingAgenda(
 			if (snapshot?.deliverables[d.id]) {
 				const descs = diffDel(d, dLinks.length, snapshot.deliverables[d.id])
 				for (const desc of descs) {
-					agenda.changes.push({ entityId: d.id, entityTitle: d.title, entityType: 'deliverable', description: desc })
+					agenda.changes.push({
+						entityId: d.id,
+						entityTitle: d.title,
+						entityType: 'deliverable',
+						description: desc,
+					})
 				}
 				if (descs.length === 0) {
-					agenda.changes.push({ entityId: d.id, entityTitle: d.title, entityType: 'deliverable', description: 'Updated' })
+					agenda.changes.push({
+						entityId: d.id,
+						entityTitle: d.title,
+						entityType: 'deliverable',
+						description: 'Updated',
+					})
 				}
 			} else {
-				agenda.changes.push({ entityId: d.id, entityTitle: d.title, entityType: 'deliverable', description: 'Updated' })
+				agenda.changes.push({
+					entityId: d.id,
+					entityTitle: d.title,
+					entityType: 'deliverable',
+					description: 'Updated',
+				})
 			}
 		}
 
@@ -540,7 +593,8 @@ export function completeMeeting(
 ): MeetingData {
 	const summary: string[] = []
 	if (agenda.unscoredCells.length > 0) summary.push(`${agenda.unscoredCells.length} cells to score`)
-	if (agenda.commitments.length > 0) summary.push(`${agenda.commitments.length} commitments reviewed`)
+	if (agenda.commitments.length > 0)
+		summary.push(`${agenda.commitments.length} commitments reviewed`)
 	if (agenda.changes.length > 0) summary.push(`${agenda.changes.length} changes discussed`)
 	if (agenda.conflicts.length > 0) summary.push(`${agenda.conflicts.length} conflicts`)
 	if (summary.length === 0) summary.push('No items')

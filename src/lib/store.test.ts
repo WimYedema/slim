@@ -1,7 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { saveBoard, loadBoard, clearBoard, saveMeetingData, loadMeetingData, type BoardData } from './store'
-import { createOpportunity, createDeliverable } from './types'
+import { beforeEach, describe, expect, it } from 'vitest'
 import type { MeetingData } from './meeting'
+import {
+	type BoardData,
+	clearBoard,
+	loadBoard,
+	loadMeetingData,
+	saveBoard,
+	saveMeetingData,
+} from './store'
+import { createDeliverable, createOpportunity } from './types'
 
 // ── Setup ──
 

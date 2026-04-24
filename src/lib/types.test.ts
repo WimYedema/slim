@@ -1,34 +1,36 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-	stageIndex,
-	nextStage,
-	prevStage,
-	daysInStage,
 	agingLevel,
-	nextScore,
-	stageConsent,
-	consentStatus,
-	perspectiveWeight,
-	commitmentUrgency,
-	ternaryPosition,
-	createOpportunity,
-	createDeliverable,
-	defaultHorizon,
-	linksForOpportunity,
-	linksForDeliverable,
+	type CellSignal,
 	cellHasSignal,
-	originLabel,
-	perspectiveOwner,
-	perspectiveAssignment,
+	commitmentUrgency,
+	consentStatus,
+	createDeliverable,
+	createOpportunity,
+	currentQuarter,
 	currentStageScores,
-	scoreClass,
-	stageLabel,
+	daysInStage,
+	defaultHorizon,
 	formatDaysLeft,
 	inheritedPeople,
+	isFutureHorizon,
+	linksForDeliverable,
+	linksForOpportunity,
+	nextScore,
+	nextStage,
 	type Opportunity,
-	type CellSignal,
-	type Score,
 	type OpportunityDeliverableLink,
+	originLabel,
+	perspectiveAssignment,
+	perspectiveOwner,
+	perspectiveWeight,
+	prevStage,
+	type Score,
+	scoreClass,
+	stageConsent,
+	stageIndex,
+	stageLabel,
+	ternaryPosition,
 } from './types'
 
 // ── Helpers ──
@@ -42,7 +44,13 @@ function makeOpp(overrides: Partial<Opportunity> = {}): Opportunity {
 	return { ...base, ...overrides }
 }
 
-function setStageScores(opp: Opportunity, stage: Opportunity['stage'], d: Score, f: Score, v: Score): Opportunity {
+function setStageScores(
+	opp: Opportunity,
+	stage: Opportunity['stage'],
+	d: Score,
+	f: Score,
+	v: Score,
+): Opportunity {
 	return {
 		...opp,
 		signals: {
@@ -256,9 +264,7 @@ describe('commitmentUrgency', () => {
 	it('ignores already-met commitments', () => {
 		const opp = makeOpp({
 			stage: 'validate',
-			commitments: [
-				{ id: '1', to: 'Alice', milestone: 'sketch', by: Date.now() - 86_400_000 },
-			],
+			commitments: [{ id: '1', to: 'Alice', milestone: 'sketch', by: Date.now() - 86_400_000 }],
 		})
 		// Milestone 'sketch' < current 'validate', so it's met
 		expect(commitmentUrgency(opp)).toBeUndefined()
@@ -267,9 +273,7 @@ describe('commitmentUrgency', () => {
 	it('returns negative daysLeft for overdue commitments', () => {
 		const opp = makeOpp({
 			stage: 'explore',
-			commitments: [
-				{ id: '1', to: 'Alice', milestone: 'sketch', by: Date.now() - 5 * 86_400_000 },
-			],
+			commitments: [{ id: '1', to: 'Alice', milestone: 'sketch', by: Date.now() - 5 * 86_400_000 }],
 		})
 		const result = commitmentUrgency(opp)
 		expect(result).toBeDefined()
@@ -385,10 +389,14 @@ describe('originLabel', () => {
 describe('perspectiveOwner', () => {
 	it('finds the person assigned to a perspective at a stage', () => {
 		const opp = makeOpp({
-			people: [{
-				id: 'p1', name: 'Sarah', role: 'expert',
-				perspectives: [{ perspective: 'feasibility', stage: 'validate', assignedAt: Date.now() }],
-			}],
+			people: [
+				{
+					id: 'p1',
+					name: 'Sarah',
+					role: 'expert',
+					perspectives: [{ perspective: 'feasibility', stage: 'validate', assignedAt: Date.now() }],
+				},
+			],
 		})
 		const owner = perspectiveOwner(opp, 'feasibility', 'validate')
 		expect(owner?.name).toBe('Sarah')
@@ -404,10 +412,14 @@ describe('perspectiveAssignment', () => {
 	it('returns person and assignment details', () => {
 		const now = Date.now()
 		const opp = makeOpp({
-			people: [{
-				id: 'p1', name: 'Alice', role: 'expert',
-				perspectives: [{ perspective: 'viability', stage: 'sketch', assignedAt: now }],
-			}],
+			people: [
+				{
+					id: 'p1',
+					name: 'Alice',
+					role: 'expert',
+					perspectives: [{ perspective: 'viability', stage: 'sketch', assignedAt: now }],
+				},
+			],
 		})
 		const result = perspectiveAssignment(opp, 'viability', 'sketch')
 		expect(result?.person.name).toBe('Alice')
@@ -432,6 +444,27 @@ describe('defaultHorizon', () => {
 	it('returns a string in YYYYQ[1-4] format', () => {
 		const h = defaultHorizon()
 		expect(h).toMatch(/^\d{4}Q[1-4]$/)
+	})
+})
+
+describe('currentQuarter', () => {
+	it('returns a string in YYYYQ[1-4] format', () => {
+		const q = currentQuarter()
+		expect(q).toMatch(/^\d{4}Q[1-4]$/)
+	})
+})
+
+describe('isFutureHorizon', () => {
+	it('returns true for a horizon after the current quarter', () => {
+		expect(isFutureHorizon(defaultHorizon())).toBe(true)
+	})
+
+	it('returns false for the current quarter', () => {
+		expect(isFutureHorizon(currentQuarter())).toBe(false)
+	})
+
+	it('returns false for a past quarter', () => {
+		expect(isFutureHorizon('2020Q1')).toBe(false)
 	})
 })
 

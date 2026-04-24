@@ -1,10 +1,10 @@
 <script lang="ts">
-	import ListView from './components/ListView.svelte'
+	import PipelineView from './components/PipelineView.svelte'
+	import BriefingView from './components/BriefingView.svelte'
 	import DetailPane from './components/DetailPane.svelte'
 	import DeliverablesView from './components/DeliverablesView.svelte'
 	import DeliverableDetailPane from './components/DeliverableDetailPane.svelte'
 	import MeetingView from './components/MeetingView.svelte'
-	import RoadmapView from './components/RoadmapView.svelte'
 	import KeyboardHelp from './components/KeyboardHelp.svelte'
 	import QuickAdd from './components/QuickAdd.svelte'
 	import {
@@ -19,148 +19,246 @@
 	} from './lib/types'
 	import { saveBoard, loadBoard, clearBoard, saveMeetingData, loadMeetingData, type BoardData } from './lib/store'
 	import type { MeetingData } from './lib/meeting'
+	import type { BoardSnapshot } from './lib/briefing'
 
-	type ViewMode = 'opportunities' | 'deliverables' | 'roadmap' | 'meetings'
+	type ViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'meetings'
 
-	/** Pre-populated sample data for the PoC */
+	/**
+	 * Sample data based on SAMPLE-SCENARIO.md
+	 * Alex Torres, PO at Relay (B2B SaaS integration middleware).
+	 * 8 opportunities across 3 horizons, representing the classic
+	 * "build for existing vs. future customers" tension.
+	 */
 	function createSampleData(): Opportunity[] {
-		const opp1 = createOpportunity('SSO login for enterprise')
-		opp1.stage = 'validate'
-		opp1.horizon = '2026Q2'
-		opp1.origin = 'demand'
-		opp1.stageEnteredAt = Date.now() - 10 * 86_400_000
-		opp1.signals.explore.desirability = { score: 'positive', source: 'manual', verdict: 'Top request from enterprise prospects', evidence: '', owner: '' }
-		opp1.signals.explore.feasibility = { score: 'positive', source: 'manual', verdict: 'Standard SAML/OIDC integration', evidence: '', owner: '' }
-		opp1.signals.explore.viability = { score: 'positive', source: 'manual', verdict: 'Unlocks enterprise tier', evidence: '', owner: '' }
-		opp1.signals.sketch.desirability = { score: 'positive', source: 'manual', verdict: '12 enterprise accounts waiting', evidence: 'Sales pipeline', owner: '' }
-		opp1.signals.sketch.feasibility = { score: 'uncertain', source: 'manual', verdict: 'Need to support both SAML and OIDC', evidence: '', owner: '' }
-		opp1.signals.sketch.viability = { score: 'positive', source: 'manual', verdict: 'ARR increase projected at 40%', evidence: '', owner: '' }
-		opp1.people = [
-			{ id: 'p1', name: 'Sarah', role: 'expert', perspectives: [{ perspective: 'feasibility', stage: 'validate', assignedAt: Date.now() - 3 * 86_400_000 }] },
-			{ id: 'p2', name: 'Marcus', role: 'stakeholder', perspectives: [{ perspective: 'viability', stage: 'validate', assignedAt: Date.now() - 5 * 86_400_000 }] },
+		const DAY = 86_400_000
+		const now = Date.now()
+		const threeWeeksAgo = now - 21 * DAY
+
+		// --- 2026Q2: shipping soon ---
+
+		const sso = createOpportunity('SSO login for enterprise')
+		sso.stage = 'validate'
+		sso.horizon = '2026Q2'
+		sso.origin = 'demand'
+		sso.createdAt = threeWeeksAgo
+		sso.stageEnteredAt = now - 10 * DAY
+		sso.description = 'Strategic bet: 12 enterprise accounts waiting for SSO before signing. Unlocks a completely different price tier.'
+		sso.signals.explore.desirability = { score: 'positive', source: 'manual', verdict: 'Top request from enterprise prospects', evidence: 'Sales pipeline', owner: 'Marcus' }
+		sso.signals.explore.feasibility = { score: 'positive', source: 'manual', verdict: 'Standard SAML/OIDC integration', evidence: '', owner: 'Alice' }
+		sso.signals.explore.viability = { score: 'positive', source: 'manual', verdict: 'Unlocks enterprise tier pricing', evidence: '', owner: 'Marcus' }
+		sso.signals.sketch.desirability = { score: 'positive', source: 'manual', verdict: '12 enterprise accounts waiting', evidence: 'Sales pipeline', owner: 'Marcus' }
+		sso.signals.sketch.feasibility = { score: 'uncertain', source: 'manual', verdict: 'Need to support both SAML and OIDC', evidence: '', owner: 'Alice' }
+		sso.signals.sketch.viability = { score: 'positive', source: 'manual', verdict: 'ARR increase projected at 40%', evidence: 'Revenue model', owner: 'Marcus' }
+		// validate stage: Sarah (feasibility) and Marcus (viability) assigned but NOT yet scored
+		sso.people = [
+			{ id: 'p-sarah', name: 'Sarah', role: 'expert', perspectives: [{ perspective: 'feasibility', stage: 'validate', assignedAt: now - 3 * DAY }] },
+			{ id: 'p-marcus', name: 'Marcus', role: 'stakeholder', perspectives: [{ perspective: 'viability', stage: 'validate', assignedAt: now - 5 * DAY }] },
 		]
-		opp1.commitments = [
-			{ id: 'c1', to: 'CEO', milestone: 'validate', by: Date.now() + 5 * 86_400_000 },
-		]
-
-		const opp2 = createOpportunity('Dark mode')
-		opp2.stage = 'sketch'
-		opp2.horizon = '2026Q3'
-		opp2.origin = 'demand'
-		opp2.stageEnteredAt = Date.now() - 3 * 86_400_000
-		opp2.signals.explore.desirability = { score: 'positive', source: 'manual', verdict: 'Community votes #2 request', evidence: 'User forum', owner: '' }
-		opp2.signals.explore.feasibility = { score: 'uncertain', source: 'manual', verdict: 'CSS vars mostly ready', evidence: '', owner: '' }
-		opp2.signals.explore.viability = { score: 'none', source: 'manual', verdict: '', evidence: '', owner: '' }
-
-		const opp3 = createOpportunity('Offline mode')
-		opp3.stage = 'explore'
-		opp3.horizon = '2026Q4'
-		opp3.origin = 'demand'
-		opp3.signals.explore.desirability = { score: 'uncertain', source: 'manual', verdict: 'Field workers mentioned it', evidence: '', owner: '' }
-
-		const opp4 = createOpportunity('AI-generated reports')
-		opp4.stage = 'sketch'
-		opp4.horizon = '2026Q3'
-		opp4.origin = 'supply'
-		opp4.stageEnteredAt = Date.now() - 18 * 86_400_000
-		opp4.signals.explore.desirability = { score: 'positive', source: 'manual', verdict: 'Managers want automated insights', evidence: 'Interview notes', owner: '' }
-		opp4.signals.explore.feasibility = { score: 'negative', source: 'manual', verdict: 'LLM costs too high at scale', evidence: '', owner: '' }
-		opp4.signals.explore.viability = { score: 'uncertain', source: 'manual', verdict: 'Could be premium add-on', evidence: '', owner: '' }
-		opp4.signals.sketch.feasibility = { score: 'uncertain', source: 'manual', verdict: 'Local models might work', evidence: '', owner: '' }
-		opp4.people = [
-			{ id: 'p3', name: 'Alex', role: 'expert', perspectives: [{ perspective: 'feasibility', stage: 'sketch', assignedAt: Date.now() - 1 * 86_400_000 }] },
+		sso.commitments = [
+			{ id: 'c-ceo', to: 'CEO', milestone: 'validate', by: now + 5 * DAY },
 		]
 
-		const opp5 = createOpportunity('Mobile app')
-		opp5.stage = 'explore'
-		opp5.horizon = '2026Q4'
-		opp5.signals.explore.desirability = { score: 'positive', source: 'manual', verdict: '60% of users on mobile browser', evidence: 'Analytics', owner: '' }
-		opp5.signals.explore.feasibility = { score: 'none', source: 'manual', verdict: '', evidence: '', owner: '' }
-		opp5.signals.explore.viability = { score: 'none', source: 'manual', verdict: '', evidence: '', owner: '' }
+		const webhooks = createOpportunity('Webhooks API')
+		webhooks.stage = 'decompose'
+		webhooks.horizon = '2026Q2'
+		webhooks.origin = 'demand'
+		webhooks.createdAt = threeWeeksAgo
+		webhooks.stageEnteredAt = now - 2 * DAY
+		webhooks.description = 'Flagship feature this quarter. Fully validated, three integration partners beta-tested. Now decomposing into sprint-ready work.'
+		webhooks.signals.explore.desirability = { score: 'positive', source: 'manual', verdict: 'Integration partners need it', evidence: 'Partner interviews', owner: 'Alex' }
+		webhooks.signals.explore.feasibility = { score: 'positive', source: 'manual', verdict: 'Event system already exists internally', evidence: 'Architecture doc', owner: 'Alice' }
+		webhooks.signals.explore.viability = { score: 'positive', source: 'manual', verdict: 'Drives platform stickiness', evidence: '', owner: 'Alex' }
+		webhooks.signals.sketch.desirability = { score: 'positive', source: 'manual', verdict: 'Top 5 partners committed to beta', evidence: 'Partner agreements', owner: 'Alex' }
+		webhooks.signals.sketch.feasibility = { score: 'positive', source: 'manual', verdict: 'REST + retry pattern defined', evidence: 'RFC doc', owner: 'Alice' }
+		webhooks.signals.sketch.viability = { score: 'positive', source: 'manual', verdict: 'Partners pay for API tier', evidence: 'Pricing model', owner: 'Marcus' }
+		webhooks.signals.validate.desirability = { score: 'positive', source: 'manual', verdict: 'Beta partners integrated successfully', evidence: 'Beta feedback', owner: 'Alex' }
+		webhooks.signals.validate.feasibility = { score: 'positive', source: 'manual', verdict: 'Spike completed, 99.9% delivery rate', evidence: 'Load test results', owner: 'Alice' }
+		webhooks.signals.validate.viability = { score: 'positive', source: 'manual', verdict: '3 partners upgraded to API tier', evidence: 'Billing data', owner: 'Marcus' }
+		webhooks.signals.decompose.desirability = { score: 'positive', source: 'manual', verdict: 'Acceptance criteria signed off', evidence: '', owner: 'Alex' }
+		webhooks.signals.decompose.feasibility = { score: 'positive', source: 'manual', verdict: '3 sprints, 2 devs', evidence: 'Sprint plan', owner: 'Alice' }
+		webhooks.signals.decompose.viability = { score: 'positive', source: 'manual', verdict: 'Budget allocated', evidence: 'Finance approval', owner: 'Alex' }
+		webhooks.decompositionComplete = true
 
-		const opp6 = createOpportunity('Webhooks API')
-		opp6.stage = 'decompose'
-		opp6.horizon = '2026Q2'
-		opp6.origin = 'demand'
-		opp6.stageEnteredAt = Date.now() - 2 * 86_400_000
-		opp6.signals.explore.desirability = { score: 'positive', source: 'manual', verdict: 'Integration partners need it', evidence: '', owner: '' }
-		opp6.signals.explore.feasibility = { score: 'positive', source: 'manual', verdict: 'Event system already exists', evidence: '', owner: '' }
-		opp6.signals.explore.viability = { score: 'positive', source: 'manual', verdict: 'Drives platform stickiness', evidence: '', owner: '' }
-		opp6.signals.sketch.desirability = { score: 'positive', source: 'manual', verdict: 'Top 5 partners committed', evidence: '', owner: '' }
-		opp6.signals.sketch.feasibility = { score: 'positive', source: 'manual', verdict: 'REST + retry pattern defined', evidence: '', owner: '' }
-		opp6.signals.sketch.viability = { score: 'positive', source: 'manual', verdict: 'Partners pay for API tier', evidence: '', owner: '' }
-		opp6.signals.validate.desirability = { score: 'positive', source: 'manual', verdict: 'Beta partners integrated successfully', evidence: '', owner: '' }
-		opp6.signals.validate.feasibility = { score: 'positive', source: 'manual', verdict: 'Spike completed, 99.9% delivery rate', evidence: '', owner: '' }
-		opp6.signals.validate.viability = { score: 'positive', source: 'manual', verdict: '3 partners upgraded to API tier', evidence: '', owner: '' }
-		opp6.signals.decompose.desirability = { score: 'positive', source: 'manual', verdict: 'Acceptance criteria signed off', evidence: '', owner: '' }
-		opp6.signals.decompose.feasibility = { score: 'positive', source: 'manual', verdict: '3 sprints, 2 devs', evidence: '', owner: '' }
-		opp6.signals.decompose.viability = { score: 'positive', source: 'manual', verdict: 'Budget allocated Q3', evidence: '', owner: '' }
-		opp6.decompositionComplete = true
+		// --- 2026Q3: next quarter ---
 
-		const opp7 = createOpportunity('CSV export revamp')
-		opp7.stage = 'explore'
-		opp7.horizon = '2026Q4'
-		opp7.origin = 'debt'
-		opp7.stageEnteredAt = Date.now() - 22 * 86_400_000
+		const darkMode = createOpportunity('Dark mode')
+		darkMode.stage = 'sketch'
+		darkMode.horizon = '2026Q3'
+		darkMode.origin = 'demand'
+		darkMode.createdAt = threeWeeksAgo
+		darkMode.stageEnteredAt = now - 3 * DAY
+		darkMode.description = 'Community crowd-pleaser, #2 most requested. Important for retention, low technical risk, not strategically critical.'
+		darkMode.signals.explore.desirability = { score: 'positive', source: 'manual', verdict: '#2 most requested feature', evidence: 'User forum votes', owner: 'Alex' }
+		darkMode.signals.explore.feasibility = { score: 'uncertain', source: 'manual', verdict: 'CSS variables are mostly ready', evidence: '', owner: 'Alice' }
+		darkMode.signals.explore.viability = { score: 'positive', source: 'manual', verdict: 'Retention play, low cost', evidence: '', owner: 'Alex' }
 
-		const opp8 = createOpportunity('Multi-language support')
-		opp8.stage = 'sketch'
-		opp8.horizon = '2026Q3'
-		opp8.signals.explore.desirability = { score: 'uncertain', source: 'manual', verdict: 'DACH market expansion', evidence: '', owner: '' }
-		opp8.signals.explore.feasibility = { score: 'positive', source: 'manual', verdict: 'i18n framework ready', evidence: '', owner: '' }
-		opp8.signals.explore.viability = { score: 'positive', source: 'manual', verdict: 'Opens 3 new markets', evidence: '', owner: '' }
-		opp8.signals.sketch.feasibility = { score: 'positive', source: 'manual', verdict: '80% strings already extracted', evidence: '', owner: '' }
-		opp8.signals.sketch.viability = { score: 'positive', source: 'manual', verdict: 'Translation budget approved', evidence: '', owner: '' }
-		opp8.commitments = [
-			{ id: 'c2', to: 'DACH partner', milestone: 'sketch', by: Date.now() - 3 * 86_400_000 },
+		const aiReports = createOpportunity('AI-generated reports')
+		aiReports.stage = 'sketch'
+		aiReports.horizon = '2026Q3'
+		aiReports.origin = 'supply'
+		aiReports.createdAt = threeWeeksAgo
+		aiReports.stageEnteredAt = now - 18 * DAY
+		aiReports.description = 'Moonshot: automated insights for managers. Feasibility objection at explore (LLM costs). Investigating local models at sketch.'
+		aiReports.signals.explore.desirability = { score: 'positive', source: 'manual', verdict: 'Managers want automated insights', evidence: 'Interview notes', owner: 'Alex' }
+		aiReports.signals.explore.feasibility = { score: 'negative', source: 'manual', verdict: 'LLM costs too high at scale', evidence: 'Cost projection', owner: 'Alice' }
+		aiReports.signals.explore.viability = { score: 'uncertain', source: 'manual', verdict: 'Could be premium add-on', evidence: '', owner: 'Alex' }
+		aiReports.signals.sketch.feasibility = { score: 'uncertain', source: 'manual', verdict: 'Local models might work — investigating', evidence: '', owner: 'Alex' }
+		aiReports.people = [
+			{ id: 'p-alex', name: 'Alex', role: 'expert', perspectives: [{ perspective: 'feasibility', stage: 'sketch', assignedAt: now - 1 * DAY }] },
 		]
 
-		return [opp1, opp2, opp3, opp4, opp5, opp6, opp7, opp8]
+		const multiLang = createOpportunity('Multi-language support')
+		multiLang.stage = 'sketch'
+		multiLang.horizon = '2026Q3'
+		multiLang.origin = 'demand'
+		multiLang.createdAt = threeWeeksAgo
+		multiLang.stageEnteredAt = now - 14 * DAY
+		multiLang.description = 'Driven by DACH market expansion. i18n framework ready, translation budget approved. Commitment to DACH partner is overdue.'
+		multiLang.signals.explore.desirability = { score: 'positive', source: 'manual', verdict: 'DACH market expansion opportunity', evidence: 'Market research', owner: 'Marcus' }
+		multiLang.signals.explore.feasibility = { score: 'positive', source: 'manual', verdict: 'i18n framework ready', evidence: 'Tech spike', owner: 'Alice' }
+		multiLang.signals.explore.viability = { score: 'positive', source: 'manual', verdict: 'Opens 3 new markets', evidence: 'Revenue projection', owner: 'Marcus' }
+		multiLang.signals.sketch.feasibility = { score: 'positive', source: 'manual', verdict: '80% of strings already extracted', evidence: 'Codebase audit', owner: 'Alice' }
+		multiLang.signals.sketch.viability = { score: 'positive', source: 'manual', verdict: 'Translation budget approved', evidence: 'Finance sign-off', owner: 'Alex' }
+		multiLang.commitments = [
+			{ id: 'c-dach', to: 'DACH partner', milestone: 'sketch', by: now - 3 * DAY },
+		]
+
+		// --- 2026Q4: future ---
+
+		const offline = createOpportunity('Offline mode')
+		offline.stage = 'explore'
+		offline.horizon = '2026Q4'
+		offline.origin = 'demand'
+		offline.createdAt = threeWeeksAgo
+		offline.description = 'Seed item from field workers. Might grow, might not.'
+		offline.signals.explore.desirability = { score: 'uncertain', source: 'manual', verdict: 'Field workers mentioned wanting it', evidence: 'Support tickets', owner: 'Alex' }
+
+		const mobileApp = createOpportunity('Mobile app')
+		mobileApp.stage = 'explore'
+		mobileApp.horizon = '2026Q4'
+		mobileApp.origin = 'demand'
+		mobileApp.createdAt = threeWeeksAgo
+		mobileApp.description = '60% of users access via mobile browser. No decision yet on native, PWA, or responsive — that belongs at sketch.'
+		mobileApp.signals.explore.desirability = { score: 'positive', source: 'manual', verdict: '60% of users on mobile browser', evidence: 'Analytics dashboard', owner: 'Alex' }
+
+		const csvRevamp = createOpportunity('CSV export revamp')
+		csvRevamp.stage = 'explore'
+		csvRevamp.horizon = '2026Q4'
+		csvRevamp.origin = 'debt'
+		csvRevamp.createdAt = threeWeeksAgo
+		csvRevamp.stageEnteredAt = now - 22 * DAY
+		csvRevamp.description = 'Tech debt: current CSV export is clunky. Sitting with zero signals for 22 days — stale.'
+
+		return [sso, webhooks, darkMode, aiReports, multiLang, offline, mobileApp, csvRevamp]
 	}
 
+	/** Sample deliverables per SAMPLE-SCENARIO.md — 6 work items linked to Webhooks and SSO */
 	function createSampleDeliverables(opps: Opportunity[]): { deliverables: Deliverable[]; links: OpportunityDeliverableLink[] } {
 		const webhooks = opps.find((o) => o.title === 'Webhooks API')!
 		const sso = opps.find((o) => o.title === 'SSO login for enterprise')!
 
-		const d1 = createDeliverable('Webhook event bus')
-		d1.externalUrl = 'https://jira.example.com/PROD-142'
-		d1.size = 'L'
-		d1.certainty = 4
-		d1.extraContributors = ['Alice', 'Bob']
-		const d2 = createDeliverable('Webhook retry & DLQ')
-		d2.extraContributors = ['DevOps team', 'Bob']
-		d2.size = 'M'
-		d2.certainty = 3
-		const d3 = createDeliverable('Partner dashboard')
-		d3.size = 'XL'
-		d3.certainty = 2
-		d3.extraContributors = ['Carol']
-		d3.externalDependency = 'Partner API access from Acme Corp'
-		const d4 = createDeliverable('SAML integration')
-		d4.size = 'S'
-		d4.certainty = 5
-		d4.extraContributors = ['Alice']
-		const d5 = createDeliverable('OIDC integration')
-		d5.size = 'S'
-		d5.certainty = 4
-		d5.extraContributors = ['Alice']
-		const d6 = createDeliverable('Webhook docs & SDK examples')
-		d6.size = 'XS'
-		d6.certainty = 5
-		d6.extraContributors = ['Carol']
+		const eventBus = createDeliverable('Webhook event bus')
+		eventBus.externalUrl = 'https://jira.example.com/PROD-142'
+		eventBus.size = 'L'
+		eventBus.certainty = 4
+		eventBus.extraContributors = ['Alice', 'Bob']
 
-		const deliverables = [d1, d2, d3, d4, d5, d6]
+		const retryDlq = createDeliverable('Webhook retry & DLQ')
+		retryDlq.externalUrl = 'https://jira.example.com/PROD-143'
+		retryDlq.size = 'M'
+		retryDlq.certainty = 3
+		retryDlq.extraContributors = ['DevOps team', 'Bob']
+
+		const partnerDash = createDeliverable('Partner dashboard')
+		partnerDash.size = 'XL'
+		partnerDash.certainty = 2
+		partnerDash.extraContributors = ['Carol']
+		partnerDash.externalDependency = 'Partner API access from Acme Corp — keeps slipping'
+
+		const saml = createDeliverable('SAML integration')
+		saml.size = 'S'
+		saml.certainty = 5
+		saml.extraContributors = ['Alice']
+
+		const oidc = createDeliverable('OIDC integration')
+		oidc.size = 'S'
+		oidc.certainty = 4
+		oidc.extraContributors = ['Alice']
+
+		const webhookDocs = createDeliverable('Webhook docs & SDK examples')
+		webhookDocs.size = 'XS'
+		webhookDocs.certainty = 5
+		webhookDocs.extraContributors = ['Carol']
+
+		const deliverables = [eventBus, retryDlq, partnerDash, saml, oidc, webhookDocs]
 		const links: OpportunityDeliverableLink[] = [
-			{ opportunityId: webhooks.id, deliverableId: d1.id, coverage: 'full' },
-			{ opportunityId: webhooks.id, deliverableId: d2.id, coverage: 'full' },
-			{ opportunityId: webhooks.id, deliverableId: d3.id, coverage: 'partial' },
-			{ opportunityId: sso.id, deliverableId: d4.id, coverage: 'partial' },
-			{ opportunityId: sso.id, deliverableId: d5.id, coverage: 'partial' },
-			// d3 (Partner dashboard) also serves SSO — many-to-many!
-			{ opportunityId: sso.id, deliverableId: d3.id, coverage: 'partial' },
-			{ opportunityId: webhooks.id, deliverableId: d6.id, coverage: 'full' },
+			{ opportunityId: webhooks.id, deliverableId: eventBus.id, coverage: 'full' },
+			{ opportunityId: webhooks.id, deliverableId: retryDlq.id, coverage: 'full' },
+			{ opportunityId: webhooks.id, deliverableId: partnerDash.id, coverage: 'partial' },
+			{ opportunityId: webhooks.id, deliverableId: webhookDocs.id, coverage: 'full' },
+			{ opportunityId: sso.id, deliverableId: saml.id, coverage: 'partial' },
+			{ opportunityId: sso.id, deliverableId: oidc.id, coverage: 'partial' },
+			{ opportunityId: sso.id, deliverableId: partnerDash.id, coverage: 'partial' }, // many-to-many: enterprise admin section
 		]
 		return { deliverables, links }
+	}
+
+	/** Sample meeting history per SAMPLE-SCENARIO.md — 4 past meetings, 2 never-met */
+	function createSampleMeetingData(): MeetingData {
+		const DAY = 86_400_000
+		const now = Date.now()
+		return {
+			lastDiscussed: {
+				Alice: now - 5 * DAY,
+				Marcus: now - 5 * DAY,
+				Bob: now - 8 * DAY,
+				Carol: now - 12 * DAY,
+			},
+			records: [
+				{
+					personName: 'Alice',
+					timestamp: now - 5 * DAY,
+					summary: [
+						'4 deliverables reviewed',
+						'Event bus: confirmed pub/sub pattern, certainty → 4/5',
+						'SAML: straightforward, certainty 5/5',
+						'OIDC: newer spec revision, certainty 4/5',
+						'Asked to spike retry & DLQ service vs event bus piggyback',
+					],
+				},
+				{
+					personName: 'Marcus',
+					timestamp: now - 5 * DAY,
+					summary: [
+						'SSO viability at validate: briefed on enterprise pipeline numbers',
+						'Asked for updated ARR projections by end of week',
+						'CEO commitment April 29 discussed — 5 days remaining',
+						'1 unscored cell: viability@validate',
+					],
+				},
+				{
+					personName: 'Bob',
+					timestamp: now - 8 * DAY,
+					summary: [
+						'Event bus: confirmed availability for next 2 sprints',
+						'Retry & DLQ: DevOps stretched with another project',
+						'Capacity concern flagged — check DevOps bandwidth',
+					],
+				},
+				{
+					personName: 'Carol',
+					timestamp: now - 12 * DAY,
+					summary: [
+						'Partner dashboard: Acme Corp API access timeline slipping',
+						'Cannot start admin UI design until partner API shape finalized',
+						'Webhook docs: 80% drafted, waiting for final API surface',
+						'Agreed to sketch wireframe even without final API',
+						'Risk escalated: partner dashboard is biggest risk item',
+					],
+				},
+			],
+			snapshots: {},
+		}
 	}
 
 	const saved = loadBoard()
@@ -172,10 +270,14 @@
 	let deliverables: Deliverable[] = $state(saved?.deliverables ?? sampleDL.deliverables)
 	let links: OpportunityDeliverableLink[] = $state(saved?.links ?? sampleDL.links)
 	let customHorizons: string[] = $state(saved?.customHorizons ?? [])
-	let meetingData: MeetingData = $state(savedMeetings)
+	let meetingData: MeetingData = $state(
+		savedMeetings.records.length > 0 ? savedMeetings : createSampleMeetingData(),
+	)
+	let briefingSnapshot: BoardSnapshot | null = $state(saved?.briefingSnapshot ?? null)
 	let selectedId: string | null = $state(null)
 	let selectedDeliverableId: string | null = $state(null)
-	let view: ViewMode = $state('opportunities')
+	let view: ViewMode = $state('briefing')
+	let pipelineGrouping: 'stage' | 'horizon' = $state('stage')
 	let showHelp = $state(false)
 	let showQuickAdd = $state(false)
 
@@ -211,7 +313,7 @@
 	}
 
 	$effect(() => {
-		saveBoard({ opportunities, deliverables, links, customHorizons })
+		saveBoard({ opportunities, deliverables, links, customHorizons, briefingSnapshot: briefingSnapshot ?? undefined })
 	})
 
 	$effect(() => {
@@ -230,7 +332,7 @@
 	}
 
 	function navigateList(direction: 1 | -1) {
-		if (view === 'opportunities') {
+		if (view === 'pipeline') {
 			const ids = listViewOrderedIds
 			if (ids.length === 0) return
 			if (!selectedId || !ids.includes(selectedId)) {
@@ -267,7 +369,7 @@
 	}
 
 	function advanceSelected() {
-		if (view !== 'opportunities' || !selectedId) return
+		if (view !== 'pipeline' || !selectedId) return
 		const opp = opportunities.find(o => o.id === selectedId)
 		if (!opp || opp.discontinuedAt) return
 		const next = nextStage(opp.stage)
@@ -278,7 +380,7 @@
 	}
 
 	function exitSelected() {
-		if (view !== 'opportunities' || !selectedId) return
+		if (view !== 'pipeline' || !selectedId) return
 		const opp = opportunities.find(o => o.id === selectedId)
 		if (!opp || opp.discontinuedAt) return
 		// Open detail pane first if not open, the exit menu is there
@@ -289,7 +391,7 @@
 		window.dispatchEvent(new CustomEvent('upstream:open-exit-menu'))
 	}
 
-	const VIEW_KEYS: Record<string, ViewMode> = { '1': 'opportunities', '2': 'deliverables', '3': 'roadmap', '4': 'meetings' }
+	const VIEW_KEYS: Record<string, ViewMode> = { '1': 'briefing', '2': 'pipeline', '3': 'deliverables', '4': 'meetings' }
 
 	$effect(() => {
 		function onKeydown(e: KeyboardEvent) {
@@ -327,6 +429,13 @@
 				return
 			}
 
+			// Tab toggles pipeline grouping when on pipeline view
+			if (e.key === 'Tab' && view === 'pipeline' && !e.ctrlKey && !e.metaKey) {
+				e.preventDefault()
+				pipelineGrouping = pipelineGrouping === 'stage' ? 'horizon' : 'stage'
+				return
+			}
+
 			// List navigation: j/k or arrows
 			if (e.key === 'j' || e.key === 'ArrowDown') {
 				e.preventDefault()
@@ -342,9 +451,7 @@
 			// Open detail / confirm selection
 			if (e.key === 'Enter') {
 				e.preventDefault()
-				if (view === 'opportunities' && selectedId) {
-					// Detail pane is already shown when selectedId is set
-					// Focus the title for immediate editing
+				if (view === 'pipeline' && selectedId) {
 					requestAnimationFrame(() => focusEditTitle())
 				} else if (view === 'deliverables' && selectedDeliverableId) {
 					requestAnimationFrame(() => focusEditTitle())
@@ -369,8 +476,7 @@
 			// Edit title — opens detail pane if not already open
 			if (e.key === 'e') {
 				e.preventDefault()
-				if (view === 'opportunities' && selectedId) {
-					// Pane is already open (selectedId triggers it), just focus
+				if (view === 'pipeline' && selectedId) {
 					requestAnimationFrame(() => focusEditTitle())
 				} else if (view === 'deliverables' && selectedDeliverableId) {
 					requestAnimationFrame(() => focusEditTitle())
@@ -488,7 +594,7 @@
 		deliverables = freshDL.deliverables
 		links = freshDL.links
 		customHorizons = []
-		meetingData = { lastDiscussed: {}, records: [], snapshots: {} }
+		meetingData = createSampleMeetingData()
 		selectedId = null
 		selectedDeliverableId = null
 	}
@@ -573,9 +679,15 @@
 	<header class="app-header">
 		<h1>Upstream</h1>
 		<nav class="view-tabs">
-			<button class="view-tab" class:active={view === 'opportunities'} onclick={() => switchView('opportunities')}>Opportunities</button>
+			<button class="view-tab" class:active={view === 'briefing'} onclick={() => switchView('briefing')}>Briefing</button>
+			<button class="view-tab" class:active={view === 'pipeline'} onclick={() => switchView('pipeline')}>Pipeline</button>
+			{#if view === 'pipeline'}
+				<span class="grouping-toggle">
+					<button class="grouping-btn" class:active={pipelineGrouping === 'stage'} onclick={() => pipelineGrouping = 'stage'}>Stage</button>
+					<button class="grouping-btn" class:active={pipelineGrouping === 'horizon'} onclick={() => pipelineGrouping = 'horizon'}>Horizon</button>
+				</span>
+			{/if}
 			<button class="view-tab" class:active={view === 'deliverables'} onclick={() => switchView('deliverables')}>Deliverables</button>
-			<button class="view-tab" class:active={view === 'roadmap'} onclick={() => switchView('roadmap')}>Roadmap</button>
 			<button class="view-tab" class:active={view === 'meetings'} onclick={() => switchView('meetings')}>Meetings</button>
 		</nav>
 		<div class="header-actions">
@@ -586,10 +698,33 @@
 			<button class="help-btn" onclick={() => showHelp = true} title="Keyboard shortcuts (?)">?</button>
 		</div>
 	</header>
-	{#if view === 'opportunities'}
+	{#if view === 'briefing'}
 	<div class="split-layout">
 		<div class="split-list">
-			<ListView {opportunities} {selectedId} {links} allHorizons={allHorizons()} onSelect={selectOpportunity} onAdvance={moveOpportunity} onAdd={addOpportunity} compact={!!selectedId} bind:orderedIds={listViewOrderedIds} />
+			<BriefingView
+				{opportunities} {deliverables} {links}
+				snapshot={briefingSnapshot}
+				{meetingData}
+				onMarkSeen={(snap) => { briefingSnapshot = snap }}
+				onSelectOpportunity={(id) => { selectedDeliverableId = null; selectedId = selectedId === id ? null : id }}
+				onSelectDeliverable={(id) => { selectedId = null; selectedDeliverableId = selectedDeliverableId === id ? null : id }}
+				onParkOpportunity={(id, parkUntil) => {
+					const opp = opportunities.find(o => o.id === id)
+					if (opp) {
+						pushUndo(`Park: ${opp.title}`)
+						const reason = parkUntil
+							? `Parked until ${parkUntil}`
+							: `Parked: no activity for ${Math.floor((Date.now() - opp.stageEnteredAt) / 86_400_000)}d`
+						updateOpportunity({
+							...opp,
+							exitState: 'parked',
+							exitReason: reason,
+							parkUntil,
+							discontinuedAt: Date.now(),
+						})
+					}
+				}}
+			/>
 		</div>
 		{#if selectedOpportunity}
 			<div class="split-detail">
@@ -605,6 +740,68 @@
 					onLinkDeliverable={linkDeliverable}
 					onUnlinkDeliverable={unlinkDeliverable}
 					onUpdateLinkCoverage={updateLinkCoverage}
+				/>
+			</div>
+		{:else if selectedDeliverable}
+			<div class="split-detail">
+				<DeliverableDetailPane
+					deliverable={selectedDeliverable}
+					{links}
+					{opportunities}
+					onUpdate={updateDeliverable}
+					onRemove={removeDeliverable}
+					onLink={linkDeliverable}
+					onUnlink={unlinkDeliverable}
+					onUpdateCoverage={updateLinkCoverage}
+					onClose={() => (selectedDeliverableId = null)}
+					onSelectOpportunity={(id) => { selectedDeliverableId = null; selectedId = id }}
+				/>
+			</div>
+		{/if}
+	</div>
+	{:else if view === 'pipeline'}
+	<div class="split-layout">
+		<div class="split-list">
+			<PipelineView {opportunities} {deliverables} {links} {selectedId}
+				allHorizons={allHorizons()} onSelect={selectOpportunity}
+				onSelectDeliverable={(id) => { selectedId = null; selectedDeliverableId = selectedDeliverableId === id ? null : id }}
+				onAdvance={moveOpportunity} onAdd={addOpportunity} compact={!!selectedId}
+				bind:orderedIds={listViewOrderedIds}
+				grouping={pipelineGrouping} {customHorizons}
+				onUpdateOpportunity={updateOpportunity}
+				onAddHorizon={(h) => { if (!customHorizons.includes(h)) customHorizons = [...customHorizons, h] }}
+				onRemoveHorizon={(h) => { customHorizons = customHorizons.filter((c) => c !== h) }}
+			/>
+		</div>
+		{#if selectedOpportunity}
+			<div class="split-detail">
+				<DetailPane
+					opportunity={selectedOpportunity}
+					{deliverables}
+					{links}
+					allHorizons={allHorizons()}
+					onUpdate={updateOpportunity}
+					onClose={() => (selectedId = null)}
+					onAddDeliverable={addDeliverable}
+					onUpdateDeliverable={updateDeliverable}
+					onLinkDeliverable={linkDeliverable}
+					onUnlinkDeliverable={unlinkDeliverable}
+					onUpdateLinkCoverage={updateLinkCoverage}
+				/>
+			</div>
+		{:else if selectedDeliverable}
+			<div class="split-detail">
+				<DeliverableDetailPane
+					deliverable={selectedDeliverable}
+					{links}
+					{opportunities}
+					onUpdate={updateDeliverable}
+					onRemove={removeDeliverable}
+					onLink={linkDeliverable}
+					onUnlink={unlinkDeliverable}
+					onUpdateCoverage={updateLinkCoverage}
+					onClose={() => (selectedDeliverableId = null)}
+					onSelectOpportunity={(id) => { selectedDeliverableId = null; selectedId = id }}
 				/>
 			</div>
 		{/if}
@@ -657,38 +854,6 @@
 					onUpdateCoverage={updateLinkCoverage}
 					onClose={() => (selectedDeliverableId = null)}
 					onSelectOpportunity={(id) => { selectedDeliverableId = null; selectedId = id }}
-				/>
-			</div>
-		{/if}
-	</div>
-	{:else if view === 'roadmap'}
-	<div class="split-layout">
-		<div class="split-list">
-			<RoadmapView
-				{opportunities}
-				{deliverables}
-				{links}
-				{customHorizons}
-				onSelect={(id) => { selectedId = selectedId === id ? null : id }}
-				onUpdateOpportunity={updateOpportunity}
-				onAddHorizon={(h) => { if (!customHorizons.includes(h)) customHorizons = [...customHorizons, h] }}
-				onRemoveHorizon={(h) => { customHorizons = customHorizons.filter((c) => c !== h) }}
-			/>
-		</div>
-		{#if selectedOpportunity}
-			<div class="split-detail">
-				<DetailPane
-					opportunity={selectedOpportunity}
-					{deliverables}
-					{links}
-					allHorizons={allHorizons()}
-					onUpdate={updateOpportunity}
-					onClose={() => (selectedId = null)}
-					onAddDeliverable={addDeliverable}
-					onUpdateDeliverable={updateDeliverable}
-					onLinkDeliverable={linkDeliverable}
-					onUnlinkDeliverable={unlinkDeliverable}
-					onUpdateLinkCoverage={updateLinkCoverage}
 				/>
 			</div>
 		{/if}
@@ -818,6 +983,37 @@
 		color: var(--c-text);
 		font-weight: 600;
 		background: var(--c-hover);
+	}
+
+	.grouping-toggle {
+		display: inline-flex;
+		gap: 1px;
+		background: var(--c-border-soft);
+		border-radius: var(--radius-sm);
+		padding: 1px;
+		align-self: center;
+	}
+
+	.grouping-btn {
+		background: none;
+		border: none;
+		font: inherit;
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+		cursor: pointer;
+		padding: 2px var(--sp-xs);
+		border-radius: calc(var(--radius-sm) - 1px);
+		transition: background var(--tr-fast), color var(--tr-fast);
+	}
+
+	.grouping-btn:hover {
+		color: var(--c-text);
+	}
+
+	.grouping-btn.active {
+		background: var(--c-bg);
+		color: var(--c-text);
+		font-weight: var(--fw-medium);
 	}
 
 	.reset-btn {
