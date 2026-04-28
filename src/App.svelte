@@ -9,7 +9,6 @@
 	import QuickAdd from './components/QuickAdd.svelte'
 	import {
 		type Opportunity,
-		type Stage,
 		type Deliverable,
 		type OpportunityDeliverableLink,
 		createOpportunity,
@@ -20,6 +19,7 @@
 	import { saveBoard, loadBoard, clearBoard, saveMeetingData, loadMeetingData, type BoardData } from './lib/store'
 	import type { MeetingData } from './lib/meeting'
 	import type { BoardSnapshot } from './lib/briefing'
+	import { opportunitiesToCsv, csvToOpportunities } from './lib/csv'
 
 	type ViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'meetings'
 
@@ -631,21 +631,7 @@
 	}
 
 	function exportCSV() {
-		const header = 'Title,Stage,Origin,Horizon,Desirability,Feasibility,Viability,Created'
-		const rows = opportunities.map((o) => {
-			const scores = o.signals[o.stage]
-			return [
-				csvEscape(o.title),
-				o.stage,
-				o.origin ?? '',
-				o.horizon,
-				scores.desirability.score,
-				scores.feasibility.score,
-				scores.viability.score,
-				new Date(o.createdAt).toISOString().slice(0, 10),
-			].join(',')
-		})
-		const csv = [header, ...rows].join('\n')
+		const csv = opportunitiesToCsv(opportunities)
 		const blob = new Blob([csv], { type: 'text/csv' })
 		const url = URL.createObjectURL(blob)
 		const a = document.createElement('a')
@@ -653,13 +639,6 @@
 		a.download = `upstream-${new Date().toISOString().slice(0, 10)}.csv`
 		a.click()
 		URL.revokeObjectURL(url)
-	}
-
-	function csvEscape(s: string): string {
-		if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-			return `"${s.replace(/"/g, '""')}"`
-		}
-		return s
 	}
 
 	function importJSON() {
@@ -685,6 +664,39 @@
 					selectedDeliverableId = null
 				} catch {
 					alert('Could not parse file — expected valid JSON.')
+				}
+			}
+			reader.readAsText(file)
+		}
+		input.click()
+	}
+
+	function importCSV() {
+		const input = document.createElement('input')
+		input.type = 'file'
+		input.accept = '.csv'
+		input.onchange = () => {
+			const file = input.files?.[0]
+			if (!file) return
+			const reader = new FileReader()
+			reader.onload = () => {
+				try {
+					const text = reader.result as string
+					const { imported, skipped } = csvToOpportunities(text)
+
+					if (imported.length === 0) {
+						const reason = skipped.length > 0 ? skipped[0] : 'No valid rows found'
+						alert(reason)
+						return
+					}
+
+					pushUndo('Import CSV')
+					opportunities = [...opportunities, ...imported]
+					const msg = `Imported ${imported.length} opportunity${imported.length === 1 ? '' : 'ies'}.`
+					const skipMsg = skipped.length > 0 ? `\nSkipped ${skipped.length}: ${skipped.join(', ')}` : ''
+					alert(msg + skipMsg)
+				} catch {
+					alert('Could not parse CSV file.')
 				}
 			}
 			reader.readAsText(file)
@@ -738,9 +750,10 @@
 			<button class="view-tab" class:active={view === 'meetings'} onclick={() => switchView('meetings')}>Meetings</button>
 		</nav>
 		<div class="header-actions">
-			<button class="action-btn" onclick={importJSON} title="Import board from JSON file">Import</button>
-			<button class="action-btn" onclick={exportJSON} title="Export full board as JSON">JSON</button>
-			<button class="action-btn" onclick={exportCSV} title="Export opportunities as CSV">CSV</button>
+			<button class="action-btn" onclick={importJSON} title="Import board from JSON file">Import JSON</button>
+			<button class="action-btn" onclick={importCSV} title="Import opportunities from CSV file">Import CSV</button>
+			<button class="action-btn" onclick={exportJSON} title="Export full board as JSON">Export JSON</button>
+			<button class="action-btn" onclick={exportCSV} title="Export opportunities as CSV">Export CSV</button>
 			<button class="reset-btn" onclick={resetBoard} title="Clears all data and reloads sample dataset">Reset</button>
 			<button class="help-btn" onclick={() => showHelp = true} title="Keyboard shortcuts (?)">?</button>
 		</div>
