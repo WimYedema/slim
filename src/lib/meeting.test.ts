@@ -351,4 +351,300 @@ describe('completeMeeting', () => {
 		expect(result.lastDiscussed['Old']).toBeDefined()
 		expect(result.lastDiscussed['New']).toBeDefined()
 	})
+
+	it('scoped: only snapshots discussed entities', () => {
+		const opp1 = makeOpp({
+			id: 'o1',
+			title: 'Discussed',
+			people: [{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] }],
+		})
+		const opp2 = makeOpp({
+			id: 'o2',
+			title: 'Skipped',
+			people: [{ id: 'p2', name: 'Alice', role: 'stakeholder', perspectives: [] }],
+		})
+		const agenda = buildMeetingAgenda('Alice', [opp1, opp2], [], [])
+		const data = emptyMeetingData()
+
+		const discussed = new Set(['o1'])
+		const result = completeMeeting('Alice', agenda, data, [opp1, opp2], [], [], discussed)
+
+		expect(result.snapshots['Alice'].opportunities['o1']).toBeDefined()
+		expect(result.snapshots['Alice'].opportunities['o2']).toBeUndefined()
+	})
+
+	it('scoped: preserves existing snapshots for undiscussed entities', () => {
+		const opp1 = makeOpp({
+			id: 'o1',
+			title: 'Will discuss',
+			stage: 'sketch',
+			people: [{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] }],
+		})
+		const opp2 = makeOpp({
+			id: 'o2',
+			title: 'Will skip',
+			stage: 'explore',
+			people: [{ id: 'p2', name: 'Alice', role: 'stakeholder', perspectives: [] }],
+		})
+
+		// First meeting: full stamp
+		const agenda1 = buildMeetingAgenda('Alice', [opp1, opp2], [], [])
+		const data = emptyMeetingData()
+		const after1 = completeMeeting('Alice', agenda1, data, [opp1, opp2], [], [])
+		expect(after1.snapshots['Alice'].opportunities['o2'].stage).toBe('explore')
+
+		// opp2 changes stage — but we only discuss opp1
+		const opp2changed = { ...opp2, stage: 'sketch' as const }
+		const agenda2 = buildMeetingAgenda('Alice', [opp1, opp2changed], [], [])
+		const after2 = completeMeeting(
+			'Alice', agenda2, after1, [opp1, opp2changed], [], [], new Set(['o1']),
+		)
+
+		// opp1 was updated, opp2 keeps old snapshot
+		expect(after2.snapshots['Alice'].opportunities['o1']).toBeDefined()
+		expect(after2.snapshots['Alice'].opportunities['o2'].stage).toBe('explore')
+	})
+
+	it('scoped: summary only counts in-scope items', () => {
+		const opp1 = makeOpp({
+			id: 'o1',
+			stage: 'explore',
+			people: [
+				{
+					id: 'p1',
+					name: 'Alice',
+					role: 'expert',
+					perspectives: [
+						{ perspective: 'feasibility', stage: 'explore', assignedAt: Date.now() },
+					],
+				},
+			],
+			commitments: [
+				{ id: 'c1', to: 'Alice', milestone: 'sketch', by: Date.now() + 86_400_000 },
+			],
+		})
+		const opp2 = makeOpp({
+			id: 'o2',
+			stage: 'explore',
+			people: [
+				{
+					id: 'p2',
+					name: 'Alice',
+					role: 'expert',
+					perspectives: [
+						{ perspective: 'desirability', stage: 'explore', assignedAt: Date.now() },
+					],
+				},
+			],
+		})
+		const agenda = buildMeetingAgenda('Alice', [opp1, opp2], [], [])
+		// Only discuss opp1
+		const result = completeMeeting(
+			'Alice', agenda, emptyMeetingData(), [opp1, opp2], [], [], new Set(['o1']),
+		)
+		const summary = result.records[0].summary.join(', ')
+		expect(summary).toContain('1 cells to score')
+		expect(summary).toContain('1 commitments reviewed')
+	})
+
+	it('scoped: empty discussedEntityIds yields "No items" summary', () => {
+		const opp = makeOpp({
+			id: 'o1',
+			people: [{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] }],
+		})
+		const agenda = buildMeetingAgenda('Alice', [opp], [], [])
+		const result = completeMeeting(
+			'Alice', agenda, emptyMeetingData(), [opp], [], [], new Set<string>(),
+		)
+		expect(result.records[0].summary).toEqual(['No items'])
+	})
+})
+
+// ── Enriched diff detection via buildMeetingAgenda ──
+
+describe('buildMeetingAgenda — snapshot diff detection', () => {
+	function makeMeetingDataWithSnapshot(
+		personName: string,
+		opps: Opportunity[],
+		dels: Deliverable[],
+		links: OpportunityDeliverableLink[],
+	): { data: MeetingData; since: number } {
+		const since = Date.now() - 86_400_000
+		const snap = buildPersonSnapshot(personName, opps, dels, links)
+		return {
+			data: {
+				lastDiscussed: { [personName]: since },
+				records: [],
+				snapshots: { [personName]: snap },
+			},
+			since,
+		}
+	}
+
+	/** Create an opp with createdAt safely before "since" so it doesn't hit the "New opportunity" branch */
+	function oldOpp(overrides: Partial<Opportunity> = {}): Opportunity {
+		return makeOpp({ createdAt: Date.now() - 5 * 86_400_000, ...overrides })
+	}
+
+	it('detects opportunity title rename', () => {
+		const opp = oldOpp({
+			id: 'o1',
+			title: 'Old Title',
+			people: [{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] }],
+		})
+		const { data, since } = makeMeetingDataWithSnapshot('Alice', [opp], [], [])
+
+		const changed = { ...opp, title: 'New Title', updatedAt: Date.now() }
+		const agenda = buildMeetingAgenda('Alice', [changed], [], [], since, data.snapshots['Alice'])
+		const descs = agenda.changes.map((c) => c.description)
+		expect(descs).toContainEqual(expect.stringContaining('Renamed'))
+	})
+
+	it('detects opportunity stage change', () => {
+		const opp = oldOpp({
+			id: 'o1',
+			stage: 'explore',
+			people: [{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] }],
+		})
+		const { data, since } = makeMeetingDataWithSnapshot('Alice', [opp], [], [])
+
+		const changed = { ...opp, stage: 'sketch' as const, updatedAt: Date.now() }
+		const agenda = buildMeetingAgenda('Alice', [changed], [], [], since, data.snapshots['Alice'])
+		const descs = agenda.changes.map((c) => c.description)
+		expect(descs).toContainEqual(expect.stringContaining('Stage'))
+	})
+
+	it('detects opportunity horizon change', () => {
+		const opp = oldOpp({
+			id: 'o1',
+			horizon: '2025Q3',
+			people: [{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] }],
+		})
+		const { data, since } = makeMeetingDataWithSnapshot('Alice', [opp], [], [])
+
+		const changed = { ...opp, horizon: '2025Q4', updatedAt: Date.now() }
+		const agenda = buildMeetingAgenda('Alice', [changed], [], [], since, data.snapshots['Alice'])
+		const descs = agenda.changes.map((c) => c.description)
+		expect(descs).toContainEqual(expect.stringContaining('Horizon'))
+	})
+
+	it('detects opportunity people count change', () => {
+		const opp = oldOpp({
+			id: 'o1',
+			people: [{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] }],
+		})
+		const { data, since } = makeMeetingDataWithSnapshot('Alice', [opp], [], [])
+
+		const changed = {
+			...opp,
+			people: [
+				...opp.people,
+				{ id: 'p2', name: 'Bob', role: 'stakeholder' as const, perspectives: [] },
+			],
+			updatedAt: Date.now(),
+		}
+		const agenda = buildMeetingAgenda('Alice', [changed], [], [], since, data.snapshots['Alice'])
+		const descs = agenda.changes.map((c) => c.description)
+		expect(descs).toContainEqual(expect.stringContaining('People'))
+	})
+
+	it('detects opportunity score change', () => {
+		let opp = oldOpp({
+			id: 'o1',
+			stage: 'explore',
+			people: [{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] }],
+		})
+		opp = setStageScores(opp, 'explore', 'positive', 'none', 'none')
+		const { data, since } = makeMeetingDataWithSnapshot('Alice', [opp], [], [])
+
+		const changed = setStageScores(opp, 'explore', 'negative', 'none', 'none')
+		;(changed as Opportunity & { updatedAt: number }).updatedAt = Date.now()
+		const agenda = buildMeetingAgenda('Alice', [changed], [], [], since, data.snapshots['Alice'])
+		const descs = agenda.changes.map((c) => c.description)
+		expect(descs).toContainEqual(expect.stringContaining('desirability@explore'))
+	})
+
+	it('detects deliverable size change', () => {
+		const opp = makeOpp({
+			id: 'o1',
+			people: [{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] }],
+		})
+		const del = createDeliverable('Task')
+		del.size = 'S'
+		del.extraContributors = ['Alice']
+		const links: OpportunityDeliverableLink[] = [
+			{ opportunityId: 'o1', deliverableId: del.id, coverage: 'full' },
+		]
+		const { data, since } = makeMeetingDataWithSnapshot('Alice', [opp], [del], links)
+
+		const changedDel = { ...del, size: 'L' as const, updatedAt: Date.now() }
+		const agenda = buildMeetingAgenda(
+			'Alice', [opp], [changedDel], links, since, data.snapshots['Alice'],
+		)
+		const descs = agenda.changes.filter((c) => c.entityType === 'deliverable').map((c) => c.description)
+		expect(descs).toContainEqual(expect.stringContaining('Size'))
+	})
+
+	it('detects deliverable certainty change', () => {
+		const opp = makeOpp({
+			id: 'o1',
+			people: [{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] }],
+		})
+		const del = createDeliverable('Task')
+		del.certainty = 2
+		del.extraContributors = ['Alice']
+		const links: OpportunityDeliverableLink[] = [
+			{ opportunityId: 'o1', deliverableId: del.id, coverage: 'full' },
+		]
+		const { data, since } = makeMeetingDataWithSnapshot('Alice', [opp], [del], links)
+
+		const changedDel = { ...del, certainty: 4 as const, updatedAt: Date.now() }
+		const agenda = buildMeetingAgenda(
+			'Alice', [opp], [changedDel], links, since, data.snapshots['Alice'],
+		)
+		const descs = agenda.changes.filter((c) => c.entityType === 'deliverable').map((c) => c.description)
+		expect(descs).toContainEqual(expect.stringContaining('Certainty'))
+	})
+
+	it('shows "New to agenda" for entity without prior snapshot', () => {
+		const since = Date.now() - 86_400_000
+		const opp = makeOpp({
+			id: 'o1',
+			title: 'Brand New',
+			createdAt: since - 2 * 86_400_000, // Not new by createdAt
+			updatedAt: Date.now(), // But updated recently
+			people: [{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] }],
+		})
+		// Snapshot exists but does NOT contain o1
+		const snapshot = { opportunities: {}, deliverables: {} }
+		const agenda = buildMeetingAgenda('Alice', [opp], [], [], since, snapshot)
+		const descs = agenda.changes.map((c) => c.description)
+		expect(descs).toContain('New to agenda')
+	})
+
+	it('shows "Description or notes edited" when updatedAt changed but no diff fields changed', () => {
+		const opp = oldOpp({
+			id: 'o1',
+			people: [{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] }],
+		})
+		const { data, since } = makeMeetingDataWithSnapshot('Alice', [opp], [], [])
+
+		// Same fields, but updatedAt is newer — triggers changedByTime
+		const same = { ...opp, updatedAt: Date.now() }
+		const agenda = buildMeetingAgenda('Alice', [same], [], [], since, data.snapshots['Alice'])
+		const descs = agenda.changes.map((c) => c.description)
+		expect(descs).toContain('Description or notes edited')
+	})
+
+	it('no changes surfaced when nothing changed', () => {
+		const opp = makeOpp({
+			id: 'o1',
+			updatedAt: Date.now() - 2 * 86_400_000, // older than since
+			people: [{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] }],
+		})
+		const { data, since } = makeMeetingDataWithSnapshot('Alice', [opp], [], [])
+
+		const agenda = buildMeetingAgenda('Alice', [opp], [], [], since, data.snapshots['Alice'])
+		expect(agenda.changes).toHaveLength(0)
+	})
 })

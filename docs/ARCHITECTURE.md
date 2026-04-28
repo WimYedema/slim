@@ -16,7 +16,7 @@
 ```sh
 npm install          # install dependencies
 npm run dev          # start Vite dev server (or upstream:dev for upstream-specific entry)
-npm run build        # production build → dist/upstream.html (~220 KB)
+npm run build        # production build → dist/index.html (single file, ~320 KB)
 npm run check        # svelte-check (type checking)
 npm run lint         # biome check
 npm run test         # vitest run
@@ -24,12 +24,12 @@ npm run test         # vitest run
 
 ### Entry point
 
-`upstream.html` is the HTML entry point. It contains:
+`index.html` is the HTML entry point. It contains:
 - All CSS design tokens in `:root`
 - Google Fonts link (Lora)
 - The `#app` mount point
 
-`src/upstream/main.ts` mounts `App.svelte` into `#app`.
+`src/main.ts` mounts `App.svelte` into `#app`.
 
 ### Single-file output
 
@@ -134,17 +134,21 @@ src/
 ├── main.ts                          # Entry point, mounts App
 ├── App.svelte                       # Root component, all state, undo, persistence
 ├── lib/
-│   ├── types.ts                     # All data types, constants, pure functions
+│   ├── types.ts                     # Data types, constants, factory functions
+│   ├── queries.ts                   # Pure query/computation functions (26 functions)
 │   ├── store.ts                     # localStorage read/write (BoardData, MeetingData)
 │   ├── meeting.ts                   # Meeting agenda computation, person collection, change detection
-│   └── briefing.ts                  # Board-wide change detection, importance tiers (planned)
+│   └── briefing.ts                  # Board-wide change detection, importance tiers, grouping
 └── components/
-    ├── BriefingView.svelte          # News feed: board-wide changes, urgency-ranked (planned)
+    ├── BriefingView.svelte          # News feed: board-wide changes, 5 importance tiers
     ├── PipelineView.svelte          # Opportunities by stage or horizon, nested deliverables, zoom
+    ├── PipelineFunnel.svelte        # Proportional stage funnel SVG, hover/click filtering
+    ├── OpportunityRow.svelte        # Single opportunity row with density modes
     ├── DetailPane.svelte            # Opportunity detail: signal grid, stage nav, exit, commitments
     ├── DeliverablesView.svelte      # Execution matrix: rows, columns, contributor columns, zoom
     ├── DeliverableDetailPane.svelte # Deliverable detail: size, certainty, links, people
-    ├── MeetingView.svelte           # Per-person agenda: changes, commitments, awaiting input
+    ├── MeetingView.svelte           # Per-person agenda: entity-grouped changes, scoped stamp
+    ├── ScoreToggle.svelte           # Reusable score radiogroup with keyboard nav
     ├── KeyboardHelp.svelte          # Shortcut reference overlay (? key)
     └── QuickAdd.svelte              # Quick-add dialog (n key)
 ```
@@ -164,7 +168,7 @@ The original PoC had four views: Opportunities (ListView), Deliverables, Roadmap
 
 These exist in the codebase but are not currently reachable from the UI:
 
-- `ListView.svelte` — original opportunities triage list (to be replaced by PipelineView)
+- `ListView.svelte` — original opportunities triage list (replaced by PipelineView)
 - `RoadmapView.svelte` — original horizon-grouped table (folded into PipelineView)
 - `CardDetail.svelte` — earlier card detail experiment
 - `CubeView.svelte` — 3D portfolio cube visualization
@@ -177,10 +181,11 @@ These exist in the codebase but are not currently reachable from the UI:
 
 | Module | Purpose |
 |---|---|
-| `types.ts` | Data shapes (`Opportunity`, `Deliverable`, `OpportunityDeliverableLink`, `CellSignal`, etc.), constants (`STAGES`, `PERSPECTIVES`, `CELL_QUESTIONS`, `ORIGIN_TYPES`, `EXIT_STATES`), pure query functions (`stageConsent`, `daysInStage`, `agingLevel`, `commitmentUrgency`, `perspectiveWeight`, `ternaryPosition`) |
+| `types.ts` | Data shapes (`Opportunity`, `Deliverable`, `OpportunityDeliverableLink`, `CellSignal`, etc.), constants (`STAGES`, `PERSPECTIVES`, `CELL_QUESTIONS`, `ORIGIN_TYPES`, `EXIT_STATES`), factory functions (`createOpportunity`, `createDeliverable`). Re-exports all query functions from `queries.ts` for backward compatibility. |
+| `queries.ts` | Pure query/computation functions (26 functions). Stage navigation (`stageIndex`, `nextStage`, `prevStage`), horizon helpers (`defaultHorizon`, `currentQuarter`, `isFutureHorizon`), score helpers (`nextScore`, `cellHasSignal`, `scoreClass`), aging (`daysInStage`, `agingLevel`, `pacingSummary`), display (`originLabel`, `stageLabel`, `formatDaysLeft`), link queries (`linksForOpportunity`, `linksForDeliverable`), commitments (`commitmentUrgency`), consent (`currentStageScores`, `perspectiveWeight`, `consentStatus`, `stageConsent`), people (`perspectiveOwner`, `perspectiveAssignment`, `inheritedPeople`), visualization (`ternaryPosition`). |
 | `store.ts` | localStorage wrappers: `saveBoard`/`loadBoard`/`clearBoard`, `saveMeetingData`/`loadMeetingData`. Includes backfill logic for schema migrations. |
-| `meeting.ts` | `collectPeople` (aggregate all people across opportunities/deliverables), `buildMeetingAgenda` (diff current state vs. snapshot), `personUrgency` (compute urgency for sidebar sorting), `completeMeeting` (stamp snapshot) |
-| `briefing.ts` | (Planned) Board-wide change detection, importance tier classification, seen/unseen state management, time-windowed filtering |
+| `meeting.ts` | `collectPeople` (aggregate all people across opportunities/deliverables), `buildMeetingAgenda` (diff current state vs. snapshot), `personUrgency` (compute urgency for sidebar sorting), `completeMeeting` (stamp snapshot, supports scoped stamp for partial meetings) |
+| `briefing.ts` | Board-wide change detection (`snapshotBoard`, `diffBoard`), importance tier classification, deduplication (`deduplicateItems`), grouping (`groupItems`), time-windowed filtering |
 
 ---
 
@@ -188,7 +193,7 @@ These exist in the codebase but are not currently reachable from the UI:
 
 ### Design tokens
 
-All visual values are CSS custom properties defined in `:root` in `upstream.html`:
+All visual values are CSS custom properties defined in `:root` in `index.html`:
 
 - `--c-*` — colors (background, surface, accent, semantic colors)
 - `--fs-*` — font sizes

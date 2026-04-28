@@ -399,7 +399,7 @@ Clicking a row opens the standard opportunity detail pane on the right, with the
 
 ---
 
-## 7. The Briefing (planned)
+## 7. The Briefing
 
 ### 7.1 Understanding the Briefing
 
@@ -600,5 +600,5 @@ Features that have been built beyond the original spec:
 | JSON import | Restore a board from a backup file |
 | Quick-add dialog | Press n from any view to create opportunity or deliverable |
 | Roadmap risk flags | Visual risk indicators per row (objections, aging, unscored, missing deliverables, maturity mismatch) |
-| ListView roadmap warnings | Mismatch and missing-deliverable flags visible in the main triage list |
-| Horizon labels | "now" and "next" computed labels in the list view based on horizon ordering |
+| Pipeline warnings | Mismatch and missing-deliverable flags visible in the pipeline view |
+| Horizon labels | "now" and "next" computed labels in the pipeline view based on horizon ordering |

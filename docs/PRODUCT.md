@@ -542,7 +542,7 @@ A single-page app where:
 | Triage list with smart sort + nudges | ✅ |
 | Signal grid (4 stages × 3 perspectives) with consent gating | ✅ |
 | Coverage matrix with contributor columns | ✅ |
-| Roadmap with horizon grouping + size breakdown | ✅ (to be folded into Pipeline as grouping mode) |
+| Roadmap with horizon grouping + size breakdown | ✅ (folded into Pipeline as grouping mode) |
 | Meeting prep with snapshot-based change detection | ✅ |
 | People links, delegation, commitments | ✅ |
 | Persistence (localStorage) | ✅ |

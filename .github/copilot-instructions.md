@@ -25,7 +25,7 @@ Each opportunity has a 4x3 matrix: stages (explore/sketch/validate/decompose) x 
 
 Stage advancement requires all three perspectives scored (no `none`) and no objections (no `negative`). `uncertain` counts as consent.
 
-### Key types (all in `src/upstream/lib/types.ts`)
+### Key types (all in `src/lib/types.ts`)
 
 | Type | Purpose |
 |---|---|
@@ -65,34 +65,37 @@ No runtime dependencies. No P2P, no server, no database.
 
 ## Architecture
 
-- `src/upstream/App.svelte` — Root component, all state (`$state`), undo stack, persistence, keyboard handling
-- `src/upstream/components/` — Svelte components (UI layer)
-- `src/upstream/lib/` — Pure TypeScript modules (types, storage, meeting logic)
-- Entry point: `upstream.html` → `src/upstream/main.ts` → `App.svelte`
+- `src/App.svelte` — Root component, all state (`$state`), undo stack, persistence, keyboard handling
+- `src/components/` — Svelte components (UI layer)
+- `src/lib/` — Pure TypeScript modules (types, storage, meeting logic, queries)
+- Entry point: `index.html` → `src/main.ts` → `App.svelte`
 - All state lives as `$state` in `App.svelte` — no external state library, no context API, no stores
 - Components receive state via props and emit changes via callback props or by mutating bound props
-- Persistence: localStorage (`upstream-board`, `upstream-meetings`), auto-saved in `$effect`
+- Persistence: localStorage (`upstream-board`, `upstream-meetings`, `upstream-briefing`), auto-saved in `$effect`
 
 ### Module responsibilities
 
 | Module | Purpose | Key exports |
 |---|---|---|
-| `types.ts` | All data types, constants, pure query functions | `Opportunity`, `Deliverable`, `CellSignal`, `stageConsent`, `daysInStage`, `agingLevel`, `commitmentUrgency`, `createOpportunity`, `createDeliverable` |
+| `types.ts` | Data types, constants, factory functions; re-exports query functions from `queries.ts` | `Opportunity`, `Deliverable`, `CellSignal`, `createOpportunity`, `createDeliverable`, `STAGES`, `PERSPECTIVES` |
+| `queries.ts` | Pure query/computation functions (26 functions) | `stageConsent`, `daysInStage`, `agingLevel`, `commitmentUrgency`, `linksForOpportunity`, `linksForDeliverable`, `perspectiveWeight`, `ternaryPosition` |
 | `store.ts` | localStorage wrappers with schema backfill | `saveBoard`, `loadBoard`, `clearBoard`, `saveMeetingData`, `loadMeetingData`, `BoardData` |
-| `meeting.ts` | Meeting agenda computation, person aggregation, change detection | `collectPeople`, `buildMeetingAgenda`, `personUrgency`, `completeMeeting`, `MeetingAgenda`, `MeetingData` |
+| `meeting.ts` | Meeting agenda computation, person aggregation, snapshot-based change detection | `collectPeople`, `buildMeetingAgenda`, `personUrgency`, `completeMeeting`, `MeetingAgenda`, `MeetingData` |
+| `briefing.ts` | Board-wide change detection, importance tier classification, grouping | `snapshotBoard`, `diffBoard`, `deduplicateItems`, `groupItems`, `BoardSnapshot`, `BriefingItem` |
 
 ### Component responsibilities
 
 | Component | Purpose |
 |---|---|
-| `BriefingView.svelte` | News feed: board-wide changes, urgency-ranked, time-windowed (planned) |
-| `PipelineView.svelte` | Opportunities by stage or horizon, nested deliverables, triage buckets, zoom (planned — currently ListView + RoadmapView) |
-| `ListView.svelte` | (Legacy) Opportunities list: interactive funnel, triage buckets, cards, aging badges, add UX, keyboard nav |
+| `BriefingView.svelte` | News feed: board-wide changes, 5 importance tiers, newspaper card layout |
+| `PipelineView.svelte` | Opportunities by stage or horizon, nested deliverables, zoom into single group |
+| `PipelineFunnel.svelte` | Proportional stage funnel SVG, interactive hover/click filtering |
+| `OpportunityRow.svelte` | Single opportunity row with density modes (compact/overview/zoomed) |
 | `DetailPane.svelte` | Opportunity detail: signal grid, stage navigation, exit states, commitments, notes, metadata |
 | `DeliverablesView.svelte` | Execution matrix: deliverable rows, opportunity columns, contributor columns, zoom, drag-reorder |
 | `DeliverableDetailPane.svelte` | Deliverable detail: size, certainty, links, contributors, consumers |
-| `RoadmapView.svelte` | (Legacy) Horizon-grouped table: drag-drop, risk flags — to be folded into PipelineView |
-| `MeetingView.svelte` | Per-person agenda: changes since last meeting, commitments, awaiting input, inline scoring |
+| `MeetingView.svelte` | Per-person agenda: entity-grouped changes, commitments, awaiting input, inline scoring, scoped stamp |
+| `ScoreToggle.svelte` | Reusable score radiogroup (none/positive/uncertain/negative) with keyboard nav |
 | `KeyboardHelp.svelte` | Shortcut reference overlay (? key) |
 | `QuickAdd.svelte` | Quick-add dialog (n key, Tab to switch opportunity/deliverable) |
 
@@ -114,7 +117,7 @@ No runtime dependencies. No P2P, no server, no database.
 
 ### CSS design tokens
 
-All visual values use CSS custom properties from `:root` in `upstream.html`:
+All visual values use CSS custom properties from `:root` in `index.html`:
 - `--c-*` (colors, OKLCH color space)
 - `--fs-*` (font sizes)
 - `--sp-*` (spacing)

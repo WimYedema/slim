@@ -547,7 +547,18 @@
 	}
 
 	function selectOpportunity(id: string) {
+		selectedDeliverableId = null
 		selectedId = id
+	}
+
+	function toggleOpportunity(id: string) {
+		selectedDeliverableId = null
+		selectedId = selectedId === id ? null : id
+	}
+
+	function toggleDeliverable(id: string) {
+		selectedId = null
+		selectedDeliverableId = selectedDeliverableId === id ? null : id
 	}
 
 	// ── Deliverable management ──
@@ -682,6 +693,41 @@
 	}
 </script>
 
+{#snippet detailSidebar()}
+	{#if selectedOpportunity}
+		<div class="split-detail">
+			<DetailPane
+				opportunity={selectedOpportunity}
+				{deliverables}
+				{links}
+				allHorizons={allHorizons()}
+				onUpdate={updateOpportunity}
+				onClose={() => (selectedId = null)}
+				onAddDeliverable={addDeliverable}
+				onUpdateDeliverable={updateDeliverable}
+				onLinkDeliverable={linkDeliverable}
+				onUnlinkDeliverable={unlinkDeliverable}
+				onUpdateLinkCoverage={updateLinkCoverage}
+			/>
+		</div>
+	{:else if selectedDeliverable}
+		<div class="split-detail">
+			<DeliverableDetailPane
+				deliverable={selectedDeliverable}
+				{links}
+				{opportunities}
+				onUpdate={updateDeliverable}
+				onRemove={removeDeliverable}
+				onLink={linkDeliverable}
+				onUnlink={unlinkDeliverable}
+				onUpdateCoverage={updateLinkCoverage}
+				onClose={() => (selectedDeliverableId = null)}
+				onSelectOpportunity={selectOpportunity}
+			/>
+		</div>
+	{/if}
+{/snippet}
+
 <main class="app">
 	<header class="app-header">
 		<h1>Upstream</h1>
@@ -707,8 +753,8 @@
 				snapshot={briefingSnapshot}
 				{meetingData}
 				onMarkSeen={(snap) => { briefingSnapshot = snap }}
-				onSelectOpportunity={(id) => { selectedDeliverableId = null; selectedId = selectedId === id ? null : id }}
-				onSelectDeliverable={(id) => { selectedId = null; selectedDeliverableId = selectedDeliverableId === id ? null : id }}
+				onSelectOpportunity={toggleOpportunity}
+				onSelectDeliverable={toggleDeliverable}
 				onParkOpportunity={(id, parkUntil) => {
 					const opp = opportunities.find(o => o.id === id)
 					if (opp) {
@@ -727,45 +773,14 @@
 				}}
 			/>
 		</div>
-		{#if selectedOpportunity}
-			<div class="split-detail">
-				<DetailPane
-					opportunity={selectedOpportunity}
-					{deliverables}
-					{links}
-					allHorizons={allHorizons()}
-					onUpdate={updateOpportunity}
-					onClose={() => (selectedId = null)}
-					onAddDeliverable={addDeliverable}
-					onUpdateDeliverable={updateDeliverable}
-					onLinkDeliverable={linkDeliverable}
-					onUnlinkDeliverable={unlinkDeliverable}
-					onUpdateLinkCoverage={updateLinkCoverage}
-				/>
-			</div>
-		{:else if selectedDeliverable}
-			<div class="split-detail">
-				<DeliverableDetailPane
-					deliverable={selectedDeliverable}
-					{links}
-					{opportunities}
-					onUpdate={updateDeliverable}
-					onRemove={removeDeliverable}
-					onLink={linkDeliverable}
-					onUnlink={unlinkDeliverable}
-					onUpdateCoverage={updateLinkCoverage}
-					onClose={() => (selectedDeliverableId = null)}
-					onSelectOpportunity={(id) => { selectedDeliverableId = null; selectedId = id }}
-				/>
-			</div>
-		{/if}
+		{@render detailSidebar()}
 	</div>
 	{:else if view === 'pipeline'}
 	<div class="split-layout">
 		<div class="split-list">
 			<PipelineView {opportunities} {deliverables} {links} {selectedId}
 				allHorizons={allHorizons()} onSelect={selectOpportunity}
-				onSelectDeliverable={(id) => { selectedId = null; selectedDeliverableId = selectedDeliverableId === id ? null : id }}
+				onSelectDeliverable={toggleDeliverable}
 				onAdvance={moveOpportunity} onAdd={addOpportunity} compact={!!selectedId}
 				bind:orderedIds={listViewOrderedIds}
 				bind:grouping={pipelineGrouping} {customHorizons}
@@ -774,38 +789,7 @@
 				onRemoveHorizon={(h) => { customHorizons = customHorizons.filter((c) => c !== h) }}
 			/>
 		</div>
-		{#if selectedOpportunity}
-			<div class="split-detail">
-				<DetailPane
-					opportunity={selectedOpportunity}
-					{deliverables}
-					{links}
-					allHorizons={allHorizons()}
-					onUpdate={updateOpportunity}
-					onClose={() => (selectedId = null)}
-					onAddDeliverable={addDeliverable}
-					onUpdateDeliverable={updateDeliverable}
-					onLinkDeliverable={linkDeliverable}
-					onUnlinkDeliverable={unlinkDeliverable}
-					onUpdateLinkCoverage={updateLinkCoverage}
-				/>
-			</div>
-		{:else if selectedDeliverable}
-			<div class="split-detail">
-				<DeliverableDetailPane
-					deliverable={selectedDeliverable}
-					{links}
-					{opportunities}
-					onUpdate={updateDeliverable}
-					onRemove={removeDeliverable}
-					onLink={linkDeliverable}
-					onUnlink={unlinkDeliverable}
-					onUpdateCoverage={updateLinkCoverage}
-					onClose={() => (selectedDeliverableId = null)}
-					onSelectOpportunity={(id) => { selectedDeliverableId = null; selectedId = id }}
-				/>
-			</div>
-		{/if}
+		{@render detailSidebar()}
 	</div>
 	{:else if view === 'deliverables'}
 	<div class="split-layout">
@@ -821,43 +805,12 @@
 				onLink={linkDeliverable}
 				onUnlink={unlinkDeliverable}
 				onUpdateCoverage={updateLinkCoverage}
-				onSelectOpportunity={(id) => { selectedDeliverableId = null; selectedId = selectedId === id ? null : id }}
-				onSelectDeliverable={(id) => { selectedId = null; selectedDeliverableId = selectedDeliverableId === id ? null : id }}
+				onSelectOpportunity={toggleOpportunity}
+				onSelectDeliverable={toggleDeliverable}
 				bind:orderedIds={delViewOrderedIds}
 			/>
 		</div>
-		{#if selectedOpportunity}
-			<div class="split-detail">
-				<DetailPane
-					opportunity={selectedOpportunity}
-					{deliverables}
-					{links}
-					allHorizons={allHorizons()}
-					onUpdate={updateOpportunity}
-					onClose={() => (selectedId = null)}
-					onAddDeliverable={addDeliverable}
-					onUpdateDeliverable={updateDeliverable}
-					onLinkDeliverable={linkDeliverable}
-					onUnlinkDeliverable={unlinkDeliverable}
-					onUpdateLinkCoverage={updateLinkCoverage}
-				/>
-			</div>
-		{:else if selectedDeliverable}
-			<div class="split-detail">
-				<DeliverableDetailPane
-					deliverable={selectedDeliverable}
-					{links}
-					{opportunities}
-					onUpdate={updateDeliverable}
-					onRemove={removeDeliverable}
-					onLink={linkDeliverable}
-					onUnlink={unlinkDeliverable}
-					onUpdateCoverage={updateLinkCoverage}
-					onClose={() => (selectedDeliverableId = null)}
-					onSelectOpportunity={(id) => { selectedDeliverableId = null; selectedId = id }}
-				/>
-			</div>
-		{/if}
+		{@render detailSidebar()}
 	</div>
 	{:else if view === 'meetings'}
 	<div class="split-layout">
@@ -867,44 +820,13 @@
 				{deliverables}
 				{links}
 				{meetingData}
-				onSelectOpportunity={(id) => { selectedDeliverableId = null; selectedId = selectedId === id ? null : id }}
-				onSelectDeliverable={(id) => { selectedId = null; selectedDeliverableId = selectedDeliverableId === id ? null : id }}
+				onSelectOpportunity={toggleOpportunity}
+				onSelectDeliverable={toggleDeliverable}
 				onUpdateOpportunity={updateOpportunity}
 				onUpdateMeetingData={(data) => { meetingData = data }}
 			/>
 		</div>
-		{#if selectedOpportunity}
-			<div class="split-detail">
-				<DetailPane
-					opportunity={selectedOpportunity}
-					{deliverables}
-					{links}
-					allHorizons={allHorizons()}
-					onUpdate={updateOpportunity}
-					onClose={() => (selectedId = null)}
-					onAddDeliverable={addDeliverable}
-					onUpdateDeliverable={updateDeliverable}
-					onLinkDeliverable={linkDeliverable}
-					onUnlinkDeliverable={unlinkDeliverable}
-					onUpdateLinkCoverage={updateLinkCoverage}
-				/>
-			</div>
-		{:else if selectedDeliverable}
-			<div class="split-detail">
-				<DeliverableDetailPane
-					deliverable={selectedDeliverable}
-					{links}
-					{opportunities}
-					onUpdate={updateDeliverable}
-					onRemove={removeDeliverable}
-					onLink={linkDeliverable}
-					onUnlink={unlinkDeliverable}
-					onUpdateCoverage={updateLinkCoverage}
-					onClose={() => (selectedDeliverableId = null)}
-					onSelectOpportunity={(id) => { selectedDeliverableId = null; selectedId = id }}
-				/>
-			</div>
-		{/if}
+		{@render detailSidebar()}
 	</div>
 	{/if}
 </main>
