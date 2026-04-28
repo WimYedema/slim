@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {
 		type Deliverable,
+		type DeliverableKind,
 		type OpportunityDeliverableLink,
 		type Opportunity,
 		type TShirtSize,
@@ -32,6 +33,8 @@
 	let newPersonName = $state('')
 	let showExternalFields = $state(false)
 	let confirmDelete = $state(false)
+	let showDropReason = $state(false)
+	let dropReasonInput = $state('')
 
 	let editTitle = $state(deliverable.title)
 
@@ -59,6 +62,24 @@
 
 	function setCertainty(certainty: Certainty | null) {
 		onUpdate({ ...deliverable, certainty })
+	}
+
+	function setKind(kind: DeliverableKind) {
+		onUpdate({ ...deliverable, kind })
+	}
+
+	function markDone() {
+		onUpdate({ ...deliverable, status: 'done', completedAt: Date.now() })
+	}
+
+	function markDropped() {
+		onUpdate({ ...deliverable, status: 'dropped', completedAt: Date.now(), dropReason: dropReasonInput.trim() || undefined })
+		showDropReason = false
+		dropReasonInput = ''
+	}
+
+	function reactivate() {
+		onUpdate({ ...deliverable, status: 'active', completedAt: undefined, dropReason: undefined })
 	}
 
 	function addPerson(group: 'contributors' | 'consumers') {
@@ -91,6 +112,10 @@
 	</header>
 
 	<div class="ddp-summary-bar">
+		<div class="ddp-kind-picker">
+			<button class="ddp-kind-btn" class:active={deliverable.kind === 'delivery'} onclick={() => setKind('delivery')} title="Build something">Delivery</button>
+			<button class="ddp-kind-btn" class:active={deliverable.kind === 'discovery'} onclick={() => setKind('discovery')} title="Learn something (spike, study, review)">Discovery</button>
+		</div>
 		<div class="ddp-size-picker">
 			{#each TSHIRT_SIZES as size}
 				<button
@@ -106,9 +131,10 @@
 					class="ddp-cert-btn"
 					class:active={deliverable.certainty != null && level <= deliverable.certainty}
 					onclick={() => setCertainty(deliverable.certainty === level ? null : level as Certainty)}
-					title="Certainty level {level}"
+					title="Confidence ~{level * 20}%"
 				></button>
 			{/each}
+			<span class="ddp-cert-label">{deliverable.certainty != null ? `~${deliverable.certainty * 20}%` : ''}</span>
 		</div>
 		<span class="ddp-summary-links">{dLinks.length} link{dLinks.length !== 1 ? 's' : ''}{#if dLinks.length > 0}{@const fullCount = dLinks.filter((l) => l.coverage === 'full').length} · {fullCount} full{/if}</span>
 	</div>
@@ -222,13 +248,36 @@
 		</div>
 	{/each}
 
-	<!-- Delete -->
+	<!-- Status actions -->
+	{#if deliverable.status === 'active'}
+		<div class="ddp-actions">
+			<button class="btn-ghost ddp-done" onclick={markDone} title="Mark as shipped / completed">✓ Done</button>
+			{#if showDropReason}
+				<div class="ddp-drop-row">
+					<input type="text" class="ddp-drop-input" placeholder="Why dropped?" bind:value={dropReasonInput} onkeydown={(e) => { if (e.key === 'Enter') markDropped(); if (e.key === 'Escape') { showDropReason = false; dropReasonInput = '' } }} />
+					<button class="btn-ghost ddp-drop-confirm" onclick={markDropped}>Drop</button>
+					<button class="btn-ghost ddp-drop-cancel" onclick={() => { showDropReason = false; dropReasonInput = '' }}>Cancel</button>
+				</div>
+			{:else}
+				<button class="btn-ghost ddp-drop" onclick={() => showDropReason = true} title="Descoped or cancelled">Drop…</button>
+			{/if}
+		</div>
+	{:else}
+		<div class="ddp-actions">
+			<span class="ddp-status-label" class:status-done={deliverable.status === 'done'} class:status-dropped={deliverable.status === 'dropped'}>
+				{deliverable.status === 'done' ? '✓ Done' : 'Dropped'}{#if deliverable.dropReason} — {deliverable.dropReason}{/if}
+			</span>
+			<button class="btn-ghost ddp-reactivate" onclick={reactivate}>Reactivate</button>
+		</div>
+	{/if}
+
+	<!-- Delete (data correction) -->
 	<div class="ddp-danger">
 		{#if confirmDelete}
 			<button class="btn-ghost ddp-delete ddp-delete-confirm" onclick={() => { onRemove(deliverable.id); onClose() }}>Confirm delete</button>
 			<button class="btn-ghost ddp-delete-cancel" onclick={() => confirmDelete = false}>Cancel</button>
 		{:else}
-			<button class="btn-ghost ddp-delete" onclick={() => confirmDelete = true}>Delete deliverable</button>
+			<button class="btn-ghost ddp-delete" onclick={() => confirmDelete = true}>Delete…</button>
 		{/if}
 	</div>
 </div>
@@ -237,7 +286,8 @@
 	.ddp {
 		padding: var(--sp-md);
 		overflow-y: auto;
-		height: 100%;
+		flex: 1;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-sm);
@@ -277,6 +327,7 @@
 	.ddp-summary-bar {
 		display: flex;
 		align-items: center;
+		flex-wrap: wrap;
 		gap: var(--sp-sm);
 		padding-bottom: var(--sp-sm);
 		border-bottom: 1px solid var(--c-border);
@@ -342,6 +393,34 @@
 		border-bottom-color: var(--c-accent);
 	}
 
+	/* Kind picker */
+	.ddp-kind-picker {
+		display: flex;
+		gap: 2px;
+	}
+
+	.ddp-kind-btn {
+		background: transparent;
+		border: 1px solid var(--c-border-soft);
+		border-radius: var(--radius-sm);
+		font-family: var(--font);
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+		cursor: pointer;
+		padding: 2px var(--sp-xs);
+		text-transform: lowercase;
+	}
+
+	.ddp-kind-btn.active {
+		background: var(--c-accent);
+		color: white;
+		border-color: var(--c-accent);
+	}
+
+	.ddp-kind-btn:hover:not(.active) {
+		border-color: var(--c-accent);
+	}
+
 	/* Size picker */
 	.ddp-size-picker {
 		display: flex;
@@ -395,6 +474,13 @@
 
 	.ddp-cert-btn:hover:not(.active) {
 		border-color: var(--c-accent);
+	}
+
+	.ddp-cert-label {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+		margin-left: 2px;
+		min-width: 3em;
 	}
 
 	/* External dependency */
@@ -596,10 +682,90 @@
 		width: 100px;
 	}
 
-	/* Danger zone */
+	/* Status actions */
+	.ddp-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-sm);
+		padding: var(--sp-sm);
+		background: var(--c-bg);
+		border-radius: var(--radius-sm);
+	}
+
+	.ddp-done {
+		font-size: var(--fs-xs);
+		color: var(--c-green-signal);
+		font-weight: var(--fw-medium);
+	}
+
+	.ddp-done:hover {
+		background: color-mix(in srgb, var(--c-green-signal) 10%, transparent);
+	}
+
+	.ddp-drop {
+		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+	}
+
+	.ddp-drop:hover {
+		color: var(--c-text);
+	}
+
+	.ddp-drop-row {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-xs);
+		flex: 1;
+	}
+
+	.ddp-drop-input {
+		flex: 1;
+		font: inherit;
+		font-size: var(--fs-xs);
+		background: transparent;
+		border: none;
+		border-bottom: 1px solid var(--c-border);
+		padding: 2px 0;
+		color: var(--c-text);
+	}
+
+	.ddp-drop-input:focus {
+		outline: none;
+		border-bottom-color: var(--c-accent);
+	}
+
+	.ddp-drop-confirm {
+		font-size: var(--fs-xs);
+		color: var(--c-red);
+	}
+
+	.ddp-drop-cancel {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+	}
+
+	.ddp-status-label {
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-medium);
+	}
+
+	.ddp-status-label.status-done {
+		color: var(--c-green-signal);
+	}
+
+	.ddp-status-label.status-dropped {
+		color: var(--c-text-muted);
+	}
+
+	.ddp-reactivate {
+		font-size: var(--fs-xs);
+		color: var(--c-accent-text);
+		margin-left: auto;
+	}
+
+	/* Danger zone — secondary, for data correction */
 	.ddp-danger {
-		margin-top: auto;
-		padding-top: var(--sp-md);
+		padding-top: var(--sp-sm);
 		border-top: 1px solid var(--c-border-soft);
 		display: flex;
 		gap: var(--sp-sm);
@@ -609,7 +775,8 @@
 	.ddp-delete {
 		color: var(--c-red);
 		padding: 0;
-		opacity: 0.6;
+		opacity: 0.4;
+		font-size: var(--fs-2xs);
 	}
 
 	.ddp-delete:hover {

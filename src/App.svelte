@@ -190,12 +190,19 @@
 		webhookDocs.certainty = 5
 		webhookDocs.extraContributors = ['Carol']
 
-		const deliverables = [eventBus, retryDlq, partnerDash, saml, oidc, webhookDocs]
+		const retrySpike = createDeliverable('Spike: retry as separate service vs event bus')
+		retrySpike.kind = 'discovery'
+		retrySpike.size = 'S'
+		retrySpike.certainty = 3
+		retrySpike.extraContributors = ['Alice']
+
+		const deliverables = [eventBus, retryDlq, partnerDash, saml, oidc, webhookDocs, retrySpike]
 		const links: OpportunityDeliverableLink[] = [
 			{ opportunityId: webhooks.id, deliverableId: eventBus.id, coverage: 'full' },
 			{ opportunityId: webhooks.id, deliverableId: retryDlq.id, coverage: 'full' },
 			{ opportunityId: webhooks.id, deliverableId: partnerDash.id, coverage: 'partial' },
 			{ opportunityId: webhooks.id, deliverableId: webhookDocs.id, coverage: 'full' },
+			{ opportunityId: webhooks.id, deliverableId: retrySpike.id, coverage: 'full' },
 			{ opportunityId: sso.id, deliverableId: saml.id, coverage: 'partial' },
 			{ opportunityId: sso.id, deliverableId: oidc.id, coverage: 'partial' },
 			{ opportunityId: sso.id, deliverableId: partnerDash.id, coverage: 'partial' }, // many-to-many: enterprise admin section
@@ -681,12 +688,6 @@
 		<nav class="view-tabs">
 			<button class="view-tab" class:active={view === 'briefing'} onclick={() => switchView('briefing')}>Briefing</button>
 			<button class="view-tab" class:active={view === 'pipeline'} onclick={() => switchView('pipeline')}>Pipeline</button>
-			{#if view === 'pipeline'}
-				<span class="grouping-toggle">
-					<button class="grouping-btn" class:active={pipelineGrouping === 'stage'} onclick={() => pipelineGrouping = 'stage'}>Stage</button>
-					<button class="grouping-btn" class:active={pipelineGrouping === 'horizon'} onclick={() => pipelineGrouping = 'horizon'}>Horizon</button>
-				</span>
-			{/if}
 			<button class="view-tab" class:active={view === 'deliverables'} onclick={() => switchView('deliverables')}>Deliverables</button>
 			<button class="view-tab" class:active={view === 'meetings'} onclick={() => switchView('meetings')}>Meetings</button>
 		</nav>
@@ -767,7 +768,7 @@
 				onSelectDeliverable={(id) => { selectedId = null; selectedDeliverableId = selectedDeliverableId === id ? null : id }}
 				onAdvance={moveOpportunity} onAdd={addOpportunity} compact={!!selectedId}
 				bind:orderedIds={listViewOrderedIds}
-				grouping={pipelineGrouping} {customHorizons}
+				bind:grouping={pipelineGrouping} {customHorizons}
 				onUpdateOpportunity={updateOpportunity}
 				onAddHorizon={(h) => { if (!customHorizons.includes(h)) customHorizons = [...customHorizons, h] }}
 				onRemoveHorizon={(h) => { customHorizons = customHorizons.filter((c) => c !== h) }}
@@ -941,6 +942,8 @@
 		background: var(--c-surface);
 		min-height: 0;
 		overflow: hidden;
+		display: flex;
+		flex-direction: column;
 	}
 
 	.app-header {
@@ -983,37 +986,6 @@
 		color: var(--c-text);
 		font-weight: 600;
 		background: var(--c-hover);
-	}
-
-	.grouping-toggle {
-		display: inline-flex;
-		gap: 1px;
-		background: var(--c-border-soft);
-		border-radius: var(--radius-sm);
-		padding: 1px;
-		align-self: center;
-	}
-
-	.grouping-btn {
-		background: none;
-		border: none;
-		font: inherit;
-		font-size: var(--fs-2xs);
-		color: var(--c-text-muted);
-		cursor: pointer;
-		padding: 2px var(--sp-xs);
-		border-radius: calc(var(--radius-sm) - 1px);
-		transition: background var(--tr-fast), color var(--tr-fast);
-	}
-
-	.grouping-btn:hover {
-		color: var(--c-text);
-	}
-
-	.grouping-btn.active {
-		background: var(--c-bg);
-		color: var(--c-text);
-		font-weight: var(--fw-medium);
 	}
 
 	.reset-btn {

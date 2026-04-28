@@ -6,17 +6,15 @@
 		type Perspective,
 		type Stage,
 		type TShirtSize,
-		type Score,
 		PERSPECTIVES,
 		PERSPECTIVE_LABELS,
-		SCORE_DISPLAY,
-		SCORE_SYMBOL,
+		CELL_QUESTIONS,
 		STAGES,
 		commitmentUrgency,
 		daysInStage,
 		agingLevel,
-		originLabel,
 		EXIT_STATES,
+		isFutureHorizon,
 		linksForOpportunity,
 		nextStage,
 		perspectiveWeight,
@@ -24,6 +22,8 @@
 		stageIndex,
 		stageLabel,
 	} from '../lib/types'
+	import PipelineFunnel from './PipelineFunnel.svelte'
+	import OpportunityRow from './OpportunityRow.svelte'
 
 	interface Props {
 		opportunities: Opportunity[]
@@ -56,7 +56,7 @@
 		compact = false,
 		orderedIds = $bindable([]),
 		allHorizons = [],
-		grouping = 'stage',
+		grouping = $bindable('stage'),
 		customHorizons = [],
 		onUpdateOpportunity,
 		onAddHorizon,
@@ -65,10 +65,11 @@
 
 	let newTitle = $state('')
 	let hoveredStage = $state<string | null>(null)
+	let filteredStage = $state<string | null>(null)
 	let addExpanded = $state(false)
 	let lastAddedId = $state<string | null>(null)
 	let addInputEl = $state<HTMLInputElement | null>(null)
-	let expandedOpps = $state<Set<string>>(new Set())
+	let inlineTitle = $state('')
 
 	// ── Zoom state ──
 	let zoomedGroup = $state<string | null>(null)
@@ -79,13 +80,6 @@
 	let newHorizonName = $state('')
 	let draggedOppId = $state<string | null>(null)
 	let dropTargetHorizon = $state<string | null>(null)
-
-	function toggleExpanded(id: string) {
-		const next = new Set(expandedOpps)
-		if (next.has(id)) next.delete(id)
-		else next.add(id)
-		expandedOpps = next
-	}
 
 	function horizonLabel(horizon: string): string {
 		if (!allHorizons.length) return ''
@@ -122,14 +116,28 @@
 		}
 	}
 
-	// ── Triage classification (reused from ListView) ──
+	function inlineAdd() {
+		const trimmed = inlineTitle.trim()
+		if (!trimmed) return
+		onAdd(trimmed)
+		inlineTitle = ''
+		setTimeout(() => {
+			const newOpp = opportunities.find(o => o.title === trimmed && o.stage === 'explore')
+			if (newOpp) {
+				lastAddedId = newOpp.id
+				setTimeout(() => (lastAddedId = null), 1200)
+			}
+		}, 50)
+	}
+
+	// ── Triage classification ──
 
 	interface GapInfo {
 		perspective: Perspective
 		weight: number
 	}
 
-	type Bucket = 'blocked' | 'attention' | 'clear'
+	type Bucket = 'urgent' | 'attention' | 'clear'
 
 	interface PipelineItem {
 		opp: Opportunity
@@ -142,8 +150,8 @@
 	function classifyBucket(opp: Opportunity, gaps: GapInfo[], _zeroCount: number): Bucket {
 		const consent = stageConsent(opp)
 		const urgency = commitmentUrgency(opp)
-		if (consent.objections.length > 0) return 'blocked'
-		if (urgency && urgency.daysLeft < 0) return 'blocked'
+		if (consent.objections.length > 0) return 'urgent'
+		if (urgency && urgency.daysLeft < 0) return 'urgent'
 		if (consent.status === 'ready' && (!urgency || urgency.daysLeft > 14)) return 'clear'
 		return 'attention'
 	}
@@ -178,7 +186,7 @@
 		decompose: 'Fully assessed — ship it',
 	}
 
-	function buildNudge(opp: Opportunity, gaps: GapInfo[], zeroCount: number): string {
+	function buildNudge(opp: Opportunity, gaps: GapInfo[], zeroCount: number, skipCommitment = false): string {
 		const consent = stageConsent(opp)
 		const urgency = commitmentUrgency(opp)
 
@@ -189,7 +197,7 @@
 			return `${label} objection — resolve before advancing`
 		}
 
-		if (urgency && urgency.daysLeft <= 14) {
+		if (!skipCommitment && urgency && urgency.daysLeft <= 14) {
 			const daysText = urgency.daysLeft < 0 ? `${Math.abs(urgency.daysLeft)}d overdue` : urgency.daysLeft === 0 ? 'due today' : `${urgency.daysLeft}d left`
 			return `Promised ${urgency.commitment.to}: ${daysText}`
 		}
@@ -207,27 +215,6 @@
 		return `${primary}, then ${secondLabel}`
 	}
 
-	function roadmapWarnings(opp: Opportunity): { icon: string; label: string }[] {
-		if (!opp.horizon) return []
-		const warnings: { icon: string; label: string }[] = []
-		const si = stageIndex(opp.stage)
-
-		if (allHorizons.length > 0) {
-			const hi = allHorizons.indexOf(opp.horizon)
-			if (hi === 0 && si <= 1) {
-				warnings.push({ icon: '⚡', label: 'Early stage for nearest horizon' })
-			} else if (hi <= 1 && si === 0) {
-				warnings.push({ icon: '⚡', label: 'Still exploring, near horizon' })
-			}
-		}
-
-		if (si >= 3 && linksForOpportunity(links, opp.id).length === 0) {
-			warnings.push({ icon: '∅', label: 'No deliverables linked' })
-		}
-
-		return warnings
-	}
-
 	// ── Horizon mode helpers ──
 
 	const SIZE_ORDER: TShirtSize[] = ['XS', 'S', 'M', 'L', 'XL']
@@ -235,7 +222,6 @@
 	interface SizeBreakdown {
 		sizes: { size: TShirtSize; count: number }[]
 		unsized: number
-		avgCertainty: number | null
 	}
 
 	function deliverablesForOpps(oppIds: Set<string>): Deliverable[] {
@@ -251,8 +237,6 @@
 		const dels = deliverablesForOpps(oppIds)
 		const counts = new Map<TShirtSize, number>()
 		let unsized = 0
-		let certSum = 0
-		let certCount = 0
 
 		for (const d of dels) {
 			if (d.size) {
@@ -260,66 +244,13 @@
 			} else {
 				unsized++
 			}
-			if (d.certainty) {
-				certSum += d.certainty
-				certCount++
-			}
 		}
 
 		const sizes = SIZE_ORDER
 			.filter((s) => counts.has(s))
 			.map((s) => ({ size: s, count: counts.get(s)! }))
 
-		return {
-			sizes,
-			unsized,
-			avgCertainty: certCount > 0 ? Math.round((certSum / certCount) * 10) / 10 : null,
-		}
-	}
-
-	interface RiskFlag {
-		icon: string
-		label: string
-		level: 'warn' | 'danger'
-	}
-
-	function riskFlags(opp: Opportunity): RiskFlag[] {
-		const flags: RiskFlag[] = []
-		const consent = stageConsent(opp)
-		const si = stageIndex(opp.stage)
-		const days = daysInStage(opp)
-		const aging = agingLevel(opp)
-		const signals = opp.signals[opp.stage]
-		const noneCount = PERSPECTIVES.filter(p => signals[p].score === 'none').length
-		const hasDeliverables = linksForOpportunity(links, opp.id).length > 0
-
-		if (consent.objections.length > 0) {
-			const labels = consent.objections.map(p => PERSPECTIVE_LABELS[p].charAt(0)).join('')
-			flags.push({ icon: '⊘', label: `${labels} objection`, level: 'danger' })
-		}
-
-		if (aging === 'stale') {
-			flags.push({ icon: '⏳', label: `${days}d stuck`, level: 'danger' })
-		} else if (aging === 'aging') {
-			flags.push({ icon: '⏳', label: `${days}d in stage`, level: 'warn' })
-		}
-
-		if (noneCount > 0 && si > 0) {
-			flags.push({ icon: '○', label: `${noneCount} unscored`, level: noneCount >= 2 ? 'danger' : 'warn' })
-		}
-
-		if (si >= 3 && !hasDeliverables) {
-			flags.push({ icon: '∅', label: 'no deliverables', level: 'warn' })
-		}
-
-		const horizonIdx = allHorizons.indexOf(opp.horizon)
-		if (horizonIdx === 0 && si <= 1) {
-			flags.push({ icon: '⚡', label: 'early stage, near horizon', level: 'danger' })
-		} else if (horizonIdx <= 1 && si === 0) {
-			flags.push({ icon: '⚡', label: 'still exploring', level: 'warn' })
-		}
-
-		return flags
+		return { sizes, unsized }
 	}
 
 	function isEmptyCustom(horizon: string): boolean {
@@ -403,7 +334,62 @@
 		zoomedGroup = null
 	}
 
-	// ── Build stage-grouped items ──
+	function handleFunnelClick(stage: string) {
+		if (zoomedGroup) {
+			// Navigate between stages while zoomed
+			const target = STAGES.find(s => s.key === stage)
+			if (target) {
+				zoomedGroup = target.label
+				filteredStage = null
+			}
+		} else {
+			// Toggle click-to-filter
+			filteredStage = filteredStage === stage ? null : stage
+		}
+	}
+
+	const STAGE_PURPOSE: Record<Stage, string> = {
+		explore: 'Diverge — discover the problem space',
+		sketch: 'Converge — define the shape of a solution',
+		validate: 'Test — gather evidence for or against',
+		decompose: 'Structure — break into deliverable work',
+	}
+
+	function oldestDays(items: PipelineItem[]): number {
+		if (items.length === 0) return 0
+		return Math.max(...items.map(i => daysInStage(i.opp)))
+	}
+
+	/** Specific header badge text for a single bucket item */
+	function specificBadge(items: PipelineItem[], bucket: Bucket): string | null {
+		const bucketItems = items.filter(i => i.bucket === bucket)
+		if (bucketItems.length !== 1) return null
+		if (bucket === 'urgent') {
+			const consent = stageConsent(bucketItems[0].opp)
+			if (consent.objections.length > 0) {
+				const label = PERSPECTIVE_LABELS[consent.objections[0]].toLowerCase()
+				return `1 ${label} objection`
+			}
+		}
+		if (bucket === 'attention') {
+			const gaps = bucketItems[0].gaps
+			if (gaps.length > 0) {
+				const worst = [...gaps].sort((a, b) => a.weight - b.weight)[0]
+				return `1 needs ${PERSPECTIVE_LABELS[worst.perspective].toLowerCase()}`
+			}
+		}
+		return null
+	}
+
+	/** Get parked opportunities due for revisit */
+	const revisitDueOpps = $derived.by(() => {
+		return opportunities.filter(o => {
+			if (!o.discontinuedAt || o.exitState !== 'parked' || !o.parkUntil) return false
+			return !isFutureHorizon(o.parkUntil)
+		})
+	})
+
+	// ── Build items ──
 
 	const activeOpps = $derived(opportunities.filter((o) => !o.discontinuedAt))
 	const discontinuedOpps = $derived(opportunities.filter((o) => !!o.discontinuedAt))
@@ -430,15 +416,31 @@
 			gapSeverity += deadlineBoost
 		}
 
-		const nudge = buildNudge(opp, gaps, zeroCount)
+		const nudge = buildNudge(opp, gaps, zeroCount, density === 'zoomed')
 		const bucket = classifyBucket(opp, gaps, zeroCount)
 
 		return { opp, urgency: gapSeverity, gaps, nudge, bucket }
 	}
 
-	const BUCKET_ORDER: Record<Bucket, number> = { blocked: 0, attention: 1, clear: 2 }
+	const BUCKET_ORDER: Record<Bucket, number> = { urgent: 0, attention: 1, clear: 2 }
 
-	/** Opportunities grouped by stage, sorted within each group by triage bucket + urgency */
+	const stageCounts = $derived(STAGES.map((s) => ({
+		key: s.key,
+		label: s.label,
+		count: activeOpps.filter((o) => o.stage === s.key).length,
+	})))
+
+	const triageByStage = $derived.by(() => {
+		const result: Record<string, { urgent: number; attention: number }> = {}
+		for (const group of stageGroups) {
+			result[group.stage.key] = {
+				urgent: group.items.filter(i => i.bucket === 'urgent').length,
+				attention: group.items.filter(i => i.bucket === 'attention').length,
+			}
+		}
+		return result
+	})
+
 	const stageGroups = $derived.by(() => {
 		return STAGES.map((stage) => {
 			const items = activeOpps
@@ -449,7 +451,6 @@
 		})
 	})
 
-	/** Computed horizon list from opportunities + custom horizons */
 	const horizons = $derived.by(() => {
 		const set = new Set<string>()
 		for (const opp of activeOpps) {
@@ -464,20 +465,19 @@
 		items: PipelineItem[]
 	}
 
-	/** Opportunities grouped by horizon, sorted by stage within each */
 	const horizonGroups = $derived.by(() => {
 		const unassigned = activeOpps.filter(o => !o.horizon)
 		const groups: HorizonGroup[] = horizons.map(horizon => {
 			const items = activeOpps
 				.filter(o => o.horizon === horizon)
 				.map(buildItem)
-				.sort((a, b) => stageIndex(a.opp.stage) - stageIndex(b.opp.stage) || b.urgency - a.urgency)
+				.sort((a, b) => stageIndex(b.opp.stage) - stageIndex(a.opp.stage) || b.urgency - a.urgency)
 			return { horizon, items }
 		})
 		if (unassigned.length > 0) {
 			groups.push({
 				horizon: '(no horizon)',
-				items: unassigned.map(buildItem).sort((a, b) => stageIndex(a.opp.stage) - stageIndex(b.opp.stage) || b.urgency - a.urgency),
+				items: unassigned.map(buildItem).sort((a, b) => stageIndex(b.opp.stage) - stageIndex(a.opp.stage) || b.urgency - a.urgency),
 			})
 		}
 		return groups
@@ -501,13 +501,20 @@
 		})
 	})
 
-	function linkedDeliverables(oppId: string) {
+	function getLinkedDeliverables(oppId: string) {
 		const oppLinks = linksForOpportunity(links, oppId)
 		return oppLinks.map((link) => {
 			const del = deliverables.find((d) => d.id === link.deliverableId)
 			return del ? { link, deliverable: del } : null
 		}).filter((x): x is NonNullable<typeof x> => x !== null)
 	}
+
+	const density = $derived<'compact' | 'overview' | 'zoomed'>(
+		zoomedGroup ? 'zoomed' : compact ? 'compact' : 'overview'
+	)
+
+	/** The active stage used for row dimming (filter takes precedence over hover) */
+	const activeStage = $derived(filteredStage ?? hoveredStage)
 </script>
 
 <div class="pl-container" class:compact>
@@ -522,211 +529,163 @@
 			/>
 		</div>
 	{:else}
-		{#snippet oppRowSnippet(item: PipelineItem, showStageBadge: boolean, draggable: boolean)}
-			{@const next = nextStage(item.opp.stage)}
-			{@const consent = stageConsent(item.opp)}
-			{@const days = daysInStage(item.opp)}
-			{@const aging = agingLevel(item.opp)}
-			{@const isExpanded = expandedOpps.has(item.opp.id)}
-			{@const oppDeliverables = linkedDeliverables(item.opp.id)}
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<div
-				class="pl-row pl-bucket-{item.bucket} row-aging-{aging}"
-				class:pl-row-horizon={showStageBadge}
-				role="button"
-				tabindex="0"
-				class:selected={item.opp.id === selectedId}
-				class:stage-dimmed={!showStageBadge && hoveredStage !== null && item.opp.stage !== hoveredStage}
-				class:stage-highlighted={!showStageBadge && hoveredStage === item.opp.stage}
-				class:just-added={item.opp.id === lastAddedId}
-				class:dragging={draggedOppId === item.opp.id}
-				onclick={() => onSelect(item.opp.id)}
-				{...(draggable ? { draggable: true } : {})}
-			>
-				{#if draggable && !compact}
-					<span class="drag-handle" title="Drag to move between horizons">⠿</span>
-				{/if}
-				{#if !compact}
-				<button class="pl-expand-toggle" onclick={(e) => { e.stopPropagation(); toggleExpanded(item.opp.id) }} aria-label={isExpanded ? 'Collapse' : 'Expand'}>
-					{isExpanded ? '▾' : '▸'}
-				</button>
-				{/if}
-				<span class="pl-title">{item.opp.title}{#if compact}{#if showStageBadge}<span class="pl-title-stage">{stageLabel(item.opp.stage).charAt(0)}</span>{/if}{/if}{#if !compact}{#if days > 0}<span class="aging-badge aging-{aging}">{days}d</span>{/if}{/if}</span>
-				{#if !compact}
-				{#if showStageBadge}
-					<span class="stage-badge stage-{item.opp.stage}">{stageLabel(item.opp.stage)}</span>
-				{/if}
-				<span class="pl-health" role="group" aria-label="Signal scores">
-					{#each PERSPECTIVES as p}
-						{@const score = item.opp.signals[item.opp.stage][p].score}
-						<span class="dot score-{score}" title="{PERSPECTIVE_LABELS[p]}: {SCORE_DISPLAY[score].label}" role="img" aria-label="{PERSPECTIVE_LABELS[p]}: {SCORE_DISPLAY[score].label}">{SCORE_SYMBOL[score]}</span>
-					{/each}
-				</span>
-				<span class="pl-nudge">
-					{item.nudge}
-					{#each roadmapWarnings(item.opp) as warn}
-						<span class="roadmap-warn" title={warn.label}>{warn.icon}</span>
-					{/each}
-					{#if showStageBadge}
-						{#each riskFlags(item.opp) as flag}
-							<span class="risk-flag risk-{flag.level}" title={flag.label}>{flag.icon}</span>
-						{/each}
-					{/if}
-				</span>
-				<span class="pl-meta">
-					{#if !showStageBadge && horizonLabel(item.opp.horizon)}<span class="horizon-tag horizon-{horizonLabel(item.opp.horizon)}">{horizonLabel(item.opp.horizon)}</span>{/if}
-					{#if item.opp.origin}<span class="origin-tag">{originLabel(item.opp.origin)}</span>{/if}
-				</span>
-				<span class="pl-advance">
-					{#if consent.status === 'ready' && next}
-						<button class="advance-btn" onclick={(e) => { e.stopPropagation(); onAdvance(item.opp.id, next) }} title="Advance to {STAGES.find((s) => s.key === next)?.label}">→</button>
-					{/if}
-				</span>
-				{/if}
-			</div>
-			{#if isExpanded && !compact && oppDeliverables.length > 0}
-				<div class="pl-deliverables">
-					{#each oppDeliverables as { link, deliverable } (deliverable.id)}
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<div
-							class="pl-del-row"
-							role="button"
-							tabindex="0"
-							onclick={(e) => { e.stopPropagation(); onSelectDeliverable?.(deliverable.id) }}
-						>
-							<span
-								class="pl-del-coverage"
-								class:full={link.coverage === 'full'}
-								title={link.coverage === 'full' ? 'Full coverage' : 'Partial coverage'}
-							>{link.coverage === 'full' ? '●' : '◐'}</span>
-							<span class="pl-del-title">{deliverable.title}</span>
-							{#if deliverable.size}
-								<span class="pl-del-size">{deliverable.size}</span>
-							{/if}
-							{#if deliverable.certainty != null}
-								<span class="pl-del-certainty" title="Certainty {deliverable.certainty}/5">{'●'.repeat(deliverable.certainty)}{'○'.repeat(5 - deliverable.certainty)}</span>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
-		{/snippet}
-
 		{#if zoomedGroup}
-			<div class="pl-breadcrumb">
+			<div class="pl-breadcrumb" class:sticky-breadcrumb={true}>
 				<button class="btn-ghost pl-breadcrumb-btn" onclick={zoomOut}>← All {grouping === 'stage' ? 'stages' : 'horizons'}</button>
 				<span class="pl-breadcrumb-label">{zoomedGroup}</span>
 			</div>
 		{/if}
 
-		{#if grouping === 'stage'}
-			{#if !zoomedGroup}
-				{@const stageCounts = STAGES.map((s) => ({ key: s.key, label: s.label, count: activeOpps.filter((o) => o.stage === s.key).length }))}
-				{@const funnelW = 480}
-				{@const funnelH = 48}
-				{@const segW = funnelW / 4}
-				{@const hMax = funnelH * 0.95}
-				{@const hMin = funnelH * 0.15}
-				{@const refCount = Math.max(...stageCounts.map((s) => s.count), 1)}
-				{@const stageH = stageCounts.map((s) => Math.max(s.count / refCount * hMax, hMin))}
-				<div class="funnel-row">
-					{#if addExpanded}
-						<input
-							type="text"
-							class="funnel-add-input"
-							placeholder="Opportunity title…"
-							bind:value={newTitle}
-							bind:this={addInputEl}
-							onkeydown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { collapseAdd(); (e.target as HTMLInputElement).blur() } }}
-							onblur={collapseAdd}
-						/>
-					{:else}
-						<button class="funnel-add-btn" onclick={expandAdd} title="Add opportunity (n)">+</button>
-					{/if}
-					<div class="funnel-strip" onpointerleave={() => hoveredStage = null}>
-					<svg viewBox="0 0 {funnelW} {funnelH}" class="funnel-svg" role="img" aria-label="Pipeline funnel">
-						{#each stageCounts as stage, i}
-							{@const leftH = stageH[i]}
-							{@const rightH = i < 3 ? stageH[i + 1] : hMin}
-							{@const x = i * segW}
-							{@const leftY = (funnelH - leftH) / 2}
-							{@const rightY = (funnelH - rightH) / 2}
-							{@const hasItems = stage.count > 0}
-							<!-- svelte-ignore a11y_no_static_element_interactions -->
-							<g class="funnel-group" class:funnel-active={hoveredStage === stage.key} class:funnel-dimmed={hoveredStage && hoveredStage !== stage.key} onpointerenter={() => hoveredStage = stage.key}>
-								<polygon
-									points="{x},{leftY} {x + segW},{rightY} {x + segW},{rightY + rightH} {x},{leftY + leftH}"
-									class="funnel-segment"
-									class:funnel-empty={!hasItems}
-									style="--stage-color: var(--c-stage-{stage.key})"
-								/>
-								{#if i > 0}
-									<line x1={x} y1={leftY} x2={x} y2={leftY + leftH} class="funnel-divider" />
-								{/if}
-								<text x={x + 8} y={funnelH / 2 - 4} class="funnel-text funnel-text-label">{stage.label}</text>
-								<text x={x + 8} y={funnelH / 2 + 10} class="funnel-text funnel-text-count">{stage.count}</text>
-							</g>
-						{/each}
-					</svg>
-					</div>
-				</div>
+		<div class="funnel-row">
+			{#if addExpanded}
+				<input
+					type="text"
+					class="funnel-add-input"
+					placeholder="Opportunity title…"
+					bind:value={newTitle}
+					bind:this={addInputEl}
+					onkeydown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { collapseAdd(); (e.target as HTMLInputElement).blur() } }}
+					onblur={collapseAdd}
+				/>
+			{:else}
+				<button class="funnel-add-btn" onclick={expandAdd} title="Add opportunity (n)">+</button>
 			{/if}
+			<PipelineFunnel {stageCounts} {hoveredStage} {filteredStage} {triageByStage} onHover={(s) => hoveredStage = s} onClick={handleFunnelClick} />
+			<span class="grouping-toggle">
+				<button class="grouping-btn" class:active={grouping === 'stage'} onclick={() => { zoomedGroup = null; filteredStage = null; grouping = 'stage' }}>Funnel</button>
+				<button class="grouping-btn" class:active={grouping === 'horizon'} onclick={() => { zoomedGroup = null; filteredStage = null; grouping = 'horizon' }}>Horizon</button>
+			</span>
+		</div>
 
+		{#if revisitDueOpps.length > 0}
+			<div class="revisit-prompt">
+				<span class="revisit-icon">↩</span>
+				{revisitDueOpps.length} parked {revisitDueOpps.length === 1 ? 'opportunity' : 'opportunities'} due for revisit:
+				{#each revisitDueOpps as opp, i}
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<button class="revisit-link" onclick={() => onSelect(opp.id)}>{opp.title}</button>{#if i < revisitDueOpps.length - 1},{/if}
+				{/each}
+			</div>
+		{/if}
+
+		{#if grouping === 'stage'}
 			{#each stageGroups as group}
 				{#if !zoomedGroup || zoomedGroup === group.stage.label}
-					{@const blockedCount = group.items.filter(i => i.bucket === 'blocked').length}
+					{@const urgentCount = group.items.filter(i => i.bucket === 'urgent').length}
 					{@const attentionCount = group.items.filter(i => i.bucket === 'attention').length}
-					<section class="pl-stage-group">
+					{@const oldest = oldestDays(group.items)}
+					{@const urgentText = specificBadge(group.items, 'urgent')}
+					{@const attentionText = specificBadge(group.items, 'attention')}
+					<section class="pl-stage-group" class:pl-stage-collapsed={filteredStage !== null && filteredStage !== group.stage.key}>
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<header class="pl-stage-header pl-zoomable" role="button" tabindex="0" style="--stage-color: var(--c-stage-{group.stage.key})" onclick={() => zoomedGroup ? zoomOut() : zoomIn(group.stage.label)}>
 							<span class="pl-stage-name">{group.stage.label}</span>
 							<span class="pl-stage-count">{group.items.length}</span>
-							{#if blockedCount > 0}
-								<span class="pl-stage-badge pl-badge-blocked">{blockedCount} blocked</span>
+							{#if urgentCount > 0}
+								<span class="pl-stage-badge pl-badge-urgent">{urgentText ?? `${urgentCount} urgent`}</span>
 							{/if}
 							{#if attentionCount > 0}
-								<span class="pl-stage-badge pl-badge-attention">{attentionCount} needs input</span>
+								<span class="pl-stage-badge pl-badge-attention">{attentionText ?? `${attentionCount} needs input`}</span>
+							{/if}
+							{#if oldest > 0 && group.items.length > 0}
+								<span class="pl-stage-age">oldest {oldest}d</span>
 							{/if}
 							{#if !zoomedGroup}
 								<span class="pl-zoom-hint" aria-hidden="true">⤢</span>
 							{/if}
 						</header>
+						{#if zoomedGroup === group.stage.label}
+							<div class="pl-stage-purpose">
+								<span class="purpose-thinking">{STAGES.find(s => s.key === group.stage.key)?.thinking}</span>
+								{STAGE_PURPOSE[group.stage.key]}
+							</div>
+						{/if}
 						{#if group.items.length === 0}
 							<div class="pl-empty">No opportunities at this stage</div>
-						{:else}
+						{:else if filteredStage === null || filteredStage === group.stage.key}
+							{@const urgent = group.items.filter(i => i.bucket === 'urgent')}
+							{@const attention = group.items.filter(i => i.bucket === 'attention')}
+							{@const clear = group.items.filter(i => i.bucket === 'clear')}
 							<div class="pl-rows">
-								{#each group.items as item (item.opp.id)}
-									{@render oppRowSnippet(item, false, false)}
+								{#each urgent as item (item.opp.id)}
+									<OpportunityRow
+										opp={item.opp}
+										bucket={item.bucket}
+										nudge={item.nudge}
+										{density}
+										selected={item.opp.id === selectedId}
+										dimmed={activeStage !== null && item.opp.stage !== activeStage}
+										highlighted={activeStage === item.opp.stage}
+										justAdded={item.opp.id === lastAddedId}
+										linkedDeliverables={getLinkedDeliverables(item.opp.id)}
+										horizonTag={horizonLabel(item.opp.horizon)}
+										{onSelect}
+										{onAdvance}
+										{onSelectDeliverable}
+									/>
 								{/each}
+								{#if urgent.length > 0 && (attention.length > 0 || clear.length > 0)}
+									<div class="bucket-separator"></div>
+								{/if}
+								{#each attention as item (item.opp.id)}
+									<OpportunityRow
+										opp={item.opp}
+										bucket={item.bucket}
+										nudge={item.nudge}
+										{density}
+										selected={item.opp.id === selectedId}
+										dimmed={activeStage !== null && item.opp.stage !== activeStage}
+										highlighted={activeStage === item.opp.stage}
+										justAdded={item.opp.id === lastAddedId}
+										linkedDeliverables={getLinkedDeliverables(item.opp.id)}
+										horizonTag={horizonLabel(item.opp.horizon)}
+										{onSelect}
+										{onAdvance}
+										{onSelectDeliverable}
+									/>
+								{/each}
+								{#if attention.length > 0 && clear.length > 0}
+									<div class="bucket-separator"></div>
+								{/if}
+								{#each clear as item (item.opp.id)}
+									<OpportunityRow
+										opp={item.opp}
+										bucket={item.bucket}
+										nudge={item.nudge}
+										{density}
+										selected={item.opp.id === selectedId}
+										dimmed={activeStage !== null && item.opp.stage !== activeStage}
+										highlighted={activeStage === item.opp.stage}
+										justAdded={item.opp.id === lastAddedId}
+										linkedDeliverables={getLinkedDeliverables(item.opp.id)}
+										horizonTag={horizonLabel(item.opp.horizon)}
+										{onSelect}
+										{onAdvance}
+										{onSelectDeliverable}
+									/>
+								{/each}
+							</div>
+						{/if}
+						{#if group.stage.key === 'explore'}
+							<div class="pl-inline-add">
+								<input
+									type="text"
+									class="inline-add-input"
+									placeholder="+ Add opportunity…"
+									bind:value={inlineTitle}
+									onkeydown={(e) => { if (e.key === 'Enter') inlineAdd(); if (e.key === 'Escape') { inlineTitle = ''; (e.target as HTMLInputElement).blur() } }}
+								/>
 							</div>
 						{/if}
 					</section>
 				{/if}
 			{/each}
 		{:else}
-			{#if !zoomedGroup}
-				<div class="funnel-row">
-					{#if addExpanded}
-						<input
-							type="text"
-							class="funnel-add-input"
-							placeholder="Opportunity title…"
-							bind:value={newTitle}
-							bind:this={addInputEl}
-							onkeydown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { collapseAdd(); (e.target as HTMLInputElement).blur() } }}
-							onblur={collapseAdd}
-						/>
-					{:else}
-						<button class="funnel-add-btn" onclick={expandAdd} title="Add opportunity (n)">+</button>
-					{/if}
-				</div>
-			{/if}
-
 			{#each horizonGroups as group}
 				{#if !zoomedGroup || zoomedGroup === group.horizon}
 					{@const breakdown = horizonBreakdown(group.items.map(i => i.opp))}
-					{@const blockedCount = group.items.filter(i => riskFlags(i.opp).some(f => f.level === 'danger')).length}
-					{@const atRisk = group.items.filter(i => riskFlags(i.opp).length > 0).length}
+					{@const urgentCount = group.items.filter(i => i.bucket === 'urgent').length}
+					{@const attentionCount = group.items.filter(i => i.bucket === 'attention').length}
 					<section
 						class="pl-stage-group"
 						class:drop-target={dropTargetHorizon === group.horizon}
@@ -751,16 +710,18 @@
 								<button class="pl-horizon-label" ondblclick={(e) => { e.stopPropagation(); startRenameHorizon(group.horizon) }}>
 									{group.horizon}
 								</button>
+								{@const hTag = horizonLabel(group.horizon)}
+								{#if hTag}<span class="horizon-timing horizon-{hTag}">{hTag === 'now' ? '◆ now' : '◇ next'}</span>{/if}
 								<span class="pl-stage-count">{group.items.length}</span>
 								{#if group.items.length > 0}
 									<span class="horizon-health">
-										{#if blockedCount > 0}
-											<span class="health-danger">{blockedCount} blocked</span>
+										{#if urgentCount > 0}
+											<span class="health-danger">{urgentCount} urgent</span>
 										{/if}
-										{#if atRisk > blockedCount}
-											<span class="health-warn">{atRisk - blockedCount} at risk</span>
+										{#if attentionCount > 0}
+											<span class="health-warn">{attentionCount} needs input</span>
 										{/if}
-										{#if atRisk === 0}
+										{#if urgentCount === 0 && attentionCount === 0}
 											<span class="health-clear">all clear</span>
 										{/if}
 									</span>
@@ -773,14 +734,6 @@
 										{#each breakdown.sizes as s}
 											<span class="effort-size" title="{s.count} deliverable{s.count === 1 ? '' : 's'} sized {s.size}">{s.count}×{s.size}</span>
 										{/each}
-										{#if breakdown.avgCertainty !== null}
-											{@const filled = Math.round(breakdown.avgCertainty)}
-											<span class="certainty-indicator" title="Avg certainty: {breakdown.avgCertainty.toFixed(1)}/5">
-												{#each Array(5) as _, i}
-													<span class="cert-dot" class:filled={i < filled}>●</span>
-												{/each}
-											</span>
-										{/if}
 										{#if breakdown.unsized > 0}
 											<span class="effort-gap" title="{breakdown.unsized} deliverable{breakdown.unsized === 1 ? '' : 's'} not yet sized">{breakdown.unsized} unsized</span>
 										{/if}
@@ -803,7 +756,22 @@
 										ondragover={(e) => handleDragOver(e, group.horizon)}
 										ondrop={(e) => handleDrop(e, group.horizon)}
 									>
-										{@render oppRowSnippet(item, true, true)}
+										<OpportunityRow
+											opp={item.opp}
+											bucket={item.bucket}
+											nudge={item.nudge}
+											{density}
+											selected={item.opp.id === selectedId}
+											dimmed={activeStage !== null && item.opp.stage !== activeStage}
+											highlighted={activeStage === item.opp.stage}
+											dragging={draggedOppId === item.opp.id}
+											showStageBadge
+											draggable
+											linkedDeliverables={getLinkedDeliverables(item.opp.id)}
+											{onSelect}
+											{onAdvance}
+											{onSelectDeliverable}
+										/>
 									</div>
 								{/each}
 							</div>
@@ -812,7 +780,7 @@
 				{/if}
 			{/each}
 
-			{#if grouping === 'horizon' && !zoomedGroup}
+			{#if !zoomedGroup}
 				<div class="add-horizon-row">
 					<input
 						class="add-horizon-input"
@@ -852,8 +820,14 @@
 		padding: var(--sp-sm) var(--sp-md);
 		display: flex;
 		flex-direction: column;
+		align-items: center;
 		gap: var(--sp-sm);
 		box-sizing: border-box;
+	}
+
+	.pl-container > * {
+		width: 100%;
+		max-width: 56rem;
 	}
 
 	/* --- Add input --- */
@@ -882,7 +856,36 @@
 		color: var(--c-text-ghost);
 	}
 
-	/* --- Funnel (same as ListView) --- */
+	/* --- Inline add (bottom of Explore) --- */
+	.pl-inline-add {
+		padding: var(--sp-xs) var(--sp-sm) var(--sp-sm);
+		/* align with title: row padding (--sp-sm) + expand toggle (20px) + row-line1 gap (--sp-sm) */
+		padding-left: calc(var(--sp-sm) + 20px + var(--sp-sm));
+	}
+
+	.inline-add-input {
+		font-family: var(--font);
+		font-size: var(--fs-sm);
+		color: var(--c-text);
+		background: color-mix(in srgb, var(--c-text) 3%, transparent);
+		border: none;
+		border-radius: var(--radius-sm);
+		padding: var(--sp-xs) var(--sp-sm);
+		width: 100%;
+		transition: background var(--tr-fast), box-shadow var(--tr-fast);
+	}
+
+	.inline-add-input:focus {
+		outline: none;
+		background: color-mix(in srgb, var(--c-text) 6%, transparent);
+		box-shadow: 0 0 0 1px var(--c-accent);
+	}
+
+	.inline-add-input::placeholder {
+		color: var(--c-text-ghost);
+	}
+
+	/* --- Funnel bar --- */
 	.funnel-row {
 		display: flex;
 		align-items: center;
@@ -932,57 +935,48 @@
 		color: var(--c-text-ghost);
 	}
 
-	.funnel-strip {
-		flex: 1;
-		min-width: 0;
+	/* --- Grouping toggle --- */
+	.grouping-toggle {
+		display: inline-flex;
+		border: 1px solid var(--c-border);
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+		flex-shrink: 0;
 	}
 
-	.funnel-svg {
-		width: 100%;
-		max-width: 520px;
-		height: auto;
-		display: block;
-	}
-
-	.funnel-group {
-		cursor: pointer;
-		transition: opacity var(--tr-fast);
-	}
-	.funnel-group.funnel-dimmed { opacity: 0.4; }
-	.funnel-group.funnel-active .funnel-segment {
-		fill: color-mix(in srgb, var(--stage-color) var(--opacity-emphasis), transparent);
-	}
-
-	.funnel-segment {
-		fill: color-mix(in srgb, var(--stage-color) var(--opacity-moderate), transparent);
-	}
-	.funnel-segment.funnel-empty {
-		fill: color-mix(in srgb, var(--c-border) var(--opacity-moderate), transparent);
-	}
-
-	.funnel-divider {
-		stroke: var(--c-bg);
-		stroke-width: 1.5;
-	}
-
-	.funnel-text {
-		text-anchor: start;
+	.grouping-btn {
 		font-family: var(--font);
-	}
-	.funnel-text-label {
-		font-size: var(--fs-3xs);
-		font-weight: var(--fw-medium);
-		fill: var(--c-text-soft);
-	}
-	.funnel-text-count {
 		font-size: var(--fs-2xs);
-		font-weight: var(--fw-bold);
-		fill: var(--c-text);
+		font-weight: var(--fw-medium);
+		padding: 2px var(--sp-sm);
+		border: none;
+		background: transparent;
+		color: var(--c-text-muted);
+		cursor: pointer;
+		transition: background var(--tr-fast), color var(--tr-fast);
+	}
+
+	.grouping-btn:hover {
+		color: var(--c-text);
+	}
+
+	.grouping-btn.active {
+		background: var(--c-accent);
+		color: var(--c-surface);
 	}
 
 	/* --- Stage groups --- */
 	.pl-stage-group {
 		border-radius: var(--radius-md);
+		transition: max-height var(--tr-normal), opacity var(--tr-normal);
+	}
+
+	.pl-stage-collapsed {
+		max-height: 0;
+		opacity: 0;
+		margin: 0;
+		padding: 0;
+		overflow: clip;
 	}
 
 	.pl-stage-header {
@@ -1015,7 +1009,7 @@
 		border-radius: var(--radius-sm);
 	}
 
-	.pl-badge-blocked {
+	.pl-badge-urgent {
 		color: var(--c-red);
 		background: color-mix(in srgb, var(--c-red) var(--opacity-subtle), transparent);
 	}
@@ -1031,15 +1025,90 @@
 		padding: var(--sp-xs) var(--sp-md);
 	}
 
-	/* --- Opportunity rows --- */
 	.pl-rows {
 		display: flex;
 		flex-direction: column;
+		gap: var(--sp-xs);
+		padding-bottom: var(--sp-xs);
 	}
 
+	/* --- Bucket separators --- */
+	.bucket-separator {
+		height: 0;
+		margin: var(--sp-xs) var(--sp-md);
+		border-top: 1px dashed color-mix(in srgb, var(--c-border) var(--opacity-strong), transparent);
+	}
+
+	/* --- Stage age --- */
+	.pl-stage-age {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-ghost);
+		font-style: italic;
+	}
+
+	/* --- Stage purpose (zoomed) --- */
+	.pl-stage-purpose {
+		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+		padding: var(--sp-xs) var(--sp-sm);
+		display: flex;
+		align-items: baseline;
+		gap: var(--sp-sm);
+	}
+
+	.purpose-thinking {
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-bold);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--c-text-ghost);
+		flex-shrink: 0;
+	}
+
+	/* --- Revisit-due prompt --- */
+	.revisit-prompt {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-xs);
+		flex-wrap: wrap;
+		padding: var(--sp-xs) var(--sp-sm);
+		font-size: var(--fs-xs);
+		color: var(--c-warm);
+		background: color-mix(in srgb, var(--c-warm) var(--opacity-subtle), transparent);
+		border-radius: var(--radius-sm);
+	}
+
+	.revisit-icon {
+		font-size: var(--fs-sm);
+	}
+
+	.revisit-link {
+		background: none;
+		border: none;
+		font: inherit;
+		color: var(--c-accent);
+		cursor: pointer;
+		padding: 0;
+		text-decoration: underline;
+		text-decoration-color: color-mix(in srgb, var(--c-accent) var(--opacity-moderate), transparent);
+	}
+
+	.revisit-link:hover {
+		text-decoration-color: var(--c-accent);
+	}
+
+	/* --- Sticky breadcrumb --- */
+	.sticky-breadcrumb {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		background: var(--c-bg);
+	}
+
+	/* --- Exited rows (kept inline — too simple for a component) --- */
 	.pl-row {
 		display: grid;
-		grid-template-columns: 20px minmax(100px, 1.5fr) 66px minmax(120px, 1fr) 100px 28px;
+		grid-template-columns: 1fr minmax(120px, 1fr);
 		align-items: center;
 		gap: var(--sp-sm);
 		padding: 5px var(--sp-sm);
@@ -1048,26 +1117,8 @@
 		transition: background var(--tr-fast);
 	}
 
-	.compact .pl-row {
-		grid-template-columns: 1fr;
-	}
-
 	.pl-row:hover {
 		background: color-mix(in srgb, var(--c-surface) var(--opacity-strong), transparent);
-	}
-
-	.pl-row.stage-dimmed { opacity: 0.3; }
-	.pl-row.stage-highlighted {
-		background: color-mix(in srgb, var(--c-accent) var(--opacity-subtle), transparent);
-	}
-
-	.pl-row.just-added {
-		animation: flash-new 1.2s ease-out;
-	}
-
-	@keyframes flash-new {
-		0% { background: color-mix(in srgb, var(--c-accent) var(--opacity-emphasis), transparent); }
-		100% { background: transparent; }
 	}
 
 	.pl-row.selected {
@@ -1076,34 +1127,6 @@
 		padding-left: calc(var(--sp-sm) - 3px);
 	}
 
-	.pl-row.pl-bucket-blocked {
-		border-left: 3px solid color-mix(in srgb, var(--c-red) var(--opacity-strong), transparent);
-		padding-left: calc(var(--sp-sm) - 3px);
-	}
-
-	.pl-row.pl-bucket-blocked.selected {
-		border-left-color: var(--c-accent);
-	}
-
-	/* --- Expand toggle --- */
-	.pl-expand-toggle {
-		background: none;
-		border: none;
-		cursor: pointer;
-		color: var(--c-text-ghost);
-		font-size: var(--fs-2xs);
-		padding: 0;
-		width: 16px;
-		text-align: center;
-		flex-shrink: 0;
-		font-family: var(--font);
-	}
-
-	.pl-expand-toggle:hover {
-		color: var(--c-text);
-	}
-
-	/* --- Row cells --- */
 	.pl-title {
 		font-size: var(--fs-sm);
 		font-weight: var(--fw-medium);
@@ -1114,214 +1137,25 @@
 		min-width: 0;
 	}
 
-	.pl-bucket-blocked .pl-title {
-		font-weight: var(--fw-bold);
-	}
-
-	.pl-title-stage {
-		font-size: var(--fs-2xs);
-		font-weight: var(--fw-medium);
-		color: var(--c-text-ghost);
-		margin-left: var(--sp-xs);
-		vertical-align: middle;
-	}
-
-	.pl-health {
-		display: flex;
-		gap: 4px;
-	}
-
-	.dot {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: var(--dot-size);
-		height: var(--dot-size);
-		border-radius: 50%;
-		font-size: var(--fs-3xs);
-		font-weight: var(--fw-bold);
-		line-height: var(--lh-tight);
-		flex-shrink: 0;
-		box-sizing: border-box;
-	}
-
-	.dot.score-positive { background: var(--c-green-signal); color: var(--c-surface); }
-	.dot.score-uncertain { background: var(--c-warm); color: var(--c-surface); }
-	.dot.score-negative { background: var(--c-red); color: var(--c-surface); }
-	.dot.score-none {
-		background: none;
-		border: 2px dashed color-mix(in srgb, var(--c-text-ghost) var(--opacity-strong), transparent);
-		color: var(--c-text-ghost);
-	}
-
 	.pl-nudge {
 		font-size: var(--fs-sm);
 		color: var(--c-text);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		display: flex;
-		align-items: baseline;
-		gap: var(--sp-xs);
 	}
 
-	.roadmap-warn {
-		color: var(--c-warm);
-		cursor: default;
-		flex-shrink: 0;
-	}
-
-	.pl-bucket-blocked .pl-nudge {
-		color: var(--c-text-soft);
-	}
-
-	.pl-meta {
-		display: flex;
-		gap: 4px;
-		align-items: center;
-		justify-content: flex-end;
-		white-space: nowrap;
-	}
-
-	.pl-advance {
-		display: flex;
-		justify-content: center;
-	}
-
-	.advance-btn {
-		width: 22px;
-		height: 22px;
-		border-radius: 50%;
-		border: 1px solid color-mix(in srgb, var(--c-green-signal) var(--opacity-strong), transparent);
-		background: color-mix(in srgb, var(--c-green-signal) var(--opacity-moderate), transparent);
-		color: var(--c-green-signal);
-		font-size: var(--fs-2xs);
-		cursor: pointer;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		transition: background var(--tr-fast), border-color var(--tr-fast);
-		padding: 0;
-	}
-
-	.advance-btn:hover {
-		background: color-mix(in srgb, var(--c-green-signal) var(--opacity-emphasis), transparent);
-		border-color: var(--c-green-signal);
-	}
-
-	/* --- Tags (shared with ListView styles) --- */
-	.origin-tag, .exit-tag {
+	.exit-tag {
 		font-size: var(--fs-2xs);
 		font-weight: var(--fw-medium);
 		margin-left: var(--sp-xs);
 		padding: 0 4px;
 		border-radius: var(--radius-sm);
 		vertical-align: middle;
-	}
-
-	.origin-tag {
-		color: var(--c-accent);
-		background: color-mix(in srgb, var(--c-accent) var(--opacity-moderate), transparent);
-	}
-
-	.horizon-tag {
-		font-size: var(--fs-2xs);
-		font-weight: var(--fw-medium);
-		margin-left: 4px;
-		padding: 0 3px;
-		border-radius: var(--radius-sm);
-		color: var(--c-text-soft);
-	}
-	.horizon-now { color: var(--c-green-signal); }
-	.horizon-next { color: var(--c-warm); }
-
-	.exit-tag {
 		color: var(--c-red);
 		background: color-mix(in srgb, var(--c-red) var(--opacity-moderate), transparent);
 	}
 
-	.aging-badge {
-		font-size: var(--fs-2xs);
-		font-weight: var(--fw-medium);
-		margin-left: 4px;
-		padding: 0 3px;
-		border-radius: var(--radius-sm);
-	}
-	.aging-fresh { color: var(--c-green-signal); }
-	.aging-aging {
-		color: var(--c-warm);
-		border: 1px solid color-mix(in srgb, var(--c-warm) var(--opacity-emphasis), transparent);
-		padding: 0 5px;
-		border-radius: 9px;
-	}
-	.aging-stale {
-		color: var(--c-surface);
-		background: var(--c-red);
-		padding: 1px 6px;
-		border-radius: 9px;
-		font-size: var(--fs-2xs);
-	}
-
-	/* --- Nested deliverables --- */
-	.pl-deliverables {
-		margin-left: 36px;
-		padding: 2px 0 var(--sp-xs);
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
-	}
-
-	.pl-del-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-xs);
-		padding: 2px var(--sp-xs);
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-		transition: background var(--tr-fast);
-	}
-
-	.pl-del-row:hover {
-		background: color-mix(in srgb, var(--c-surface) var(--opacity-strong), transparent);
-	}
-
-	.pl-del-coverage {
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-		width: 1.2em;
-		text-align: center;
-		flex-shrink: 0;
-	}
-	.pl-del-coverage.full { color: var(--c-green); }
-
-	.pl-del-title {
-		font-size: var(--fs-xs);
-		color: var(--c-text);
-		flex: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.pl-del-size {
-		font-size: var(--fs-2xs);
-		font-family: var(--font);
-		color: var(--c-text-muted);
-		background: color-mix(in srgb, var(--c-border) 40%, transparent);
-		padding: 0 var(--sp-2xs);
-		border-radius: var(--radius-sm);
-		flex-shrink: 0;
-	}
-
-	.pl-del-certainty {
-		font-size: 6px;
-		letter-spacing: -1px;
-		color: var(--c-text-ghost);
-		flex-shrink: 0;
-	}
-
-	/* --- Exited section --- */
 	.pl-exited-section {
 		border-radius: var(--radius-md);
 		padding: var(--sp-xs) var(--sp-sm);
@@ -1350,7 +1184,6 @@
 
 	.pl-exited-row {
 		opacity: 0.5;
-		grid-template-columns: 1fr minmax(120px, 1fr);
 	}
 
 	.pl-exited-row .pl-title {
@@ -1377,7 +1210,6 @@
 		color: var(--c-text);
 	}
 
-	/* --- Zoomable headers --- */
 	.pl-zoomable {
 		cursor: pointer;
 		transition: background var(--tr-fast);
@@ -1422,6 +1254,15 @@
 		cursor: default;
 		padding: 0;
 	}
+
+	.horizon-timing {
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-medium);
+		padding: 0 var(--sp-xs);
+		border-radius: var(--radius-sm);
+	}
+	.horizon-now { color: var(--c-green-signal); }
+	.horizon-next { color: var(--c-warm); }
 
 	.horizon-edit-input {
 		font: inherit;
@@ -1483,54 +1324,12 @@
 		border-radius: var(--radius-sm);
 	}
 
-	.certainty-indicator {
-		display: inline-flex;
-		gap: 2px;
-		align-items: center;
-	}
-
-	.cert-dot {
-		font-size: 7px;
-		color: var(--c-border-soft);
-		line-height: var(--lh-tight);
-	}
-
-	.cert-dot.filled {
-		color: var(--c-green);
-	}
-
 	.effort-gap {
 		color: var(--c-warm);
 		font-style: italic;
 	}
 
 	/* --- Drag-drop --- */
-	.drag-handle {
-		cursor: grab;
-		color: var(--c-text-ghost);
-		font-size: var(--fs-xs);
-		user-select: none;
-		flex-shrink: 0;
-		width: 16px;
-		text-align: center;
-	}
-
-	.drag-handle:active {
-		cursor: grabbing;
-	}
-
-	.pl-row.dragging {
-		opacity: 0.4;
-	}
-
-	.pl-row-horizon {
-		grid-template-columns: 16px 20px minmax(100px, 1.5fr) auto 66px minmax(120px, 1fr) 100px 28px;
-	}
-
-	.compact .pl-row-horizon {
-		grid-template-columns: 1fr;
-	}
-
 	.drop-target {
 		background: color-mix(in srgb, var(--c-accent) var(--opacity-subtle), transparent);
 	}
@@ -1540,52 +1339,6 @@
 		border-radius: var(--radius-sm);
 		text-align: center;
 		padding: var(--sp-sm);
-	}
-
-	/* --- Stage badge (horizon mode) --- */
-	.stage-badge {
-		display: inline-block;
-		font-size: var(--fs-2xs);
-		font-weight: var(--fw-medium);
-		padding: 1px 6px;
-		border-radius: var(--radius-sm);
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
-		flex-shrink: 0;
-	}
-
-	.stage-explore {
-		background: color-mix(in srgb, var(--c-stage-explore) var(--opacity-moderate), transparent);
-		color: var(--c-stage-explore);
-	}
-
-	.stage-sketch {
-		background: color-mix(in srgb, var(--c-stage-sketch) var(--opacity-moderate), transparent);
-		color: var(--c-stage-sketch);
-	}
-
-	.stage-validate {
-		background: color-mix(in srgb, var(--c-stage-validate) var(--opacity-moderate), transparent);
-		color: var(--c-stage-validate);
-	}
-
-	.stage-decompose {
-		background: color-mix(in srgb, var(--c-stage-decompose) var(--opacity-moderate), transparent);
-		color: var(--c-stage-decompose);
-	}
-
-	/* --- Risk flags (horizon mode) --- */
-	.risk-flag {
-		font-size: var(--fs-xs);
-		cursor: default;
-	}
-
-	.risk-warn {
-		color: var(--c-warm);
-	}
-
-	.risk-danger {
-		color: var(--c-red);
 	}
 
 	/* --- Add horizon --- */

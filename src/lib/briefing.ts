@@ -5,7 +5,9 @@ import {
 	agingLevel,
 	commitmentUrgency,
 	daysInStage,
+	type HorizonPressure,
 	isFutureHorizon,
+	pacingSummary,
 	PERSPECTIVE_LABELS,
 	PERSPECTIVES,
 	STAGES,
@@ -265,10 +267,15 @@ function diffOpportunities(
 			})
 		}
 
-		// Gone stale — only report when newly stale (not stale in snapshot)
-		if (agingLevel(opp) === 'stale') {
+		// Gone stale — horizon-aware, only report when newly stale (not stale in snapshot)
+		const pressure: HorizonPressure = opp.horizon
+			? isFutureHorizon(opp.horizon)
+				? 'next'
+				: 'now'
+			: 'none'
+		if (agingLevel(opp, pressure) === 'stale') {
 			const oldOpp = prevMap.get(opp.id)
-			const wasStale = oldOpp && agingLevel(oldOpp) === 'stale'
+			const wasStale = oldOpp && agingLevel(oldOpp, pressure) === 'stale'
 			if (!wasStale) {
 				items.push({
 					id: itemId(),
@@ -276,7 +283,7 @@ function diffOpportunities(
 					targetId: opp.id,
 					targetTitle: opp.title,
 					verb: 'stale',
-					description: `Gone stale in ${stageLabel(opp.stage)} — ${daysInStage(opp)}d without activity`,
+					description: `Gone stale — ${pacingSummary(opp, pressure)}`,
 					tier: TIER_MAP.stale,
 					timestamp: now,
 				})

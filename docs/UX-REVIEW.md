@@ -95,7 +95,7 @@ A critical review of the current PoC from multiple perspectives. Each reviewer w
 
 ### What Confuses
 
-**People assignments in a small team** — "I'm the only PO. The engineer fills in feasibility, I fill in the rest. The people management features (expert/blocker/stakeholder roles, person pickers on cells) feel like overhead for my context. Can I skip it entirely?"
+**People assignments in a small team** — "I'm the only PO. The engineer fills in feasibility, I fill in the rest. The people management features (expert/approver/stakeholder roles, person pickers on cells) feel like overhead for my context. Can I skip it entirely?"
 
 **Size vs. certainty for small teams** — "I set size to 'M' and certainty to 3. What does that tell me that I don't already know from a 5-minute conversation? It makes more sense in the roadmap header (sum per horizon), but at the individual deliverable level it feels like ceremony."
 
@@ -539,3 +539,243 @@ Five reviewers return after the Briefing view was added (Phase 9) and the Pipeli
 3. **Score help text** — one-liner near score buttons explaining consent semantics
 4. **Grouped name truncation** — show 3 names + "(+N more)" to prevent line wrapping
 5. **Commitment milestone in headline** — include the promise text, not just the recipient
+
+---
+
+## Round 3: Pipeline Stage View — Priya × Dani Discussion
+
+**Priya** (UX Expert): Senior UX designer, 8 years in B2B SaaS. Has designed dashboard and kanban tools for product teams.
+**Dani** (Information Architect): IA specialist, 6 years at enterprise analytics companies. Focuses on content structure, labeling, grouping logic, navigation patterns.
+
+Both have read the full UX review (Rounds 1 & 2), the product spec, and the architecture doc. They're looking at the live tool with the sample dataset — 8 opportunities across 4 stages, 6 deliverables.
+
+---
+
+**Priya**: Let's start at the top. The funnel. I like it — hover a segment and the list rows dim to show just that stage's items. Really nice interaction. But nobody will discover it.
+
+**Dani**: Agreed. There's no cursor change, no tooltip, no visual affordance that says "I'm interactive." Alex flagged this in Round 1 and it's still true. But I have a bigger issue with the funnel: it's *redundant*. The funnel says "3 in Sketch." The Sketch header below it also says "Sketch 3." Same number, two places.
+
+**Priya**: So one of them needs to earn its space by carrying information the other doesn't.
+
+**Dani**: Exactly. The funnel gives *shape* — the visual proportions show whether the pipeline narrows healthily or has a bulge. The header gives *triage* — "2 blocked, 1 needs input." Neither carries what the other has. My instinct is: let the funnel carry triage too. A tiny red dot on a segment for "has blocked items," an amber dot for "needs input." Then the funnel becomes the scan-and-spot layer, and the headers become simple anchors.
+
+**Priya**: I like that. But I'd go further — make the funnel *click-to-filter*, not just hover. Click Sketch, and only Sketch items show. Click again to unfilt. Hover remains a preview, click commits. Right now the hover highlight vanishes the moment you move the mouse down to actually interact with the rows.
+
+**Dani**: That's the fundamental problem — the highlight is a tease. It shows you a filtered view but won't let you act on it.
+
+**Priya**: And at smaller window widths the funnel has a different problem: the Validate and Decompose segments get so thin their labels overlap. With sample data it's 1 item each — those segments are slivers. Need a minimum segment width or abbreviated labels for narrow ones.
+
+**Dani**: Minimum width, yes. The labels could abbreviate to E/S/V/D at small widths — the full names are already on the headers below.
+
+---
+
+**Priya**: Let's talk about the rows. Each one packs seven pieces of information: expand toggle, title, aging badge, health dots, nudge text, meta tags, advance button. That's a lot for one row.
+
+**Dani**: The nudge is the most valuable one — "Get engineering input" tells me what to do next. But it sits after the health dots, competing with origin tags and horizon labels. If I'm scanning 20 items, my eye hits the red aging badge, skips the dots, and lands on the nudge. But only if the window is wide enough for the nudge not to truncate.
+
+**Priya**: I'd restructure the row as two lines. Line 1: title + health dots + aging. Line 2: nudge + meta + action. Give the nudge room to breathe. Right now everything is crammed into one flex row and the nudge gets squeezed.
+
+**Dani**: Two lines would also help with the expand toggle confusion. Currently ▸ (expand) and → (advance) are both arrow-like controls in the same row serving different purposes. New users will confuse them.
+
+**Priya**: Good catch. My fix: don't use ▸ at all. Replace it with a deliverable count — "3 deliverables" as the toggle. When there are zero, hide it entirely. Right now, rows with no deliverables still show the expand arrow, and clicking gives an empty expansion. Wasted click, wasted attention.
+
+**Dani**: And it reveals *what's behind the toggle* before I click. "3 deliverables" tells me there's substance. A blind ▸ tells me nothing.
+
+---
+
+**Priya**: The triage buckets — blocked, needs input, clear — are the right ranking. But look at the actual rows. The only visual distinction between a blocked row and a clear row is a subtle left border color. Red for blocked, amber for attention, default for clear. In a mixed stage — say 1 blocked and 4 clear — the blocked item barely stands out.
+
+**Dani**: The header *promises* a triage breakdown — "2 blocked, 1 needs input" — but the rows below don't visually cluster to match. There's no separator, no extra whitespace, no group label between buckets. The header sets an expectation the body doesn't deliver.
+
+**Priya**: Even just an 8px gap between bucket clusters would fix this. Or a thin horizontal rule. Something that says: "above this line is blocked, below is clear."
+
+**Dani**: I also question the "needs input" label on the header. In the rows, the nudge says specific things: "Get engineering input," "feasibility objection — resolve." But the header just says "N needs input." If there's only 1 item, the header could be more specific: "1 needs feasibility input." Progressive disclosure should still *hint* at the detail below.
+
+**Priya**: That's a nice touch. Low effort too — the data is right there in the nudge.
+
+---
+
+**Dani**: Now the big one. Compact mode.
+
+**Priya**: The "glorified table of contents" problem.
+
+**Dani**: When you open the detail pane, the list collapses to compact mode: just title and a one-letter stage initial. You lose aging badges, health dots, nudge text, advance button. Every triage-relevant signal is stripped.
+
+**Priya**: The list becomes useless for scanning. I'm supposed to read the detail pane for one item and simultaneously triage the rest — but the "rest" is now just a list of names. I can't see which ones are stale, which are blocked, which need input. I have to close the detail pane, scan, then reopen on the next item. Close-scan-reopen, close-scan-reopen.
+
+**Dani**: What would you keep in compact mode?
+
+**Priya**: Health dots and aging badge, at minimum. Those are the two pieces that let me scan the list while reading a detail pane. Drop the nudge — it's in the detail pane anyway. Drop meta tags and the advance button. But health + age must survive.
+
+**Dani**: So a three-density system: full (no detail pane), medium (detail pane open, health + age visible), and the current compact (for very narrow panes or mobile).
+
+**Priya**: Exactly. The medium density is the daily workhorse. Full density is for standalone pipeline review without a detail pane.
+
+---
+
+**Dani**: Let me raise something neither of us has touched yet: the stage headers have no temporal signal.
+
+**Priya**: What do you mean?
+
+**Dani**: The header says "Sketch 3 — 2 blocked, 1 needs input." It tells me *what's here* and *what's wrong*. But it doesn't tell me *how long things have been sitting*. I can see individual aging badges per row — 14d, 3d, 22d — but the header doesn't aggregate them. Is this stage a bottleneck? Is everything fresh? Is one item deeply stuck while the rest are fine?
+
+**Priya**: "Oldest 22d, avg 11d" under the header?
+
+**Dani**: Something like that. Even just "oldest 22d" would flag a bottleneck stage at a glance. The briefing already computes aging — "Gone stale in Sketch — 14d without activity." The pipeline stage headers should give the same awareness without making me read every row.
+
+**Priya**: And it'd make the funnel more useful too. If each funnel segment could show a tiny heat indicator — green for all-fresh, amber for aging, red for has-stale — the funnel becomes a health dashboard, not just a count chart.
+
+**Dani**: Now *that* would justify the funnel's screen space. Shape + health in one glance.
+
+---
+
+**Priya**: Zoom. I zoom into Sketch by clicking the header. The funnel disappears, other stages vanish, a breadcrumb appears. The transition is abrupt — suddenly I've lost all pipeline context.
+
+**Dani**: Zoom should collapse other stages into single-line summaries — "Explore: 3, Validate: 1, Decompose: 1" — rather than removing them entirely. The funnel should stay visible with the active stage highlighted. Zoom means "focus" not "isolate."
+
+**Priya**: Right. And there's no animation, no visual continuity. One frame I see four stages, next frame I see one plus a breadcrumb. At least a simple height collapse transition would maintain spatial awareness.
+
+**Dani**: Also — if I zoom into Validate, then open a detail pane, then close it — I'm still zoomed. The only indicator is the breadcrumb. If I scroll down, the breadcrumb scrolls away and I've lost the context that I'm in a filtered state. The breadcrumb should be sticky.
+
+**Priya**: But here's the deeper problem: when I zoom in, I see *exactly the same rows* I saw before. Same columns, same density, same information. The only thing that changed is that the other stages disappeared. That's not zoom — that's filter.
+
+**Dani**: Yes. A real zoom should be *progressive disclosure*. Zooming in means "I'm spending focused time on this stage" — so show me things I couldn't justify showing in the overview. The overview is a scan layer. Zoom is a work layer.
+
+**Priya**: What would the work layer add?
+
+**Dani**: Several things. First: **auto-expand deliverables**. In overview mode, deliverables are collapsed behind the ▸ toggle. In zoom mode, every opportunity's deliverables should be visible by default — I'm here to work through this stage's items, not to click 5 toggles. Second: **verdict previews**. The signal dots show positive/uncertain/negative, but the *reason* — the verdict text — is only in the detail pane. In zoom mode, show a one-liner per signal: "LLM costs too high at scale." That's the information I need to decide whether to act.
+
+**Priya**: I'd add **the full nudge as a subtitle** — or even the specific unanswered questions from the signal grid. In overview, "Get engineering input" is enough. In zoom, I want: "Could we build this? (unscored) — Feasibility at Sketch." The granularity should increase with the zoom level.
+
+**Dani**: And **commitments inline**. In overview, a commitment shows as a nudge: "Promised CEO: 5d left." In zoom, I want to see the commitment target, the milestone, and the deadline as structured data, not compressed into a nudge string.
+
+**Priya**: So the zoomed row becomes almost a mini detail pane — without needing to open the actual detail pane at all.
+
+**Dani**: Exactly. Think of it as three density levels:
+1. **Compact** (detail pane open) — title + health dots + aging. Minimal.
+2. **Overview** (normal pipeline) — title, health, aging, nudge, meta, advance button. One line per item.
+3. **Zoomed** (focused on one stage) — two or three lines per item. Deliverables expanded. Verdict snippets visible. Commitments inline. The full working surface.
+
+**Priya**: That's a lovely progression. And it means zoom isn't just "filter out other stages" — it's "shift to working mode for this stage." The information architecture changes, not just the scope.
+
+**Dani**: It also solves the compact mode problem we discussed. If zoom is the high-density working mode, and overview is the scanning mode, you don't need the detail pane as much in zoom mode — the zoomed rows carry enough context to triage without clicking through.
+
+**Priya**: Though you'd still want the detail pane for editing signals and verdicts. The zoomed row is read-mostly.
+
+**Dani**: Agreed. Zoom for triage and review, detail pane for editing. They serve different interaction modes.
+
+**Priya**: One more thing — when I zoom into a stage, the header should also expand. Show the stage's thinking mode description (divergent/convergent/empirical/analytical), the aggregate age statistics we discussed, maybe even a one-line stage purpose: "Sketch: define the shape of the solution." The header earns more real estate in zoom because it's the only header on screen.
+
+**Dani**: And the funnel should stay visible with the zoomed stage highlighted — so I always know where I am in the pipeline. The funnel becomes a navigation element: click another segment to zoom there without going back to overview first.
+
+---
+
+**Dani**: The exited section at the bottom.
+
+**Priya**: `<details>` expand, list of killed/parked/merged items. Fine for 5 items. Unworkable at 30.
+
+**Dani**: It accumulates forever — items are never deleted, only discontinued. Three months of active use and this list could have 20-30 items. There's no search, no filtering by exit state. If I want to find "that thing we parked last month," I'm scrolling through every exited item.
+
+**Priya**: Minimum: filter by exit state — show only parked, only killed, etc. Better: inline search. Best: the briefing already detects `revisit-due` for parked items whose horizon arrived — surface a "review parked" prompt in the pipeline header when any parked items are due.
+
+**Dani**: That last one is smart. The exited section is a graveyard — people don't browse graveyards. But the briefing can tap you on the shoulder and say "hey, you parked something with a Q2 revisit date and it's Q2."
+
+**Priya**: Which we already built. It just needs a connection from the pipeline view.
+
+---
+
+**Dani**: Let me bring up one structural thing in the code. The `oppRowSnippet` template handles both stage-grouped and horizon-grouped rows via `showStageBadge`. In stage mode it shows origin tags + horizon labels. In horizon mode it shows stage badges + risk flags + drag handles. That's a lot of branching in one snippet.
+
+**Priya**: Does it cause visual inconsistency?
+
+**Dani**: Somewhat. The stage-mode row and the horizon-mode row present different information at the same position. The nudge column sometimes has roadmap warnings, sometimes risk flags, sometimes neither. A user switching between stage and horizon views sees rows that *look* the same but carry different signals in the same visual slots.
+
+**Priya**: I'd argue that's acceptable as long as the information is correct for the grouping context. But if the template keeps accumulating branches, it'll become hard to maintain. At some point, separate snippets per mode would be cleaner.
+
+**Dani**: For now it works. Just flagging it as technical debt that'll bite when more features land.
+
+---
+
+### Follow-up: Zoom Density (Priya × Dani × Sam × Raj)
+
+**Agreed**: One zoom level is sufficient. Two toggles (zoomed × detail-pane-open) yield four clean states:
+
+| | No detail pane | Detail pane open |
+|---|---|---|
+| **Overview** | `overview` density | `compact` density |
+| **Zoomed** | `zoomed` density | `overview` density |
+
+**Agreed**: Zoom is read-only progressive disclosure. Detail pane is for editing. Three layers: overview tells you *where* to look, zoom tells you *what's going on*, detail pane lets you *act*.
+
+**Agreed** (Priya over Dani): Zoomed layout is consistent across stages — no per-stage template branching. Data-driven emphasis: early stages naturally have sparse deliverables/commitments, so verdict gaps dominate; late stages have dense deliverables, so those dominate. Same layout, different content.
+
+**Sam's concern**: PipelineView is 1,637 lines. **Raj's solution**: decompose into:
+- `PipelineView.svelte` — orchestrator (~200 lines)
+- `PipelineFunnel.svelte` — funnel SVG, hover/click-to-filter
+- `StageGroup.svelte` — stage header + rows
+- `HorizonGroup.svelte` — horizon header + drag-drop + rows
+- `OpportunityRow.svelte` — single row, `density` prop (`compact | overview | zoomed`)
+
+### Follow-up: Grouping Toggle (all four)
+
+**Agreed**: Move the Stage/Horizon toggle from App.svelte's tab bar into PipelineView, next to the funnel. It's a sub-mode of Pipeline, not a peer-level tab.
+
+**Agreed**: Rename labels from `Stage | Horizon` to `Funnel | Horizon`. "Funnel" names the concept (maturity flow) rather than the data model term.
+
+**Agreed**: Replace the Tab keyboard shortcut — it conflicts with browser focus navigation. Use a non-conflicting key.
+
+### Follow-up: Funnel in Horizon Mode
+
+**Agreed**: Show the funnel in both modes. The pipeline shape is board-level information, not view-specific. In funnel mode the funnel is navigation (hover/click to filter). In horizon mode it's a passive health indicator. Hover/click should still work in horizon mode — highlighting items at a particular stage across all horizons.
+
+---
+
+### Final Priority List
+
+| # | Issue | Effort | Impact | Status |
+|---|---|---|---|---|
+| 1 | ~~**Decompose PipelineView**~~ — extract Funnel, OpportunityRow | M | High (enabler) | Shipped (PipelineFunnel + OpportunityRow) |
+| 2 | ~~**Show funnel in horizon mode**~~ — always visible, cross-mode filtering | XS | Medium | Shipped |
+| 3 | ~~**Move toggle into PipelineView**~~ — out of App tab bar, next to funnel | S | Medium | Shipped |
+| 4 | ~~**Rename Stage→Funnel label**~~ — `Funnel | Horizon` | XS | Low | Shipped |
+| 5 | **Replace Tab shortcut** — non-conflicting key for grouping toggle | XS | Low | Not built |
+| 6 | ~~**Bucket separators**~~ — visual gap between blocked/attention/clear clusters | XS | Medium | Shipped |
+| 7 | ~~**Deliverable count on toggle**~~ — replace blind ▸ with "N▸", hide when zero | XS | Medium | Shipped (OpportunityRow) |
+| 8 | ~~**Zoomed row progressive disclosure**~~ — expanded deliverables, verdict snippets, commitments inline | M | High | Shipped |
+| 9 | **Medium-density compact mode** — health dots + aging survive when detail pane open | S | High | Not built |
+| 10 | ~~**Stage header aggregate age**~~ — "oldest Nd" in header subtitle | S | Medium | Shipped |
+| 11 | ~~**Funnel triage indicators**~~ — colored dots for blocked/attention | XS | Medium | Shipped |
+| 12 | **Funnel minimum segment width** — prevent label overlap | XS | Low | Not built |
+| 13 | ~~**Sticky zoom breadcrumb**~~ — position: sticky | XS | Low | Shipped |
+| 14 | **Exited section filter** — filter by exit state | S | Low | Not built |
+| 15 | ~~**Click-to-filter funnel**~~ — hover = preview, click = commit filter; click again to clear | S | Medium | Shipped |
+| 16 | ~~**Two-line row layout**~~ — line 1: title + health + aging; line 2: nudge + meta + action | S | Medium | Shipped |
+| 17 | ~~**Specific header text for single items**~~ — "1 needs feasibility input" instead of generic "1 needs input" | XS | Low | Shipped |
+| 18 | ~~**Zoom transition animation**~~ — smooth collapse/expand for spatial continuity | XS | Low | Shipped (collapse transition on filtered stages) |
+| 19 | ~~**Funnel as zoom navigation**~~ — click funnel segment to zoom directly to that stage | S | Medium | Shipped |
+| 20 | ~~**Expanded stage header in zoom**~~ — stage purpose description, thinking mode, aggregate stats | S | Medium | Shipped |
+| 21 | ~~**Revisit-due prompt in pipeline**~~ — surface parked items due for revisit (from briefing's `revisit-due`) | XS | Medium | Shipped |
+
+---
+
+### Follow-up: Two-Line Row Polish (Priya × Dani)
+
+After reviewing the shipped two-line layout with the live sample dataset, four issues surfaced:
+
+**Priya**: "Blocked" as a bucket label is misleading. These items aren't *blocked* in the PM sense — work can't proceed until something is resolved, but it's not an external dependency. It's "this needs your attention urgently." A feasibility objection is urgent input needed, not a roadblock. Same for overdue commitments. The red border and bold title already carry the urgency signal. Let's call it "urgent" — fewer connotations.
+
+**Dani**: Agreed. And in the stage header badges — "1 blocked" reads as "someone is waiting on someone else." "1 urgent" or "1 objection" is more honest about what the user should do. The specific text we added ("1 feasibility objection") is good, but the fallback "N blocked" should become "N urgent."
+
+**Priya**: The origin and horizon tags on line 2 feel like an afterthought. They're metadata about the card — *what kind of thing it is* and *when it's targeted*. That belongs with the identity on line 1, not with the action nudge on line 2. Move them to line 1, between the title and the health dots. The nudge line should be pure "what to do next" — no classification noise.
+
+**Dani**: Good call. And while we're at it, the bare "now" and "next" horizon labels are cryptic. If I haven't internalized the horizon ordering, "next" tells me nothing. It could mean next sprint, next quarter, next year. A small prefix would help: "◆ now" and "◇ next" — the filled vs. hollow diamond gives a visual weight cue, and the words always appear with a glyph that says "this is a horizon indicator." Or even simpler: just show the actual horizon value. But the now/next shorthand is compact and useful for people who know the system, so a prefix glyph is probably the right minimal fix.
+
+**Priya**: I like the diamond. Subtle, takes no extra space, adds an affordance that says "this is a tag, not just a random word."
+
+**Dani**: Last issue — the second row (nudge text) gets clipped at the bottom when the next stage header is close. The stage group container clips the row's bottom padding. Need to ensure the `.pl-rows` content has adequate bottom padding, or the row itself has enough margin to clear the next header.
+
+**Agreed fixes** (all XS effort):
+1. Rename bucket `blocked` → `urgent` everywhere (type, CSS class, header badge text)
+2. Move origin + horizon tags from line 2 to line 1, between title and health dots
+3. Prefix horizon labels: "◆ now", "◇ next"
+4. Add bottom padding on `.pl-rows` to prevent last-row clipping

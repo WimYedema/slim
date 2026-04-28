@@ -295,7 +295,7 @@ Every opportunity can link to people with a predefined role:
 
 | Role | Meaning | Example |
 |---|---|---|
-| **Blocker** | I need something from them before this can progress | "Waiting on: Sarah (Legal)" |
+| **Approver** | I need something from them before this can progress | "Waiting on: Sarah (Legal)" |
 | **Stakeholder** | They care about the outcome and want to be kept informed | "Update Sarah: moved to Validate" |
 | **Expert** | They have knowledge I'll need during Sketch or Validate | "Ask Sarah about: compliance constraints" |
 
@@ -307,7 +307,7 @@ Filtering by person is **bidirectional** — the same data serves two audiences:
 
 | I'm linked as… | PO sees | Contributor sees |
 |---|---|---|
-| **Blocker** | "Ask Sarah for unblock" | "Someone is stuck because of me" — highest priority (aging card turns red) |
+| **Approver** | "Ask Sarah for sign-off" | "Someone is waiting on me" — highest priority (aging card turns red) |
 | **Expert** | "Ask Sarah about constraints" | "Someone needs my input" — high priority (card in Sketch/Validate) |
 | **Stakeholder** | "Update Sarah: moved to Validate" | "Something I care about moved" — check when convenient |
 
@@ -398,7 +398,7 @@ The PO creates a board and gets a shareable link (same pattern as a Skatting roo
 |---|---|---|
 | See the full board | Anyone with the link | Real-time P2P sync, same as Skatting peer discovery |
 | Add an idea to Explore | Anyone | Type a title. The PO triages, not gatekeeps. |
-| Update card fields | Person linked to the card (blocker, stakeholder, expert) | Focused card view shows only their relevant fields |
+| Update card fields | Person linked to the card (approver, stakeholder, expert) | Focused card view shows only their relevant fields |
 | Mark a validation lens | The person who did the work (designer, tech lead, analyst) | They report their findings; the PO reads the result |
 | Move cards between stages | PO only | Drag on the board. The decision to advance is the PO's. |
 | Kill / park / merge | PO only | Exit decisions are curated, not crowdsourced |
@@ -528,7 +528,7 @@ A single-page app where:
 - **Coverage matrix** — deliverables × opportunities cross-reference with partial/full coverage dots, T-shirt sizing, certainty, contributor columns, and leverage sorting
 - **Roadmap view** — opportunities grouped by horizon (delivery intent), with T-shirt size breakdown per horizon, drag-drop between horizons, and freeform horizon labels
 - **Meeting prep** — per-person auto-generated agendas with snapshot-based change detection, inline scoring, commitment tracking, and conflict surfacing
-- **People & commitments** — person links with roles (blocker/expert/stakeholder), perspective delegation, commitment deadlines with urgency alerts
+- **People & commitments** — person links with roles (approver/expert/stakeholder), perspective delegation, commitment deadlines with urgency alerts
 - **Persistence** — localStorage saves board state + meeting data; survives refresh
 - **All data local** — PO's browser is the source of truth
 

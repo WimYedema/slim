@@ -250,7 +250,7 @@ People have one of three roles:
 | Role | Meaning |
 |---|---|
 | **Expert** | Provides knowledge for a specific perspective — the person who fills the cell |
-| **Blocker** | Someone you need something from before this can progress |
+| **Approver** | Someone whose approval you need before this can progress |
 | **Stakeholder** | Cares about the outcome, wants to stay informed |
 
 ### 3.2 Commitments
@@ -354,7 +354,7 @@ The pane shows:
 - **External dependency** — free text describing any external dependency
 - **Linked opportunities** — list showing each link with coverage toggle, stage label, and unlink button. Click an opportunity name to navigate to the Opportunities tab. A "+ link opportunity" button opens a picker for unlinked opportunities.
 - **Built by** — contributor chips. Inherited experts shown in italic (can't remove). Extra contributors can be added/removed.
-- **Present to** — consumer chips. Inherited stakeholders/blockers shown in italic. Extras editable.
+- **Present to** — consumer chips. Inherited stakeholders/approvers shown in italic. Extras editable.
 - **Delete** — permanently removes the deliverable and all its links
 
 ---

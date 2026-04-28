@@ -356,7 +356,7 @@
 					<button class="btn-ghost exit-cancel" onclick={() => { showExitMenu = false; exitReasonInput = ''; parkUntilInput = '' }}>Cancel</button>
 				</div>
 			{:else}
-				<button class="btn-icon discontinue-btn" onclick={() => showExitMenu = true}>✗</button>
+				<button class="btn-ghost discontinue-btn" onclick={() => showExitMenu = true} title="Kill, park, or merge this opportunity">Exit…</button>
 			{/if}
 		{/if}
 	</div>
@@ -633,7 +633,7 @@
 			</div>
 			{#each linkedDeliverables as { link, deliverable } (deliverable.id)}
 				{@const contributors = [...new Set([...opportunity.people.filter((p) => p.role === 'expert').map((p) => p.name), ...deliverable.extraContributors])]}
-				{@const consumers = [...new Set([...opportunity.people.filter((p) => p.role === 'stakeholder' || p.role === 'blocker').map((p) => p.name), ...deliverable.extraConsumers])]}
+				{@const consumers = [...new Set([...opportunity.people.filter((p) => p.role === 'stakeholder' || p.role === 'approver').map((p) => p.name), ...deliverable.extraConsumers])]}
 				<div class="deliverable-row">
 					<button
 						class="coverage-toggle"
@@ -683,7 +683,8 @@
 	.detail-pane {
 		display: flex;
 		flex-direction: column;
-		height: 100%;
+		flex: 1;
+		min-height: 0;
 		overflow-y: auto;
 		padding: var(--sp-md);
 		gap: var(--sp-sm);
@@ -804,6 +805,7 @@
 	.discontinue-btn {
 		margin-left: auto;
 		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
 	}
 
 	.discontinue-btn:hover {
@@ -1678,7 +1680,7 @@
 	}
 
 	.signal-row-edit.completed-stage {
-		opacity: 0.7;
+		opacity: 0.85;
 	}
 
 	.signal-row-edit.completed-stage:hover {
@@ -1700,12 +1702,12 @@
 		gap: var(--sp-sm);
 		padding: 1px 0;
 		cursor: pointer;
-		opacity: 0.55;
+		opacity: 0.7;
 		transition: opacity var(--tr-fast);
 	}
 
 	.signal-row-compact:hover {
-		opacity: 0.85;
+		opacity: 1;
 	}
 
 	.score-btn-mini {

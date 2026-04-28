@@ -511,7 +511,7 @@ export function buildMeetingAgenda(
 			for (const pl of opp.people) {
 				if (pl.name.toLowerCase() !== personName.toLowerCase()) continue
 				if (pl.role === 'expert') inheritedContributor = true
-				if (pl.role === 'stakeholder' || pl.role === 'blocker') inheritedConsumer = true
+				if (pl.role === 'stakeholder' || pl.role === 'approver') inheritedConsumer = true
 			}
 		}
 

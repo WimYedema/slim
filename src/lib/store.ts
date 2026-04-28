@@ -44,6 +44,14 @@ export function loadBoard(): BoardData | null {
 			if (!opp.stageEnteredAt) opp.stageEnteredAt = opp.updatedAt ?? opp.createdAt
 			// Migrate incubating → parked (no parkUntil)
 			if ((opp.exitState as string) === 'incubating') opp.exitState = 'parked'
+			// Migrate blocker → approver role rename
+			for (const p of opp.people) {
+				if ((p.role as string) === 'blocker') p.role = 'approver'
+			}
+		}
+		for (const del of data.deliverables) {
+			if (!del.kind) del.kind = 'delivery'
+			if (!del.status) del.status = 'active'
 		}
 		return data
 	} catch {

@@ -46,12 +46,12 @@ export const EXIT_STATES: { key: ExitState; label: string; icon: string; descrip
 ]
 
 /** Role a person plays on an opportunity */
-export type PersonRole = 'blocker' | 'expert' | 'stakeholder'
+export type PersonRole = 'approver' | 'expert' | 'stakeholder'
 
 export const PERSON_ROLES: { key: PersonRole; label: string; description: string }[] = [
 	{
-		key: 'blocker',
-		label: 'Blocker',
+		key: 'approver',
+		label: 'Approver',
 		description: 'Unblocks progress — someone needs something from them',
 	},
 	{ key: 'expert', label: 'Expert', description: 'Provides knowledge for a specific perspective' },
@@ -288,14 +288,41 @@ export function daysInStage(opp: Opportunity): number {
 	return Math.floor((Date.now() - entered) / 86_400_000)
 }
 
-/** Aging level based on days in current stage */
+/** Aging level based on days in current stage, horizon-aware */
 export type AgingLevel = 'fresh' | 'aging' | 'stale'
 
-export function agingLevel(opp: Opportunity): AgingLevel {
+export type HorizonPressure = 'now' | 'next' | 'none'
+
+/**
+ * Aging thresholds shift based on horizon pressure:
+ * - now:  tighter (fresh < 5d, aging 5-9, stale ≥ 10)
+ * - next: standard (fresh < 7d, aging 7-13, stale ≥ 14)
+ * - none: standard
+ */
+export function agingLevel(opp: Opportunity, pressure: HorizonPressure = 'none'): AgingLevel {
 	const days = daysInStage(opp)
+	if (pressure === 'now') {
+		if (days >= 10) return 'stale'
+		if (days >= 5) return 'aging'
+		return 'fresh'
+	}
 	if (days >= 14) return 'stale'
 	if (days >= 7) return 'aging'
 	return 'fresh'
+}
+
+/** Human-readable pacing summary for tooltip and zoomed view */
+export function pacingSummary(opp: Opportunity, pressure: HorizonPressure = 'none'): string {
+	const days = daysInStage(opp)
+	const level = agingLevel(opp, pressure)
+	const stage = stageLabel(opp.stage)
+	const horizon = opp.horizon ? `targeting ${opp.horizon}` : ''
+	const pace =
+		level === 'stale' ? 'behind pace' : level === 'aging' ? 'needs attention' : 'on track'
+	const parts = [`${days}d in ${stage}`]
+	if (horizon) parts.push(horizon)
+	parts.push(pace)
+	return parts.join(' · ')
 }
 
 /** Human label for an origin type key */
@@ -312,16 +339,30 @@ export function cellHasSignal(signal: CellSignal): boolean {
 export type TShirtSize = 'XS' | 'S' | 'M' | 'L' | 'XL'
 export type Certainty = 1 | 2 | 3 | 4 | 5
 
+/** Whether the deliverable produces an artifact or knowledge */
+export type DeliverableKind = 'delivery' | 'discovery'
+
+/** Lifecycle state of a deliverable */
+export type DeliverableStatus = 'active' | 'done' | 'dropped'
+
 export interface Deliverable {
 	id: string
 	title: string
+	/** Build something (delivery) or learn something (discovery) */
+	kind: DeliverableKind
+	/** Lifecycle state — active items show in the matrix, done/dropped go to archive */
+	status: DeliverableStatus
+	/** Timestamp when marked done or dropped */
+	completedAt?: number
+	/** Why the deliverable was dropped — one sentence */
+	dropReason?: string
 	/** Optional link to external sprint tool (Jira, Linear, etc.) */
 	externalUrl: string
 	/** Timestamp of last meaningful change */
 	updatedAt: number
 	/** Extra contributors not inherited from opportunity experts */
 	extraContributors: string[]
-	/** Extra consumers not inherited from opportunity stakeholders/blockers */
+	/** Extra consumers not inherited from opportunity stakeholders/approvers */
 	extraConsumers: string[]
 	/** T-shirt effort estimate (manual or derived from Skatting mu) */
 	size: TShirtSize | null
@@ -344,6 +385,8 @@ export function createDeliverable(title: string): Deliverable {
 	return {
 		id: crypto.randomUUID(),
 		title,
+		kind: 'delivery',
+		status: 'active',
 		externalUrl: '',
 		updatedAt: Date.now(),
 		extraContributors: [],
@@ -543,7 +586,7 @@ export function inheritedPeople(
 		if (!opp) continue
 		for (const p of opp.people) {
 			if (group === 'contributors' && p.role === 'expert') names.add(p.name)
-			if (group === 'consumers' && (p.role === 'stakeholder' || p.role === 'blocker'))
+			if (group === 'consumers' && (p.role === 'stakeholder' || p.role === 'approver'))
 				names.add(p.name)
 		}
 	}

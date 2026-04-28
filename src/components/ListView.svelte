@@ -82,7 +82,7 @@
 		weight: number
 	}
 
-	type Bucket = 'blocked' | 'attention' | 'clear'
+	type Bucket = 'urgent' | 'attention' | 'clear'
 
 	interface ListItem {
 		opp: Opportunity
@@ -96,9 +96,9 @@
 		const consent = stageConsent(opp)
 		const urgency = commitmentUrgency(opp)
 
-		// Blocked: objections or overdue commitments — can't advance
-		if (consent.objections.length > 0) return 'blocked'
-		if (urgency && urgency.daysLeft < 0) return 'blocked'
+		// Urgent: objections or overdue commitments — can't advance
+		if (consent.objections.length > 0) return 'urgent'
+		if (urgency && urgency.daysLeft < 0) return 'urgent'
 		// On track: consent achieved at current stage, no imminent deadlines
 		if (consent.status === 'ready' && (!urgency || urgency.daysLeft > 14)) return 'clear'
 		// Attention: everything else — deadlines, unheard voices, gaps
@@ -227,7 +227,7 @@
 			.sort((a, b) => b.urgency - a.urgency)
 
 		return {
-			blocked: items.filter((i) => i.bucket === 'blocked'),
+			urgent: items.filter((i) => i.bucket === 'urgent'),
 			attention: items.filter((i) => i.bucket === 'attention'),
 			clear: items.filter((i) => i.bucket === 'clear'),
 		}
@@ -235,11 +235,11 @@
 
 	// Expose flat visual order to parent for keyboard navigation
 	$effect(() => {
-		orderedIds = [...buckets.blocked, ...buckets.attention, ...buckets.clear].map(i => i.opp.id)
+		orderedIds = [...buckets.urgent, ...buckets.attention, ...buckets.clear].map(i => i.opp.id)
 	})
 
 	const BUCKET_META: Record<Bucket, { label: string; action: string }> = {
-		blocked: { label: 'Blocked', action: 'Resolve before advancing' },
+		urgent: { label: 'Urgent', action: 'Resolve before advancing' },
 		attention: { label: 'Needs input', action: 'Fill in to advance' },
 		clear: { label: 'On track', action: 'Advance or monitor' },
 	}
@@ -317,7 +317,7 @@
 			</svg>
 			</div>
 		</div>
-		{#each (['blocked', 'attention', 'clear'] as const) as bucket}
+		{#each (['urgent', 'attention', 'clear'] as const) as bucket}
 			{@const items = buckets[bucket]}
 			{#if items.length > 0}
 				<section class="bucket bucket-{bucket}">
@@ -357,7 +357,7 @@
 								{/each}
 							</span>
 							<span class="col-meta">
-								{#if horizonLabel(item.opp.horizon)}<span class="horizon-tag horizon-{horizonLabel(item.opp.horizon)}">{horizonLabel(item.opp.horizon)}</span>{/if}
+								{#if horizonLabel(item.opp.horizon)}{@const ht = horizonLabel(item.opp.horizon)}<span class="horizon-tag horizon-{ht}">{ht === 'now' ? '◆ now' : '◇ next'}</span>{/if}
 								{#if item.opp.origin}<span class="origin-tag">{originLabel(item.opp.origin)}</span>{/if}
 							</span>
 							<span class="col-advance">
@@ -555,7 +555,7 @@
 		padding: var(--sp-xs) var(--sp-sm) var(--sp-sm);
 	}
 
-	.bucket-blocked { background: color-mix(in srgb, var(--c-red) var(--opacity-subtle), transparent); }
+	.bucket-urgent { background: color-mix(in srgb, var(--c-red) var(--opacity-subtle), transparent); }
 	.bucket-attention { background: color-mix(in srgb, var(--c-warm) var(--opacity-subtle), transparent); }
 	.bucket-clear { background: color-mix(in srgb, var(--c-green-signal) var(--opacity-subtle), transparent); }
 
@@ -574,7 +574,7 @@
 		letter-spacing: 0.06em;
 	}
 
-	.bucket-blocked .bucket-label { color: var(--c-red); }
+	.bucket-urgent .bucket-label { color: var(--c-red); }
 	.bucket-attention .bucket-label { color: var(--c-warm); }
 	.bucket-clear .bucket-label { color: var(--c-green-signal); }
 
@@ -643,12 +643,12 @@
 		padding-left: calc(var(--sp-sm) - 3px);
 	}
 
-	.bucket-blocked .list-row.selected {
+	.bucket-urgent .list-row.selected {
 		border-left-color: var(--c-accent);
 	}
 
-	/* Blocked rows: left accent for visual urgency */
-	.bucket-blocked .list-row {
+	/* Urgent rows: left accent for visual urgency */
+	.bucket-urgent .list-row {
 		border-left: 3px solid color-mix(in srgb, var(--c-red) var(--opacity-strong), transparent);
 		padding-left: calc(var(--sp-sm) - 3px);
 	}
@@ -717,7 +717,7 @@
 		min-width: 0;
 	}
 
-	.bucket-blocked .col-title {
+	.bucket-urgent .col-title {
 		font-weight: var(--fw-bold);
 	}
 
@@ -832,7 +832,7 @@
 		flex-shrink: 0;
 	}
 
-	.bucket-blocked .col-nudge {
+	.bucket-urgent .col-nudge {
 		color: var(--c-text-soft);
 	}
 

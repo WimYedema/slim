@@ -21,6 +21,7 @@ import {
 	type Opportunity,
 	type OpportunityDeliverableLink,
 	originLabel,
+	pacingSummary,
 	perspectiveAssignment,
 	perspectiveOwner,
 	perspectiveWeight,
@@ -126,6 +127,39 @@ describe('agingLevel', () => {
 	it('returns stale for >= 14 days', () => {
 		const opp = makeOpp({ stageEnteredAt: Date.now() - 20 * 86_400_000 })
 		expect(agingLevel(opp)).toBe('stale')
+	})
+
+	it('tightens thresholds for "now" pressure', () => {
+		const opp5 = makeOpp({ stageEnteredAt: Date.now() - 5 * 86_400_000 })
+		expect(agingLevel(opp5, 'now')).toBe('aging')
+		expect(agingLevel(opp5, 'none')).toBe('fresh')
+
+		const opp10 = makeOpp({ stageEnteredAt: Date.now() - 10 * 86_400_000 })
+		expect(agingLevel(opp10, 'now')).toBe('stale')
+		expect(agingLevel(opp10, 'none')).toBe('aging')
+	})
+
+	it('uses standard thresholds for "next" pressure', () => {
+		const opp = makeOpp({ stageEnteredAt: Date.now() - 8 * 86_400_000 })
+		expect(agingLevel(opp, 'next')).toBe('aging')
+		expect(agingLevel(opp, 'none')).toBe('aging')
+	})
+})
+
+describe('pacingSummary', () => {
+	it('includes days, stage, and pace', () => {
+		const opp = makeOpp({ stageEnteredAt: Date.now() - 3 * 86_400_000, horizon: '' })
+		expect(pacingSummary(opp)).toBe('3d in Explore · on track')
+	})
+
+	it('includes horizon when set', () => {
+		const opp = makeOpp({ stageEnteredAt: Date.now() - 3 * 86_400_000, horizon: '2026Q3' })
+		expect(pacingSummary(opp)).toBe('3d in Explore · targeting 2026Q3 · on track')
+	})
+
+	it('reflects aging pace', () => {
+		const opp = makeOpp({ stageEnteredAt: Date.now() - 10 * 86_400_000, horizon: '2026Q2' })
+		expect(pacingSummary(opp, 'now')).toBe('10d in Explore · targeting 2026Q2 · behind pace')
 	})
 })
 
@@ -515,13 +549,13 @@ describe('inheritedPeople', () => {
 		expect(result).toEqual(['Alice'])
 	})
 
-	it('returns stakeholders and blockers as consumers', () => {
+	it('returns stakeholders and approvers as consumers', () => {
 		const opp = makeOpp({
 			id: 'o1',
 			people: [
 				{ id: 'p1', name: 'Alice', role: 'expert', perspectives: [] },
 				{ id: 'p2', name: 'Bob', role: 'stakeholder', perspectives: [] },
-				{ id: 'p3', name: 'Carol', role: 'blocker', perspectives: [] },
+				{ id: 'p3', name: 'Carol', role: 'approver', perspectives: [] },
 			],
 		})
 		const del = createDeliverable('Task')

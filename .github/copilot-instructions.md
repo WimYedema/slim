@@ -33,7 +33,7 @@ Stage advancement requires all three perspectives scored (no `none`) and no obje
 | `Deliverable` | Title, size (T-shirt), certainty (1-5), externalUrl, contributors, consumers |
 | `OpportunityDeliverableLink` | Many-to-many with coverage (full/partial) |
 | `CellSignal` | Score + verdict + evidence + owner for one grid cell |
-| `PersonLink` | Expert/blocker/stakeholder with perspective assignments |
+| `PersonLink` | Expert/approver/stakeholder with perspective assignments |
 | `Commitment` | Promise with deadline and milestone |
 | `Stage` | 'explore' | 'sketch' | 'validate' | 'decompose' |
 | `Perspective` | 'desirability' | 'feasibility' | 'viability' |
@@ -123,6 +123,23 @@ All visual values use CSS custom properties from `:root` in `upstream.html`:
 - `--tr-*` (transitions, respect `prefers-reduced-motion`)
 
 Never use raw hex colors, pixel values, or magic numbers in component CSS. Per-instance dynamic values use scoped inline custom properties.
+
+### Content-width layout
+
+Scrollable views use a **full-width container / constrained content** pattern to keep the scrollbar at the viewport edge while centering a readable content column:
+
+```css
+.container {
+  overflow-y: auto;       /* scrollbar spans full viewport width */
+  align-items: center;    /* center the content column */
+}
+.container > * {
+  width: 100%;
+  max-width: 56rem;       /* ~896px — adjust per view */
+}
+```
+
+Never put `max-width` on the scrollable container itself — that pulls the scrollbar inward and leaves dead gutter space. Each view picks its own content width (e.g. Briefing 720px, Pipeline 56rem).
 
 ### Accessibility & input
 

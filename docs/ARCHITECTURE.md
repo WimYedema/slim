@@ -104,7 +104,7 @@ Each opportunity carries:
 - A **signal grid**: 4 stages × 3 perspectives (desirability, feasibility, viability) = 12 cells
 - **Origin type**: Request, Idea, Incident, Debt
 - **Horizon**: freeform label (defaults to next quarter)
-- **People**: expert/blocker/stakeholder assignments with perspective delegation
+- **People**: expert/approver/stakeholder assignments with perspective delegation
 - **Commitments**: promises with deadlines
 - **Exit state**: kill/park/incubate/merge with reason (when discontinued)
 - **Aging**: computed from `stageEnteredAt` timestamp (fresh < 7d, aging 7-14d, stale > 14d)

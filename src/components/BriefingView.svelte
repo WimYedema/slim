@@ -102,7 +102,13 @@
 	}
 
 	function handleMarkSeen() {
-		onMarkSeen(snapshotBoard(currentBoard))
+		const freshSnap = snapshotBoard(currentBoard)
+		// Dismiss all currently visible items; prune stale keys
+		const visibleKeys = items.map(i => briefingKey(i))
+		const freshAllKeys = new Set(allItems.map(i => briefingKey(i)))
+		const existingKeys = (snapshot?.dismissedKeys ?? []).filter(k => freshAllKeys.has(k))
+		const allKeys = [...new Set([...existingKeys, ...visibleKeys])]
+		onMarkSeen({ ...freshSnap, dismissedKeys: allKeys })
 	}
 
 	function handleDismiss(e: Event, item: AnyBriefingItem) {
@@ -276,10 +282,12 @@
 		padding: var(--sp-md);
 		display: flex;
 		flex-direction: column;
+		align-items: center;
 		gap: var(--sp-md);
 	}
 
 	.bf-container > * {
+		width: 100%;
 		max-width: 720px;
 	}
 
