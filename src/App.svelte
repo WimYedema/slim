@@ -7,6 +7,7 @@
 	import MeetingView from './components/MeetingView.svelte'
 	import KeyboardHelp from './components/KeyboardHelp.svelte'
 	import QuickAdd from './components/QuickAdd.svelte'
+	import SyncPanel from './components/SyncPanel.svelte'
 	import {
 		type Opportunity,
 		type Deliverable,
@@ -20,6 +21,7 @@
 	import type { MeetingData } from './lib/meeting'
 	import type { BoardSnapshot } from './lib/briefing'
 	import { opportunitiesToCsv, csvToOpportunities } from './lib/csv'
+	import { mergeBoards, formatMergeStats } from './lib/merge'
 
 	type ViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'meetings'
 
@@ -287,6 +289,7 @@
 	let pipelineGrouping: 'stage' | 'horizon' = $state('stage')
 	let showHelp = $state(false)
 	let showQuickAdd = $state(false)
+	let showDataMenu = $state(false)
 
 	// ── Undo stack (snapshot-based) ──
 	interface UndoSnapshot {
@@ -294,17 +297,19 @@
 		opportunities: Opportunity[]
 		deliverables: Deliverable[]
 		links: OpportunityDeliverableLink[]
+		meetingData?: MeetingData
 	}
 
 	let undoStack: UndoSnapshot[] = $state([])
 	let undoMessage: string = $state('')
 
-	function pushUndo(label: string) {
+	function pushUndo(label: string, includeMeetings = false) {
 		undoStack = [...undoStack.slice(-19), {
 			label,
 			opportunities: structuredClone($state.snapshot(opportunities)),
 			deliverables: structuredClone($state.snapshot(deliverables)),
 			links: structuredClone($state.snapshot(links)),
+			...(includeMeetings ? { meetingData: structuredClone($state.snapshot(meetingData)) } : {}),
 		}]
 	}
 
@@ -315,6 +320,7 @@
 		opportunities = snap.opportunities
 		deliverables = snap.deliverables
 		links = snap.links
+		if (snap.meetingData) meetingData = snap.meetingData
 		undoMessage = `Undid: ${snap.label}`
 		setTimeout(() => undoMessage = '', 2500)
 	}
@@ -422,6 +428,7 @@
 
 			// Close dialogs / panes (layered)
 			if (e.key === 'Escape') {
+				if (showDataMenu) { showDataMenu = false; return }
 				if (showHelp) { showHelp = false; return }
 				if (showQuickAdd) { showQuickAdd = false; return }
 				if (selectedId) { selectedId = null; return }
@@ -641,7 +648,7 @@
 		URL.revokeObjectURL(url)
 	}
 
-	function importJSON() {
+	function importJSON(mode: 'replace' | 'merge' = 'replace') {
 		const input = document.createElement('input')
 		input.type = 'file'
 		input.accept = '.json'
@@ -656,10 +663,20 @@
 						alert('Invalid file format — expected Upstream JSON export.')
 						return
 					}
-					opportunities = data.opportunities
-					deliverables = data.deliverables
-					links = data.links
-					customHorizons = data.customHorizons ?? []
+					pushUndo(mode === 'merge' ? 'Merge import' : 'Replace import')
+					if (mode === 'merge') {
+						const local: BoardData = { opportunities, deliverables, links }
+						const result = mergeBoards(local, data)
+						opportunities = result.opportunities
+						deliverables = result.deliverables
+						links = result.links
+						alert(formatMergeStats(result.stats))
+					} else {
+						opportunities = data.opportunities
+						deliverables = data.deliverables
+						links = data.links
+						customHorizons = data.customHorizons ?? []
+					}
 					selectedId = null
 					selectedDeliverableId = null
 				} catch {
@@ -750,11 +767,49 @@
 			<button class="view-tab" class:active={view === 'meetings'} onclick={() => switchView('meetings')}>Meetings</button>
 		</nav>
 		<div class="header-actions">
-			<button class="action-btn" onclick={importJSON} title="Import board from JSON file">Import JSON</button>
-			<button class="action-btn" onclick={importCSV} title="Import opportunities from CSV file">Import CSV</button>
-			<button class="action-btn" onclick={exportJSON} title="Export full board as JSON">Export JSON</button>
-			<button class="action-btn" onclick={exportCSV} title="Export opportunities as CSV">Export CSV</button>
-			<button class="reset-btn" onclick={resetBoard} title="Clears all data and reloads sample dataset">Reset</button>
+			<SyncPanel {opportunities} {deliverables} {links}
+				onApplyScores={(updatedOpps, message) => {
+					pushUndo('Sync scores')
+					opportunities = updatedOpps
+				}}
+			/>
+			<div class="data-menu-container">
+				<button class="action-btn" onclick={() => showDataMenu = !showDataMenu} title="Import, export, and data management">
+					Data ↕
+				</button>
+				{#if showDataMenu}
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="data-menu-backdrop" onclick={() => showDataMenu = false}></div>
+					<div class="data-menu">
+						<div class="data-menu-group">
+							<span class="data-menu-label">Import</span>
+							<button class="data-menu-item" onclick={() => { importJSON('replace'); showDataMenu = false }}>
+								Replace board from JSON
+							</button>
+							<button class="data-menu-item" onclick={() => { importJSON('merge'); showDataMenu = false }}>
+								Merge JSON into board
+							</button>
+							<button class="data-menu-item" onclick={() => { importCSV(); showDataMenu = false }}>
+								Import opportunities from CSV
+							</button>
+						</div>
+						<div class="data-menu-group">
+							<span class="data-menu-label">Export</span>
+							<button class="data-menu-item" onclick={() => { exportJSON(); showDataMenu = false }}>
+								Full board as JSON
+							</button>
+							<button class="data-menu-item" onclick={() => { exportCSV(); showDataMenu = false }}>
+								Opportunities as CSV
+							</button>
+						</div>
+						<div class="data-menu-group">
+							<button class="data-menu-item danger" onclick={() => { resetBoard(); showDataMenu = false }}>
+								Reset to sample data
+							</button>
+						</div>
+					</div>
+				{/if}
+			</div>
 			<button class="help-btn" onclick={() => showHelp = true} title="Keyboard shortcuts (?)">?</button>
 		</div>
 	</header>
@@ -837,6 +892,7 @@
 				onSelectDeliverable={toggleDeliverable}
 				onUpdateOpportunity={updateOpportunity}
 				onUpdateMeetingData={(data) => { meetingData = data }}
+				onBeforeDone={() => pushUndo('Meeting stamp', true)}
 			/>
 		</div>
 		{@render detailSidebar()}
@@ -939,21 +995,71 @@
 		background: var(--c-hover);
 	}
 
-	.reset-btn {
-		background: none;
-		border: 1px solid var(--c-border-soft);
-		font: inherit;
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-		cursor: pointer;
-		padding: var(--sp-xs) var(--sp-sm);
-		border-radius: var(--radius-sm);
-		transition: background var(--tr-fast), color var(--tr-fast);
+	.data-menu-container {
+		position: relative;
 	}
 
-	.reset-btn:hover {
-		background: var(--c-hover);
+	.data-menu {
+		position: absolute;
+		top: 100%;
+		right: 0;
+		z-index: 100;
+		width: 240px;
+		margin-top: var(--sp-2xs);
+		padding: var(--sp-xs) 0;
+		background: var(--c-surface);
+		border: 1px solid var(--c-border);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-lg);
+	}
+
+	.data-menu-group {
+		padding: var(--sp-2xs) 0;
+	}
+
+	.data-menu-group + .data-menu-group {
+		border-top: 1px solid var(--c-border-soft);
+	}
+
+	.data-menu-label {
+		display: block;
+		padding: var(--sp-xs) var(--sp-md) var(--sp-2xs);
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-semibold);
+		color: var(--c-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.data-menu-item {
+		display: block;
+		width: 100%;
+		padding: var(--sp-xs) var(--sp-md);
+		background: none;
+		border: none;
+		font: inherit;
+		font-size: var(--fs-sm);
 		color: var(--c-text);
+		cursor: pointer;
+		text-align: left;
+	}
+
+	.data-menu-item:hover {
+		background: var(--c-hover);
+	}
+
+	.data-menu-item.danger {
+		color: var(--c-red);
+	}
+
+	.data-menu-item.danger:hover {
+		background: var(--c-red-bg);
+	}
+
+	.data-menu-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 99;
 	}
 
 	.header-actions {

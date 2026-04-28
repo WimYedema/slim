@@ -24,9 +24,10 @@
 		onSelectDeliverable: (id: string) => void
 		onUpdateOpportunity: (updated: Opportunity) => void
 		onUpdateMeetingData: (data: MeetingData) => void
+		onBeforeDone?: () => void
 	}
 
-	let { opportunities, deliverables, links, meetingData, onSelectOpportunity, onSelectDeliverable, onUpdateOpportunity, onUpdateMeetingData }: Props = $props()
+	let { opportunities, deliverables, links, meetingData, onSelectOpportunity, onSelectDeliverable, onUpdateOpportunity, onUpdateMeetingData, onBeforeDone }: Props = $props()
 
 	let selectedPerson: string | null = $state(null)
 	/** Entity IDs the user discussed — persisted in meetingData.inProgress */
@@ -299,6 +300,7 @@
 			if (!confirm(msg)) return
 		}
 		const scope = discussedItems.size < allEntityIds.size ? discussedItems : undefined
+		onBeforeDone?.()
 		const updated = completeMeeting(selectedPerson, agenda, meetingData, opportunities, deliverables, links, scope)
 		// Clear in-progress state for this person
 		const inProgress = { ...(updated.inProgress ?? {}) }

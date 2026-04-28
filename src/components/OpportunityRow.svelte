@@ -49,6 +49,7 @@
 		onSelect: (id: string) => void
 		onAdvance: (id: string, stage: Stage) => void
 		onSelectDeliverable?: (id: string) => void
+		onPark?: (id: string) => void
 	}
 
 	let {
@@ -68,6 +69,7 @@
 		onSelect,
 		onAdvance,
 		onSelectDeliverable,
+		onPark,
 	}: Props = $props()
 
 	const next = $derived(nextStage(opp.stage))
@@ -251,6 +253,9 @@
 			</span>
 			{#if days > 0}<span class="aging-badge aging-{aging}" title={pacing}>{days}d</span>{/if}
 			<span class="pl-advance">
+				{#if aging === 'stale' && onPark}
+					<button class="park-btn" onclick={(e) => { e.stopPropagation(); onPark(opp.id) }} title="Park this stale opportunity">⏸</button>
+				{/if}
 				{#if consent.status === 'ready' && next}
 					<button class="advance-btn" onclick={(e) => { e.stopPropagation(); onAdvance(opp.id, next) }} title="Advance to {STAGES.find((s) => s.key === next)?.label}">→</button>
 				{/if}
@@ -570,6 +575,27 @@
 	.advance-btn:hover {
 		background: color-mix(in srgb, var(--c-green-signal) var(--opacity-emphasis), transparent);
 		border-color: var(--c-green-signal);
+	}
+
+	.park-btn {
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		border: 1px solid var(--c-warm-border);
+		background: var(--c-warm-bg);
+		color: var(--c-warm);
+		font-size: var(--fs-2xs);
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		transition: background var(--tr-fast), border-color var(--tr-fast);
+		padding: 0;
+	}
+
+	.park-btn:hover {
+		background: color-mix(in srgb, var(--c-warm) 30%, transparent);
+		border-color: var(--c-warm);
 	}
 
 	/* --- Tags (pill-border style) --- */

@@ -106,6 +106,12 @@
 		}, 50)
 	}
 
+	function handlePark(id: string) {
+		const opp = opportunities.find(o => o.id === id)
+		if (!opp || !onUpdateOpportunity) return
+		onUpdateOpportunity({ ...opp, exitState: 'parked', discontinuedAt: Date.now() })
+	}
+
 	function expandAdd() {
 		addExpanded = true
 		setTimeout(() => addInputEl?.focus(), 0)
@@ -636,6 +642,7 @@
 										{onSelect}
 										{onAdvance}
 										{onSelectDeliverable}
+										onPark={handlePark}
 									/>
 								{/each}
 								{#if urgent.length > 0 && (attention.length > 0 || clear.length > 0)}
@@ -656,6 +663,7 @@
 										{onSelect}
 										{onAdvance}
 										{onSelectDeliverable}
+										onPark={handlePark}
 									/>
 								{/each}
 								{#if attention.length > 0 && clear.length > 0}
@@ -676,6 +684,7 @@
 										{onSelect}
 										{onAdvance}
 										{onSelectDeliverable}
+										onPark={handlePark}
 									/>
 								{/each}
 							</div>
@@ -785,6 +794,7 @@
 											{onSelect}
 											{onAdvance}
 											{onSelectDeliverable}
+											onPark={handlePark}
 										/>
 									</div>
 								{/each}

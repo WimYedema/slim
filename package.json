@@ -28,5 +28,8 @@
     "vite": "^8.0.4",
     "vite-plugin-singlefile": "^2.3.2",
     "vitest": "^4.1.4"
+  },
+  "dependencies": {
+    "nostr-tools": "^2.23.3"
   }
 }
