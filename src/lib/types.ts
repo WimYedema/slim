@@ -348,4 +348,8 @@ export {
 	stageLabel,
 	formatDaysLeft,
 	inheritedPeople,
+	WIP_THRESHOLDS,
+	wipLevel,
+	wipNudge,
+	type WipLevel,
 } from './queries'

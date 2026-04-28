@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type Stage, STAGES } from '../lib/types'
+	import { type Stage, STAGES, wipLevel } from '../lib/types'
 
 	interface TriageInfo {
 		urgent: number
@@ -39,6 +39,7 @@
 			{@const rightY = (H - rightH) / 2}
 			{@const hasItems = stage.count > 0}
 			{@const triage = triageByStage[stage.key]}
+			{@const wip = wipLevel(stage.key, stage.count)}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<g
 				class="funnel-group"
@@ -52,6 +53,8 @@
 					points="{x},{leftY} {x + SEG_W},{rightY} {x + SEG_W},{rightY + rightH} {x},{leftY + leftH}"
 					class="funnel-segment"
 					class:funnel-empty={!hasItems}
+					class:funnel-wip-over={wip === 'over'}
+					class:funnel-wip-under={wip === 'under'}
 					style="--stage-color: var(--c-stage-{stage.key})"
 				/>
 				{#if i > 0}
@@ -104,6 +107,15 @@
 	}
 	.funnel-segment.funnel-empty {
 		fill: color-mix(in srgb, var(--c-border) var(--opacity-moderate), transparent);
+	}
+	.funnel-segment.funnel-wip-over {
+		fill: color-mix(in srgb, var(--c-warm) var(--opacity-moderate), transparent);
+	}
+	.funnel-segment.funnel-wip-under {
+		fill: color-mix(in srgb, var(--c-stage-validate) var(--opacity-subtle), transparent);
+		stroke: var(--c-border);
+		stroke-width: 1;
+		stroke-dasharray: 3 2;
 	}
 
 	.funnel-divider {

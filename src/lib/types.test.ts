@@ -32,6 +32,9 @@ import {
 	stageIndex,
 	stageLabel,
 	ternaryPosition,
+	wipLevel,
+	wipNudge,
+	WIP_THRESHOLDS,
 } from './types'
 
 // ── Helpers ──
@@ -569,5 +572,65 @@ describe('inheritedPeople', () => {
 	it('returns empty for unlinked deliverables', () => {
 		const result = inheritedPeople('unknown', 'contributors', [], [])
 		expect(result).toEqual([])
+	})
+})
+
+// ── WIP limits ──
+
+describe('wipLevel', () => {
+	it('returns "ok" when count is within thresholds', () => {
+		expect(wipLevel('explore', 5)).toBe('ok')
+		expect(wipLevel('sketch', 4)).toBe('ok')
+		expect(wipLevel('validate', 3)).toBe('ok')
+		expect(wipLevel('decompose', 2)).toBe('ok')
+	})
+
+	it('returns "over" when count exceeds ceiling', () => {
+		expect(wipLevel('explore', 16)).toBe('over')
+		expect(wipLevel('sketch', 9)).toBe('over')
+		expect(wipLevel('validate', 6)).toBe('over')
+		expect(wipLevel('decompose', 4)).toBe('over')
+	})
+
+	it('returns "under" when count is below floor', () => {
+		expect(wipLevel('explore', 2)).toBe('under')
+		expect(wipLevel('sketch', 0)).toBe('under')
+		expect(wipLevel('validate', 0)).toBe('under')
+		expect(wipLevel('decompose', 0)).toBe('under')
+	})
+
+	it('returns "ok" at exact boundary values', () => {
+		expect(wipLevel('explore', 3)).toBe('ok')
+		expect(wipLevel('explore', 15)).toBe('ok')
+		expect(wipLevel('decompose', 1)).toBe('ok')
+		expect(wipLevel('decompose', 3)).toBe('ok')
+	})
+})
+
+describe('wipNudge', () => {
+	it('returns null when count is healthy', () => {
+		expect(wipNudge('explore', 5)).toBeNull()
+		expect(wipNudge('sketch', 4)).toBeNull()
+	})
+
+	it('returns a message when over ceiling', () => {
+		const msg = wipNudge('sketch', 10)
+		expect(msg).toContain('crowded')
+		expect(msg).toContain('10')
+	})
+
+	it('returns a message when under floor', () => {
+		const msg = wipNudge('explore', 1)
+		expect(msg).toContain('quiet')
+	})
+
+	it('gives specific advice for empty validate', () => {
+		const msg = wipNudge('validate', 0)
+		expect(msg).toContain('tested')
+	})
+
+	it('gives specific advice for empty decompose', () => {
+		const msg = wipNudge('decompose', 0)
+		expect(msg).toContain('sprints')
 	})
 })

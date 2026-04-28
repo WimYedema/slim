@@ -289,6 +289,48 @@ export function inheritedPeople(
 
 // ── Visualization ──
 
+// ── WIP limits ──
+
+/** Default WIP thresholds per stage (floor = too few, ceiling = too many) */
+export const WIP_THRESHOLDS: Record<Stage, { floor: number; ceiling: number }> = {
+	explore: { floor: 3, ceiling: 15 },
+	sketch: { floor: 1, ceiling: 8 },
+	validate: { floor: 1, ceiling: 5 },
+	decompose: { floor: 1, ceiling: 3 },
+}
+
+export type WipLevel = 'over' | 'under' | 'ok'
+
+/** Check WIP health for a stage given its active item count */
+export function wipLevel(stage: Stage, count: number): WipLevel {
+	const t = WIP_THRESHOLDS[stage]
+	if (count > t.ceiling) return 'over'
+	if (count < t.floor) return 'under'
+	return 'ok'
+}
+
+/** Friendly WIP nudge message, or null if healthy */
+export function wipNudge(stage: Stage, count: number): string | null {
+	const t = WIP_THRESHOLDS[stage]
+	const label = stageLabel(stage)
+	if (count > t.ceiling) {
+		return `${label} feels crowded — ${count} items, consider focusing or parking some`
+	}
+	if (stage === 'explore' && count < t.floor) {
+		return `${label} is looking quiet — fresh ideas keep the pipeline healthy`
+	}
+	if (stage === 'validate' && count === 0) {
+		return `Nothing in ${label} — are ideas getting tested before they ship?`
+	}
+	if (stage === 'decompose' && count === 0) {
+		return `Nothing in ${label} — upcoming sprints may run dry`
+	}
+	if (count < t.floor) {
+		return `${label} could use more items — only ${count} right now`
+	}
+	return null
+}
+
 /** Barycentric coordinates for a ternary triangle. Returns {x, y} in 0..1 range */
 export function ternaryPosition(opp: Opportunity): { x: number; y: number } {
 	let d = perspectiveWeight(opp, 'desirability')

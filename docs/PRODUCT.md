@@ -536,25 +536,29 @@ A single-page app where:
 
 | Feature | Status |
 |---|---|
-| Briefing view (board-wide news feed) | Not yet — planned |
-| Pipeline view with stage/horizon grouping | Partial — stage-grouped triage list exists |
-| Pipeline zoom (single-stage/horizon detail) | Not yet — planned |
+| Briefing view (board-wide news feed, 5 importance tiers) | ✅ |
+| Pipeline view with stage/horizon grouping + funnel SVG | ✅ |
+| Pipeline zoom (single-stage/horizon detail) | ✅ |
 | Triage list with smart sort + nudges | ✅ |
 | Signal grid (4 stages × 3 perspectives) with consent gating | ✅ |
 | Coverage matrix with contributor columns | ✅ |
 | Roadmap with horizon grouping + size breakdown | ✅ (folded into Pipeline as grouping mode) |
-| Meeting prep with snapshot-based change detection | ✅ |
+| Meeting prep with snapshot-based change detection | ✅ (enriched: entity-grouped, scoped stamp, inline scoring) |
 | People links, delegation, commitments | ✅ |
 | Persistence (localStorage) | ✅ |
-| Discontinue / reactivate | ✅ |
+| Card aging (time-in-stage, horizon-aware thresholds) | ✅ |
+| Origin type (demand / supply / incident / debt) | ✅ |
+| Full exit states (kill / park / merge) with reason capture | ✅ |
+| Import / export (JSON import + JSON/CSV export) | ✅ |
+| 20-level undo (Ctrl+Z) | ✅ |
+| Keyboard navigation (vim-style j/k, view switch 1-4, quick-add n) | ✅ |
+| Quick-add dialog (opportunity or deliverable) | ✅ |
+| Deliverable kind (delivery / discovery) + status (active / done / dropped) | ✅ |
 | WIP limits per stage | Not yet |
-| Card aging (time-in-stage visual decay) | Not yet |
-| Origin type (demand / supply / incident) | Not yet |
-| Full exit states (kill / park / incubate / merge) | Not yet — simplified to discontinue/reactivate |
-| Import / export (CSV, JSON) | Not yet |
-| P2P sharing / contribution model | Not yet |
-| Shareable card links | Not yet |
-| Export stage (push to sprint tool) | Not yet |
+| CSV import | Not yet |
+| P2P sharing / contribution model | Not yet — H2 |
+| Shareable card links | Not yet — H2 |
+| Export stage (push to sprint tool) | Not yet — H2 |
 
 ### What it deliberately is not (v1)
 
@@ -723,19 +727,24 @@ Each horizon targets a broader PO audience. Earlier horizons serve POs who alrea
 
 | Feature | Status |
 |---|---|
+| Briefing view (board-wide news feed, 5 importance tiers) | ✅ |
+| Pipeline view with stage/horizon grouping + funnel + zoom | ✅ |
 | Triage list with smart sort + contextual nudges | ✅ |
 | Signal grid (4 stages × 3 perspectives), consent gating | ✅ |
 | Coverage matrix with contributor columns + leverage sort | ✅ |
 | Roadmap with horizon grouping + T-shirt size breakdown | ✅ |
-| Meeting prep with snapshot-based change detection | ✅ |
+| Meeting prep (entity-grouped, scoped stamp, inline scoring) | ✅ |
 | People links, delegation, commitments, urgency alerts | ✅ |
 | Persistence (localStorage) | ✅ |
-| Discontinue / reactivate | ✅ |
-| **Import / export (CSV, JSON)** | Next |
-| **Reset confirmation + undo** | Next |
-| **Card aging (time-in-stage visual decay)** | Next |
-| **Full exit states (kill / park / incubate / merge)** | Next |
-| **Origin type (demand / supply / incident)** | Next |
+| Card aging (time-in-stage, horizon-aware thresholds) | ✅ |
+| Origin type (demand / supply / incident / debt) | ✅ |
+| Full exit states (kill / park / merge) with reason capture | ✅ |
+| Import / export (JSON import + JSON/CSV export) | ✅ |
+| 20-level undo (Ctrl+Z) | ✅ |
+| Keyboard navigation + quick-add dialog | ✅ |
+| Deliverable kind + status lifecycle | ✅ |
+| **WIP limits per stage** | Not yet |
+| **CSV import** | Not yet |
 
 **Exit criteria:** A solo PO can import their spreadsheet, maintain their pipeline for a month, export for sprint planning, and prepare all their 1:1s from the tool. The spreadsheet becomes a backup, not the primary.
 

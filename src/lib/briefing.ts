@@ -13,6 +13,8 @@ import {
 	STAGES,
 	stageIndex,
 	stageLabel,
+	wipLevel,
+	wipNudge,
 } from './types'
 
 // ── Snapshot ──
@@ -67,6 +69,8 @@ export type ChangeVerb =
 	| 'meeting-overdue'
 	| 'deliverable-changed'
 	| 'revisit-due'
+	| 'wip-over'
+	| 'wip-under'
 
 export type ImportanceTier = 1 | 2 | 3
 
@@ -120,6 +124,8 @@ const TIER_MAP: Record<ChangeVerb, ImportanceTier> = {
 	'meeting-overdue': 2,
 	'deliverable-changed': 2,
 	'revisit-due': 1,
+	'wip-over': 2,
+	'wip-under': 3,
 }
 
 // ── Diff engine ──
@@ -542,6 +548,31 @@ function revisitDueItems(opps: Opportunity[], now: number): BriefingItem[] {
 	return items
 }
 
+/** WIP health warnings — surfaces when stages are overcrowded or starving */
+function wipWarnings(opportunities: Opportunity[], now: number): BriefingItem[] {
+	const items: BriefingItem[] = []
+	const active = opportunities.filter((o) => !o.discontinuedAt)
+
+	for (const stage of STAGES) {
+		const count = active.filter((o) => o.stage === stage.key).length
+		const level = wipLevel(stage.key, count)
+		const nudge = wipNudge(stage.key, count)
+		if (level !== 'ok' && nudge) {
+			items.push({
+				id: itemId(),
+				targetType: 'opportunity',
+				targetId: '',
+				targetTitle: stage.label,
+				verb: level === 'over' ? 'wip-over' : 'wip-under',
+				description: nudge,
+				tier: TIER_MAP[level === 'over' ? 'wip-over' : 'wip-under'],
+				timestamp: now,
+			})
+		}
+	}
+	return items
+}
+
 /** Compute all briefing items by diffing current board against a snapshot */
 export function diffBoard(
 	snapshot: BoardSnapshot | null,
@@ -560,7 +591,7 @@ export function diffBoard(
 			meetingData ?? null,
 			now,
 		)
-		const all = [...warnings, ...revisitItems, ...pWarnings]
+		const all = [...warnings, ...revisitItems, ...pWarnings, ...wipWarnings(current.opportunities, now)]
 		all.sort((a, b) => a.tier - b.tier || b.timestamp - a.timestamp)
 		return all
 	}
@@ -581,7 +612,9 @@ export function diffBoard(
 		now,
 	)
 
-	const all = [...oppItems, ...delItems, ...revisitItems, ...pWarnings]
+	const wipItems = wipWarnings(current.opportunities, now)
+
+	const all = [...oppItems, ...delItems, ...revisitItems, ...pWarnings, ...wipItems]
 
 	// Sort: tier 1 first, then tier 2, then tier 3. Within each tier, newest first.
 	all.sort((a, b) => a.tier - b.tier || b.timestamp - a.timestamp)

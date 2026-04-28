@@ -701,3 +701,40 @@ describe('briefing', () => {
 		})
 	})
 })
+
+// ── WIP warnings ──
+
+describe('WIP warnings in diffBoard', () => {
+	it('surfaces wip-over when a stage exceeds its ceiling', () => {
+		// Create 16 explore opportunities (ceiling is 15)
+		const opps = Array.from({ length: 16 }, (_, i) =>
+			createOpportunity(`Opp ${i}`),
+		)
+		const current = { opportunities: opps, deliverables: [], links: [], customHorizons: [] }
+		const items = diffBoard(null, current)
+		const wipItems = items.filter((i) => i.verb === 'wip-over')
+		expect(wipItems.length).toBeGreaterThanOrEqual(1)
+		expect(wipItems[0].description).toContain('crowded')
+	})
+
+	it('surfaces wip-under when explore has too few items', () => {
+		// Create only 1 explore opportunity (floor is 3)
+		const opp = createOpportunity('Lonely')
+		const current = { opportunities: [opp], deliverables: [], links: [], customHorizons: [] }
+		const items = diffBoard(null, current)
+		const wipItems = items.filter((i) => i.verb === 'wip-under')
+		expect(wipItems.some((i) => i.targetTitle === 'Explore')).toBe(true)
+	})
+
+	it('does not surface WIP warnings for healthy counts', () => {
+		const opps = Array.from({ length: 5 }, (_, i) =>
+			createOpportunity(`Opp ${i}`),
+		)
+		const current = { opportunities: opps, deliverables: [], links: [], customHorizons: [] }
+		const items = diffBoard(null, current)
+		const wipItems = items.filter((i) => i.verb === 'wip-over' || i.verb === 'wip-under')
+		// Explore has 5 (healthy), but other stages have 0 (under floor)
+		const exploreWip = wipItems.filter((i) => i.targetTitle === 'Explore')
+		expect(exploreWip).toHaveLength(0)
+	})
+})

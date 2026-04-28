@@ -21,6 +21,8 @@
 		stageConsent,
 		stageIndex,
 		stageLabel,
+		wipLevel,
+		wipNudge,
 	} from '../lib/types'
 	import PipelineFunnel from './PipelineFunnel.svelte'
 	import OpportunityRow from './OpportunityRow.svelte'
@@ -576,11 +578,18 @@
 					{@const oldest = oldestDays(group.items)}
 					{@const urgentText = specificBadge(group.items, 'urgent')}
 					{@const attentionText = specificBadge(group.items, 'attention')}
+					{@const wip = wipLevel(group.stage.key, group.items.length)}
+					{@const wipMsg = wipNudge(group.stage.key, group.items.length)}
 					<section class="pl-stage-group" class:pl-stage-collapsed={filteredStage !== null && filteredStage !== group.stage.key}>
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<header class="pl-stage-header pl-zoomable" role="button" tabindex="0" style="--stage-color: var(--c-stage-{group.stage.key})" onclick={() => zoomedGroup ? zoomOut() : zoomIn(group.stage.label)}>
 							<span class="pl-stage-name">{group.stage.label}</span>
 							<span class="pl-stage-count">{group.items.length}</span>
+							{#if wip === 'over'}
+								<span class="pl-stage-badge pl-badge-wip-over" title={wipMsg}>crowded</span>
+							{:else if wip === 'under'}
+								<span class="pl-stage-badge pl-badge-wip-under" title={wipMsg}>quiet</span>
+							{/if}
 							{#if urgentCount > 0}
 								<span class="pl-stage-badge pl-badge-urgent">{urgentText ?? `${urgentCount} urgent`}</span>
 							{/if}
@@ -599,6 +608,11 @@
 								<span class="purpose-thinking">{STAGES.find(s => s.key === group.stage.key)?.thinking}</span>
 								{STAGE_PURPOSE[group.stage.key]}
 							</div>
+							{#if wipMsg}
+								<div class="pl-wip-nudge" class:wip-over={wip === 'over'} class:wip-under={wip === 'under'}>
+									{wipMsg}
+								</div>
+							{/if}
 						{/if}
 						{#if group.items.length === 0}
 							<div class="pl-empty">No opportunities at this stage</div>
@@ -1017,6 +1031,31 @@
 	.pl-badge-attention {
 		color: var(--c-warm);
 		background: color-mix(in srgb, var(--c-warm) var(--opacity-subtle), transparent);
+	}
+
+	.pl-badge-wip-over {
+		color: var(--c-warm);
+		background: color-mix(in srgb, var(--c-warm) var(--opacity-subtle), transparent);
+	}
+
+	.pl-badge-wip-under {
+		color: var(--c-blue);
+		background: color-mix(in srgb, var(--c-blue) var(--opacity-subtle), transparent);
+	}
+
+	.pl-wip-nudge {
+		font-size: var(--fs-xs);
+		padding: var(--sp-xs) var(--sp-md);
+		border-radius: var(--radius-sm);
+		margin-bottom: var(--sp-xs);
+	}
+	.pl-wip-nudge.wip-over {
+		color: var(--c-warm);
+		background: color-mix(in srgb, var(--c-warm) var(--opacity-subtle), transparent);
+	}
+	.pl-wip-nudge.wip-under {
+		color: var(--c-blue);
+		background: color-mix(in srgb, var(--c-blue) var(--opacity-subtle), transparent);
 	}
 
 	.pl-empty {
