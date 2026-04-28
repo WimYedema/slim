@@ -867,7 +867,8 @@
 				{deliverables}
 				{links}
 				{meetingData}
-				onSelectOpportunity={(id) => { selectedId = selectedId === id ? null : id }}
+				onSelectOpportunity={(id) => { selectedDeliverableId = null; selectedId = selectedId === id ? null : id }}
+				onSelectDeliverable={(id) => { selectedId = null; selectedDeliverableId = selectedDeliverableId === id ? null : id }}
 				onUpdateOpportunity={updateOpportunity}
 				onUpdateMeetingData={(data) => { meetingData = data }}
 			/>
@@ -886,6 +887,21 @@
 					onLinkDeliverable={linkDeliverable}
 					onUnlinkDeliverable={unlinkDeliverable}
 					onUpdateLinkCoverage={updateLinkCoverage}
+				/>
+			</div>
+		{:else if selectedDeliverable}
+			<div class="split-detail">
+				<DeliverableDetailPane
+					deliverable={selectedDeliverable}
+					{links}
+					{opportunities}
+					onUpdate={updateDeliverable}
+					onRemove={removeDeliverable}
+					onLink={linkDeliverable}
+					onUnlink={unlinkDeliverable}
+					onUpdateCoverage={updateLinkCoverage}
+					onClose={() => (selectedDeliverableId = null)}
+					onSelectOpportunity={(id) => { selectedDeliverableId = null; selectedId = id }}
 				/>
 			</div>
 		{/if}

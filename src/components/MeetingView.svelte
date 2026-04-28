@@ -6,14 +6,17 @@
 		type Stage,
 		type Perspective,
 		type Score,
+		type PersonRole,
 		PERSPECTIVE_LABELS,
 		SCORE_SYMBOL,
 		SCORE_DISPLAY,
 		STAGES,
+		CELL_QUESTIONS,
 		scoreClass,
 		stageLabel,
 	} from '../lib/types'
-	import { collectPeople, buildMeetingAgenda, personUrgency, completeMeeting, type MeetingAgenda, type MeetingData } from '../lib/meeting'
+	import { collectPeople, buildMeetingAgenda, personUrgency, completeMeeting, type MeetingAgenda, type MeetingData, type ChangeItem, type CommitmentItem, type UnscoredCell, type ConflictItem, type DeliverableItem } from '../lib/meeting'
+	import { linksForDeliverable } from '../lib/types'
 
 	interface Props {
 		opportunities: Opportunity[]
@@ -21,20 +24,45 @@
 		links: OpportunityDeliverableLink[]
 		meetingData: MeetingData
 		onSelectOpportunity: (id: string) => void
+		onSelectDeliverable: (id: string) => void
 		onUpdateOpportunity: (updated: Opportunity) => void
 		onUpdateMeetingData: (data: MeetingData) => void
 	}
 
-	let { opportunities, deliverables, links, meetingData, onSelectOpportunity, onUpdateOpportunity, onUpdateMeetingData }: Props = $props()
+	let { opportunities, deliverables, links, meetingData, onSelectOpportunity, onSelectDeliverable, onUpdateOpportunity, onUpdateMeetingData }: Props = $props()
 
 	let selectedPerson: string | null = $state(null)
+	/** Entity IDs the user discussed — persisted in meetingData.inProgress */
+	let discussedItems: Set<string> = $derived.by(() => {
+		if (!selectedPerson) return new Set<string>()
+		const entry = meetingData.inProgress?.[selectedPerson]
+		return new Set(entry?.discussed ?? [])
+	})
+	/** Cells scored during this session — persisted in meetingData.inProgress.
+	 *  Key format: "oppId:stage:perspective" */
+	let recentlyScored: Set<string> = $derived.by(() => {
+		if (!selectedPerson) return new Set<string>()
+		const entry = meetingData.inProgress?.[selectedPerson]
+		return new Set(entry?.recentlyScored ?? [])
+	})
+	/** Expanded entity card for inline detail */
+	let expandedEntity: string | null = $state(null)
 
 	const peopleWithUrgency = $derived.by(() => {
 		const map = collectPeople(opportunities, deliverables)
-		const entries = [...map.values()].map((p) => ({
-			...p,
-			urgency: personUrgency(p.name, opportunities),
-		}))
+		const entries = [...map.values()].map((p) => {
+			const urgency = personUrgency(p.name, opportunities)
+			// Build the real agenda to count entity groups accurately
+			const a = buildMeetingAgenda(p.name, opportunities, deliverables, links, meetingData.lastDiscussed[p.name] ?? null, meetingData.snapshots[p.name] ?? null)
+			const ids = new Set<string>()
+			for (const c of a.changes) ids.add(c.entityId)
+			for (const c of a.commitments) ids.add(c.opportunityId)
+			for (const c of a.unscoredCells) ids.add(c.opportunityId)
+			for (const c of a.conflicts) ids.add(c.opportunityId)
+			for (const d of a.deliverables) ids.add(d.deliverableId)
+			for (const o of a.opportunities) ids.add(o.id)
+			return { ...p, urgency, itemCount: ids.size }
+		})
 		// Sort: most urgent first, then by involvement, then alphabetical
 		return entries.sort((a, b) =>
 			a.urgency.score - b.urgency.score
@@ -49,12 +77,6 @@
 			: null,
 	)
 
-	const totalItems = $derived(
-		agenda
-			? agenda.commitments.length + agenda.unscoredCells.length + agenda.deliverables.length + agenda.conflicts.length + agenda.changes.length
-			: 0,
-	)
-
 	const pastMeetings = $derived(
 		selectedPerson
 			? meetingData.records
@@ -66,6 +88,175 @@
 
 	function selectPerson(name: string) {
 		selectedPerson = selectedPerson === name ? null : name
+		expandedEntity = null
+	}
+
+	function persistInProgress(discussed: Set<string>, scored: Set<string>) {
+		if (!selectedPerson) return
+		const inProgress = { ...(meetingData.inProgress ?? {}) }
+		if (discussed.size === 0 && scored.size === 0) {
+			delete inProgress[selectedPerson]
+		} else {
+			inProgress[selectedPerson] = { discussed: [...discussed], recentlyScored: [...scored] }
+		}
+		onUpdateMeetingData({ ...meetingData, inProgress })
+	}
+
+	/** An entity (opportunity or deliverable) with all its agenda sub-items grouped together */
+	interface EntityGroup {
+		id: string
+		title: string
+		type: 'opportunity' | 'deliverable'
+		urgencyScore: number
+		// opportunity fields
+		stage?: Stage
+		role?: PersonRole
+		// sub-items
+		changes: ChangeItem[]
+		commitments: CommitmentItem[]
+		unscoredCells: UnscoredCell[]
+		conflicts: ConflictItem[]
+		// deliverable fields
+		deliverable?: DeliverableItem
+		// nested deliverables (P2: deliverables linked to this opportunity)
+		childDeliverables: EntityGroup[]
+	}
+
+	/** Agenda items grouped by entity, sorted by urgency */
+	const entityGroups = $derived.by((): EntityGroup[] => {
+		if (!agenda) return []
+		const map = new Map<string, EntityGroup>()
+
+		function ensure(id: string, title: string, type: 'opportunity' | 'deliverable'): EntityGroup {
+			let g = map.get(id)
+			if (!g) {
+				g = { id, title, type, urgencyScore: 0, changes: [], commitments: [], unscoredCells: [], conflicts: [], childDeliverables: [] }
+				map.set(id, g)
+			}
+			return g
+		}
+
+		// Opportunities from the agenda (these carry stage/role)
+		for (const opp of agenda.opportunities) {
+			const g = ensure(opp.id, opp.title, 'opportunity')
+			g.stage = opp.stage
+			g.role = opp.role
+		}
+
+		// Changes
+		for (const c of agenda.changes) {
+			const g = ensure(c.entityId, c.entityTitle, c.entityType)
+			g.changes.push(c)
+		}
+
+		// Commitments
+		for (const c of agenda.commitments) {
+			const g = ensure(c.opportunityId, c.opportunityTitle, 'opportunity')
+			g.commitments.push(c)
+		}
+
+		// Unscored cells
+		for (const c of agenda.unscoredCells) {
+			const g = ensure(c.opportunityId, c.opportunityTitle, 'opportunity')
+			g.unscoredCells.push(c)
+		}
+
+		// Re-inject recently scored cells so the user can still type a verdict
+		for (const key of recentlyScored) {
+			const [oppId, stage, perspective] = key.split(':') as [string, Stage, Perspective]
+			// Skip if still in unscored list (shouldn't happen, but safe)
+			if (agenda.unscoredCells.some((c) => c.opportunityId === oppId && c.stage === stage && c.perspective === perspective)) continue
+			const opp = opportunities.find((o) => o.id === oppId)
+			if (!opp) continue
+			const g = ensure(oppId, opp.title, 'opportunity')
+			g.unscoredCells.push({
+				opportunityId: oppId,
+				opportunityTitle: opp.title,
+				stage,
+				perspective,
+				question: CELL_QUESTIONS[stage][perspective],
+				daysAssigned: 0,
+			})
+		}
+
+		// Conflicts
+		for (const c of agenda.conflicts) {
+			const g = ensure(c.opportunityId, c.opportunityTitle, 'opportunity')
+			g.conflicts.push(c)
+		}
+
+		// Deliverables
+		for (const d of agenda.deliverables) {
+			const g = ensure(d.deliverableId, d.title, 'deliverable')
+			g.deliverable = d
+		}
+
+		// Nest deliverables under their parent opportunity when the opp is also in the agenda
+		const nested = new Set<string>()
+		for (const g of map.values()) {
+			if (g.type !== 'deliverable') continue
+			const dLinks = linksForDeliverable(links, g.id)
+			for (const dl of dLinks) {
+				const parent = map.get(dl.opportunityId)
+				if (parent && parent.type === 'opportunity') {
+					parent.childDeliverables.push(g)
+					nested.add(g.id)
+					break
+				}
+			}
+		}
+		for (const id of nested) map.delete(id)
+
+		// Compute urgency score for sorting (lower = more urgent)
+		for (const g of map.values()) {
+			let s = 0
+			for (const c of g.commitments) {
+				if (c.daysLeft < 0) s -= 1000 + Math.abs(c.daysLeft) * 10
+				else if (c.daysLeft <= 7) s -= 500 - c.daysLeft * 10
+			}
+			if (g.conflicts.length > 0) s -= 300
+			if (g.unscoredCells.length > 0) s -= 200 + g.unscoredCells.length * 10
+			if (g.changes.length > 0) s -= 100
+			g.urgencyScore = s
+		}
+
+		return [...map.values()].sort((a, b) => a.urgencyScore - b.urgencyScore || a.title.localeCompare(b.title))
+	})
+
+	/** Summary counts for the strip */
+	const summaryBadges = $derived.by(() => {
+		if (!agenda) return { overdue: 0, soon: 0, conflicts: 0, unscored: 0, changed: 0 }
+		return {
+			overdue: agenda.commitments.filter((c) => c.daysLeft < 0).length,
+			soon: agenda.commitments.filter((c) => c.daysLeft >= 0 && c.daysLeft <= 7 && !c.met).length,
+			conflicts: agenda.conflicts.length,
+			unscored: agenda.unscoredCells.length,
+			changed: agenda.changes.length,
+		}
+	})
+
+	const allEntityIds = $derived(new Set(entityGroups.flatMap((g) => [g.id, ...g.childDeliverables.map((c) => c.id)])))
+
+	function isDiscussed(entityId: string): boolean {
+		return discussedItems.has(entityId)
+	}
+
+	function toggleDiscussed(entityId: string) {
+		const next = new Set(discussedItems)
+		if (next.has(entityId)) {
+			next.delete(entityId)
+		} else {
+			next.add(entityId)
+		}
+		persistInProgress(next, recentlyScored)
+	}
+
+	function markAllDiscussed() {
+		if (discussedItems.size === allEntityIds.size) {
+			persistInProgress(new Set(), recentlyScored)
+		} else {
+			persistInProgress(new Set(allEntityIds), recentlyScored)
+		}
 	}
 
 
@@ -73,6 +264,12 @@
 	function updateSignal(oppId: string, stage: Stage, perspective: Perspective, field: 'score' | 'verdict', value: string) {
 		const opp = opportunities.find((o) => o.id === oppId)
 		if (!opp) return
+		if (field === 'score' && value !== 'none') {
+			const key = `${oppId}:${stage}:${perspective}`
+			if (!recentlyScored.has(key)) {
+				persistInProgress(discussedItems, new Set([...recentlyScored, key]))
+			}
+		}
 		onUpdateOpportunity({
 			...opp,
 			signals: {
@@ -95,9 +292,21 @@
 
 	function handleDone() {
 		if (!selectedPerson || !agenda) return
-		if (!confirm(`Mark meeting with ${selectedPerson} as done? This stamps the current time for change tracking.`)) return
-		const updated = completeMeeting(selectedPerson, agenda, meetingData, opportunities, deliverables, links)
-		onUpdateMeetingData(updated)
+		if (discussedItems.size === 0) {
+			if (!confirm('No items marked as discussed — stamp meeting anyway?')) return
+		} else {
+			const skipped = allEntityIds.size - discussedItems.size
+			const msg = skipped > 0
+				? `Mark meeting with ${selectedPerson} as done? ${discussedItems.size} of ${allEntityIds.size} items discussed.`
+				: `Mark meeting with ${selectedPerson} as done?`
+			if (!confirm(msg)) return
+		}
+		const scope = discussedItems.size < allEntityIds.size ? discussedItems : undefined
+		const updated = completeMeeting(selectedPerson, agenda, meetingData, opportunities, deliverables, links, scope)
+		// Clear in-progress state for this person
+		const inProgress = { ...(updated.inProgress ?? {}) }
+		delete inProgress[selectedPerson]
+		onUpdateMeetingData({ ...updated, inProgress })
 	}
 
 	function formatDate(ts: number): string {
@@ -112,12 +321,30 @@
 	}
 </script>
 
-<div class="meeting-view">
-	<div class="meeting-sidebar">
-		<h2 class="meeting-title">Meeting Prep</h2>
-		<p class="meeting-subtitle">Select a person to build an agenda</p>
+{#snippet checkBox(entityId: string)}
+	<span class="item-check" role="checkbox" aria-checked={isDiscussed(entityId)} tabindex="0"
+		onclick={(e: MouseEvent) => { e.stopPropagation(); toggleDiscussed(entityId); }}
+		onkeydown={(e: KeyboardEvent) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); toggleDiscussed(entityId); } }}
+	>
+		<span class="check-mark"></span>
+	</span>
+{/snippet}
 
-		<div class="person-list">
+<div class="meeting-view">
+	<div class="meeting-sidebar" class:focused={selectedPerson !== null}>
+		{#if selectedPerson}
+			<button class="focus-back" onclick={() => selectedPerson = null} title="Back to people list">← All people</button>
+			<div class="focus-person-name">{selectedPerson}</div>
+			{#if meetingData.lastDiscussed[selectedPerson]}
+				<span class="focus-last-met">Last met {daysAgo(meetingData.lastDiscussed[selectedPerson])}</span>
+			{:else}
+				<span class="focus-last-met never">Never met</span>
+			{/if}
+		{:else}
+			<h2 class="meeting-title">Meeting Prep</h2>
+			<p class="meeting-subtitle">Select a person to build an agenda</p>
+
+			<div class="person-list">
 			{#each peopleWithUrgency as person}
 				<button
 					class="person-card"
@@ -128,6 +355,7 @@
 				>
 					<span class="person-name">
 						{person.name}
+						<span class="item-count-badge">{person.itemCount}</span>
 						{#if person.urgency.overdueCommitments > 0}
 							<span class="urgency-badge overdue">{person.urgency.overdueCommitments} overdue</span>
 						{:else if person.urgency.worstCommitmentDays !== null && person.urgency.worstCommitmentDays <= 7}
@@ -161,197 +389,266 @@
 				<p class="empty-hint">No people linked to opportunities or deliverables yet.</p>
 			{/if}
 		</div>
+		{/if}
 	</div>
 
 	<div class="meeting-agenda">
 		{#if agenda && selectedPerson}
 			<div class="agenda-header">
-				<div>
-					<h2 class="agenda-title">Agenda: {selectedPerson}</h2>
-					{#if agenda.lastMet}
-						<p class="last-met">Last met: {formatDate(agenda.lastMet)} ({daysAgo(agenda.lastMet)})</p>
-					{:else}
-						<p class="last-met">Never met — showing all items</p>
+				<h2 class="agenda-title">{selectedPerson}</h2>
+				<div class="agenda-actions">
+					{#if allEntityIds.size > 0}
+						<button class="toggle-all-btn" onclick={markAllDiscussed} title={discussedItems.size === allEntityIds.size ? 'Clear all' : 'Mark all discussed'}>
+							{discussedItems.size === allEntityIds.size ? 'Clear all' : 'All discussed'}
+						</button>
+						<span class="checked-count">{discussedItems.size}/{allEntityIds.size}</span>
 					{/if}
+					<button class="done-btn" onclick={handleDone} title="Mark this meeting as done — stamps the current time so next session only shows changes">
+						Done ✓
+					</button>
 				</div>
-				<button class="done-btn" onclick={handleDone} title="Mark this meeting as done — stamps the current time so next session only shows changes">
-					Done ✓
-				</button>
 			</div>
 
-			{#if totalItems === 0}
+			<!-- Summary strip -->
+			{#if summaryBadges.overdue + summaryBadges.soon + summaryBadges.conflicts + summaryBadges.unscored + summaryBadges.changed > 0}
+				<div class="summary-strip">
+					{#if summaryBadges.overdue > 0}<span class="summary-pill overdue">{summaryBadges.overdue} overdue</span>{/if}
+					{#if summaryBadges.soon > 0}<span class="summary-pill soon">{summaryBadges.soon} due soon</span>{/if}
+					{#if summaryBadges.conflicts > 0}<span class="summary-pill conflict">{summaryBadges.conflicts} conflict{summaryBadges.conflicts !== 1 ? 's' : ''}</span>{/if}
+					{#if summaryBadges.unscored > 0}<span class="summary-pill unscored">{summaryBadges.unscored} awaiting input</span>{/if}
+					{#if summaryBadges.changed > 0}<span class="summary-pill changed">{summaryBadges.changed} changed</span>{/if}
+				</div>
+			{/if}
+
+			{#if entityGroups.length === 0}
 				<p class="empty-hint">Nothing to discuss — all clear with {selectedPerson}.</p>
 			{/if}
 
-			<!-- Changes since last meeting -->
-			{#if agenda.changes.length > 0}
-				<section class="agenda-section">
-					<h3 class="section-heading changes">Changed Since Last Meeting</h3>
-					{#each agenda.changes as change}
-						<button class="agenda-card compact changed-card" onclick={() => onSelectOpportunity(change.entityId)}>
-							<span class="card-title">{change.entityTitle}</span>
-							<span class="card-detail">
+			<!-- Entity-grouped agenda -->
+			{#each entityGroups as group (group.id)}
+				<div class="entity-card" class:discussed={isDiscussed(group.id)} class:expanded={expandedEntity === group.id}>
+					<div class="entity-header">
+						{@render checkBox(group.id)}
+						<button class="entity-title" onclick={() => expandedEntity = expandedEntity === group.id ? null : group.id}>
+							{group.title}
+						</button>
+						<span class="entity-meta">
+							{#if group.type === 'opportunity' && group.stage}
+								<span class="stage-badge">{stageLabel(group.stage)}</span>
+							{/if}
+							{#if group.role}
+								<span class="role-tag">{group.role}</span>
+							{/if}
+							{#if group.type === 'deliverable'}
+								<span class="entity-type-tag">deliverable</span>
+							{/if}
+							<button class="open-link" onclick={() => group.type === 'opportunity' ? onSelectOpportunity(group.id) : onSelectDeliverable(group.id)} title="Open detail view">↗</button>
+						</span>
+					</div>
+
+					<div class="entity-items">
+						<!-- Changes -->
+						{#each group.changes as change}
+							<div class="sub-item change-item">
 								<span class="change-badge">{change.description}</span>
-								<span class="entity-type">{change.entityType}</span>
-							</span>
-						</button>
-					{/each}
-				</section>
-			{:else if agenda.lastMet !== null}
-				<p class="no-changes-hint">No changes since last meeting</p>
-			{/if}
+							</div>
+						{/each}
 
-			<!-- Commitments (Bring to them) -->
-			{#if agenda.commitments.length > 0}
-				<section class="agenda-section">
-					<h3 class="section-heading bring">Commitments</h3>
-					<p class="section-hint">Promises made to {selectedPerson}</p>
-					{#each agenda.commitments as item}
-						<button class="agenda-card" class:overdue={item.daysLeft < 0} onclick={() => onSelectOpportunity(item.opportunityId)}>
-							<span class="card-title">{item.opportunityTitle}</span>
-							<span class="card-detail">
-								Reach <strong>{stageLabel(item.commitment.milestone)}</strong>
-								{#if item.met}
-									<span class="badge met">met</span>
-								{:else if item.daysLeft < 0}
-									<span class="badge overdue">{Math.abs(item.daysLeft)}d overdue</span>
-								{:else if item.daysLeft <= 7}
-									<span class="badge soon">{item.daysLeft}d left</span>
-								{:else}
-									<span class="badge">{item.daysLeft}d left</span>
+						<!-- Commitments -->
+						{#each group.commitments as item}
+							<div class="sub-item commitment-item" class:overdue={item.daysLeft < 0}>
+								<span class="sub-label">→ Inform</span>
+								<span class="sub-content">
+									Reach <strong>{stageLabel(item.commitment.milestone)}</strong>
+									{#if item.met}
+										<span class="badge met">met</span>
+									{:else if item.daysLeft < 0}
+										<span class="badge overdue">{Math.abs(item.daysLeft)}d overdue</span>
+									{:else if item.daysLeft <= 7}
+										<span class="badge soon">{item.daysLeft}d left</span>
+									{:else}
+										<span class="badge">{item.daysLeft}d left</span>
+									{/if}
+								</span>
+							</div>
+						{/each}
+
+						<!-- Conflicts -->
+						{#each group.conflicts as conflict}
+							<div class="sub-item conflict-item">
+								<span class="sub-label">↔ Conflict</span>
+								<span class="sub-content">
+									<span class="perspective-tag">{PERSPECTIVE_LABELS[conflict.perspective]}</span>
+									{SCORE_SYMBOL[conflict.theirScore.score]}
+									vs.
+									<span class="perspective-tag">{PERSPECTIVE_LABELS[conflict.conflictingPerspective]}</span>
+									{SCORE_SYMBOL[conflict.conflictingScore.score]}
+									at {stageLabel(conflict.stage)}
+								</span>
+								{#if conflict.theirScore.verdict}
+									<span class="card-verdict">"{conflict.theirScore.verdict}"</span>
 								{/if}
-							</span>
-						</button>
-					{/each}
-				</section>
-			{/if}
+							</div>
+						{/each}
 
-			<!-- Unscored cells (Gather from them) -->
-			{#if agenda.unscoredCells.length > 0}
-				<section class="agenda-section">
-					<h3 class="section-heading gather">Awaiting Input</h3>
-					<p class="section-hint">Signal cells assigned to {selectedPerson} — not yet scored</p>
-					{#each agenda.unscoredCells as cell}
-						<div class="agenda-card scoring-card">
-							<div class="scoring-header">
-								<button class="card-title-link" onclick={() => onSelectOpportunity(cell.opportunityId)}>
-									{cell.opportunityTitle}
-								</button>
-								<span class="card-detail">
+						<!-- Unscored cells (inline scoring) -->
+						{#each group.unscoredCells as cell}
+							<div class="sub-item scoring-item">
+								<span class="sub-label">← Need</span>
+								<span class="sub-content">
 									<span class="perspective-tag">{PERSPECTIVE_LABELS[cell.perspective]}</span>
 									at {stageLabel(cell.stage)}
 									{#if cell.daysAssigned > 0}
 										<span class="days-ago">· {cell.daysAssigned}d ago</span>
 									{/if}
 								</span>
-							</div>
-							<span class="card-question">{cell.question}</span>
-							<div class="scoring-controls">
-								<div class="score-toggle" role="radiogroup" aria-label="{PERSPECTIVE_LABELS[cell.perspective]} — {stageLabel(cell.stage)}"
-									onkeydown={(e: KeyboardEvent) => {
-										const keys = ['ArrowLeft', 'ArrowRight']
-										if (!keys.includes(e.key)) return
-										e.preventDefault()
-										const opts = ['none', 'positive', 'uncertain', 'negative'] as const
-										const sig = getSignal(cell.opportunityId, cell.stage, cell.perspective)
-										const cur = opts.indexOf(sig.score)
-										const next = e.key === 'ArrowRight' ? (cur + 1) % 4 : (cur + 3) % 4
-										updateSignal(cell.opportunityId, cell.stage, cell.perspective, 'score', opts[next]);
-										(e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('.score-btn')[next]?.focus()
-									}}
-								>
-									{#each (['none', 'positive', 'uncertain', 'negative'] as const) as s, i}
-										{@const sig = getSignal(cell.opportunityId, cell.stage, cell.perspective)}
-										<button
-											class="score-btn {scoreClass(s)}"
-											class:active={sig.score === s}
-											role="radio"
-											aria-checked={sig.score === s}
-											tabindex={sig.score === s || (sig.score === 'none' && i === 0) ? 0 : -1}
-											onclick={() => updateSignal(cell.opportunityId, cell.stage, cell.perspective, 'score', s)}
-											title={SCORE_DISPLAY[s].label}
-										>{SCORE_SYMBOL[s]}</button>
-									{/each}
+								<span class="card-question">{cell.question}</span>
+								<div class="scoring-controls">
+									<div class="score-toggle" role="radiogroup" aria-label="{PERSPECTIVE_LABELS[cell.perspective]} — {stageLabel(cell.stage)}"
+										onkeydown={(e: KeyboardEvent) => {
+											const keys = ['ArrowLeft', 'ArrowRight']
+											if (!keys.includes(e.key)) return
+											e.preventDefault()
+											const opts = ['none', 'positive', 'uncertain', 'negative'] as const
+											const sig = getSignal(cell.opportunityId, cell.stage, cell.perspective)
+											const cur = opts.indexOf(sig.score)
+											const next = e.key === 'ArrowRight' ? (cur + 1) % 4 : (cur + 3) % 4
+											updateSignal(cell.opportunityId, cell.stage, cell.perspective, 'score', opts[next]);
+											(e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('.score-btn')[next]?.focus()
+										}}
+									>
+										{#each (['none', 'positive', 'uncertain', 'negative'] as const) as s, i}
+											{@const sig = getSignal(cell.opportunityId, cell.stage, cell.perspective)}
+											<button
+												class="score-btn {scoreClass(s)}"
+												class:active={sig.score === s}
+												role="radio"
+												aria-checked={sig.score === s}
+												tabindex={sig.score === s || (sig.score === 'none' && i === 0) ? 0 : -1}
+												onclick={() => updateSignal(cell.opportunityId, cell.stage, cell.perspective, 'score', s)}
+												title={SCORE_DISPLAY[s].label}
+											>{SCORE_SYMBOL[s]}</button>
+										{/each}
+									</div>
+									<input
+										type="text"
+										class="verdict-input"
+										placeholder="Verdict…"
+										value={getSignal(cell.opportunityId, cell.stage, cell.perspective).verdict}
+										oninput={(e) => updateSignal(cell.opportunityId, cell.stage, cell.perspective, 'verdict', (e.target as HTMLInputElement).value)}
+									/>
 								</div>
-								<input
-									type="text"
-									class="verdict-input"
-									placeholder="Verdict…"
-									value={getSignal(cell.opportunityId, cell.stage, cell.perspective).verdict}
-									oninput={(e) => updateSignal(cell.opportunityId, cell.stage, cell.perspective, 'verdict', (e.target as HTMLInputElement).value)}
-								/>
 							</div>
-						</div>
-					{/each}
-				</section>
-			{/if}
+						{/each}
 
-			<!-- Conflicts (Surface for discussion) -->
-			{#if agenda.conflicts.length > 0}
-				<section class="agenda-section">
-					<h3 class="section-heading discuss">Conflicting Signals</h3>
-					<p class="section-hint">Perspectives that disagree at the same stage</p>
-					{#each agenda.conflicts as conflict}
-						<button class="agenda-card" onclick={() => onSelectOpportunity(conflict.opportunityId)}>
-							<span class="card-title">{conflict.opportunityTitle}</span>
-							<span class="card-detail">
-								<span class="perspective-tag">{PERSPECTIVE_LABELS[conflict.perspective]}</span>
-								{SCORE_SYMBOL[conflict.theirScore.score]}
-								vs.
-								<span class="perspective-tag">{PERSPECTIVE_LABELS[conflict.conflictingPerspective]}</span>
-								{SCORE_SYMBOL[conflict.conflictingScore.score]}
-								at {stageLabel(conflict.stage)}
-							</span>
-							{#if conflict.theirScore.verdict}
-								<span class="card-verdict">"{conflict.theirScore.verdict}"</span>
+						<!-- Deliverable info -->
+						{#if group.deliverable}
+							{@const d = group.deliverable}
+							<div class="sub-item deliverable-info">
+								<span class="sub-content">
+									<span class="role-tag">{d.role}</span>
+									{#if d.size}<span class="size-tag">{d.size}</span>{/if}
+									{#if d.certainty}<span class="certainty-dots">{'●'.repeat(d.certainty)}{'○'.repeat(5 - d.certainty)}</span>{/if}
+								</span>
+								{#if d.linkedOpportunityTitles.length > 0}
+									<span class="card-links">→ {d.linkedOpportunityTitles.join(', ')}</span>
+								{/if}
+							</div>
+						{/if}
+
+						<!-- Nested deliverables (P2) -->
+						{#each group.childDeliverables as child (child.id)}
+							<div class="sub-item nested-deliverable" class:discussed={isDiscussed(child.id)}>
+								<div class="nested-header">
+									{@render checkBox(child.id)}
+									<button class="nested-title" onclick={() => expandedEntity = expandedEntity === child.id ? null : child.id}>
+										{child.title}
+									</button>
+									<span class="entity-type-tag">deliverable</span>
+									<button class="open-link" onclick={() => onSelectDeliverable(child.id)} title="Open detail view">↗</button>
+								</div>
+								{#if child.deliverable}
+									<span class="sub-content nested-meta">
+										<span class="role-tag">{child.deliverable.role}</span>
+										{#if child.deliverable.size}<span class="size-tag">{child.deliverable.size}</span>{/if}
+										{#if child.deliverable.certainty}<span class="certainty-dots">{'●'.repeat(child.deliverable.certainty)}{'○'.repeat(5 - child.deliverable.certainty)}</span>{/if}
+									</span>
+								{/if}
+								{#each child.changes as change}
+									<span class="change-badge">{change.description}</span>
+								{/each}
+							</div>
+						{/each}
+
+						<!-- Inline detail (P3) -->
+						{#if expandedEntity === group.id}
+							{@const entity = group.type === 'opportunity' ? opportunities.find(o => o.id === group.id) : deliverables.find(d => d.id === group.id)}
+							{#if entity}
+								<div class="inline-detail">
+									{#if group.type === 'opportunity' && 'description' in entity}
+										{@const opp = entity as import('../lib/types').Opportunity}
+										{#if opp.description}
+											<p class="detail-description">{opp.description}</p>
+										{/if}
+										{#if opp.people.length > 0}
+											<div class="detail-row">
+												<span class="detail-label">People</span>
+												<span class="detail-value">
+													{#each opp.people as person}
+														<span class="role-tag">{person.name} ({person.role})</span>
+													{/each}
+												</span>
+											</div>
+										{/if}
+										{#if opp.origin}
+											<div class="detail-row">
+												<span class="detail-label">Origin</span>
+												<span class="detail-value">{opp.origin}</span>
+											</div>
+										{/if}
+										{#if opp.horizon}
+											<div class="detail-row">
+												<span class="detail-label">Horizon</span>
+												<span class="detail-value">{opp.horizon}</span>
+											</div>
+										{/if}
+									{:else if group.type === 'deliverable' && 'kind' in entity}
+										{@const del = entity as import('../lib/types').Deliverable}
+										<div class="detail-row">
+											<span class="detail-label">Kind</span>
+											<span class="detail-value">{del.kind}</span>
+										</div>
+										{#if del.externalUrl}
+											<div class="detail-row">
+												<span class="detail-label">Link</span>
+												<span class="detail-value"><a href={del.externalUrl} target="_blank" rel="noopener">{del.externalUrl}</a></span>
+											</div>
+										{/if}
+										{#if del.extraContributors.length > 0}
+											<div class="detail-row">
+												<span class="detail-label">Contributors</span>
+												<span class="detail-value">{del.extraContributors.join(', ')}</span>
+											</div>
+										{/if}
+										{#if del.extraConsumers.length > 0}
+											<div class="detail-row">
+												<span class="detail-label">Consumers</span>
+												<span class="detail-value">{del.extraConsumers.join(', ')}</span>
+											</div>
+										{/if}
+										{#if del.externalDependency}
+											<div class="detail-row">
+												<span class="detail-label">Dependency</span>
+												<span class="detail-value">{del.externalDependency}</span>
+											</div>
+										{/if}
+									{/if}
+								</div>
 							{/if}
-						</button>
-					{/each}
-				</section>
-			{/if}
-
-			<!-- Deliverables -->
-			{#if agenda.deliverables.length > 0}
-				<section class="agenda-section">
-					<h3 class="section-heading deliverables">Deliverables</h3>
-					<p class="section-hint">Work items {selectedPerson} is involved with</p>
-					{#each agenda.deliverables as d}
-						<div class="agenda-card" class:changed-card={d.changed}>
-							<span class="card-title">
-								{d.title}
-								{#if d.changed}<span class="change-dot" title="Changed since last meeting">●</span>{/if}
-							</span>
-							<span class="card-detail">
-								<span class="role-tag">{d.role}</span>
-								{#if d.size}<span class="size-tag">{d.size}</span>{/if}
-								{#if d.certainty}<span class="certainty-dots">{'●'.repeat(d.certainty)}{'○'.repeat(5 - d.certainty)}</span>{/if}
-							</span>
-							{#if d.linkedOpportunityTitles.length > 0}
-								<span class="card-links">→ {d.linkedOpportunityTitles.join(', ')}</span>
-							{/if}
-						</div>
-					{/each}
-				</section>
-			{/if}
-
-			<!-- Opportunities summary -->
-			{#if agenda.opportunities.length > 0}
-				<section class="agenda-section">
-					<h3 class="section-heading context">Linked Opportunities</h3>
-					{#each agenda.opportunities as opp}
-						<button class="agenda-card compact" class:changed-card={opp.changed} onclick={() => onSelectOpportunity(opp.id)}>
-							<span class="card-title">
-								{opp.title}
-								{#if opp.changed}<span class="change-dot" title="Changed since last meeting">●</span>{/if}
-							</span>
-							<span class="card-detail">
-								<span class="stage-badge">{stageLabel(opp.stage)}</span>
-								<span class="role-tag">{opp.role}</span>
-							</span>
-						</button>
-					{/each}
-				</section>
-			{/if}
+						{/if}
+					</div>
+				</div>
+			{/each}
 
 			<!-- Past meetings -->
 			{#if pastMeetings.length > 0}
@@ -390,6 +687,41 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-sm);
+		transition: width var(--tr-normal);
+	}
+
+	.meeting-sidebar.focused {
+		width: 160px;
+	}
+
+	.focus-back {
+		background: none;
+		border: none;
+		font: inherit;
+		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+		cursor: pointer;
+		padding: 0;
+		text-align: left;
+	}
+
+	.focus-back:hover {
+		color: var(--c-accent);
+	}
+
+	.focus-person-name {
+		font-size: var(--fs-lg);
+		font-weight: var(--fw-bold);
+		color: var(--c-text);
+	}
+
+	.focus-last-met {
+		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+	}
+
+	.focus-last-met.never {
+		color: var(--c-warm);
 	}
 
 	.meeting-title {
@@ -439,6 +771,16 @@
 		font-weight: var(--fw-medium);
 	}
 
+	.item-count-badge {
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-bold);
+		background: var(--c-neutral-bg);
+		color: var(--c-text-muted);
+		padding: 0 var(--sp-xs);
+		border-radius: var(--radius-sm);
+		margin-left: var(--sp-xs);
+	}
+
 	.person-meta {
 		display: flex;
 		gap: var(--sp-xs);
@@ -460,6 +802,15 @@
 		flex-wrap: wrap;
 	}
 
+	.last-met-tag {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-ghost);
+	}
+
+	.last-met-tag.never {
+		color: var(--c-warm);
+	}
+
 	.role-tag {
 		font-size: var(--fs-2xs);
 		background: var(--c-neutral-bg);
@@ -477,7 +828,7 @@
 		padding: var(--sp-lg);
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-lg);
+		gap: var(--sp-md);
 	}
 
 	.agenda-header {
@@ -493,19 +844,33 @@
 		font-weight: var(--fw-bold);
 	}
 
-	.last-met {
-		margin: 0;
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
+	.agenda-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-sm);
+		flex-shrink: 0;
 	}
 
-	.last-met-tag {
+	.toggle-all-btn {
+		background: none;
+		border: 1px solid var(--c-border-soft);
+		border-radius: var(--radius-sm);
+		font: inherit;
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+		padding: 2px var(--sp-sm);
+		cursor: pointer;
+		transition: background var(--tr-fast);
+	}
+
+	.toggle-all-btn:hover {
+		background: var(--c-hover);
+	}
+
+	.checked-count {
 		font-size: var(--fs-2xs);
 		color: var(--c-text-ghost);
-	}
-
-	.last-met-tag.never {
-		color: var(--c-warm);
+		white-space: nowrap;
 	}
 
 	.done-btn {
@@ -538,98 +903,248 @@
 		gap: var(--sp-sm);
 	}
 
-	.agenda-section {
+	/* ── Summary strip ── */
+
+	.summary-strip {
 		display: flex;
-		flex-direction: column;
-		gap: var(--sp-sm);
-	}
-
-	.section-heading {
-		margin: 0;
-		font-size: var(--fs-sm);
-		font-weight: var(--fw-bold);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
-
-	.section-heading.bring { color: var(--c-warm); }
-	.section-heading.gather { color: var(--c-accent); }
-	.section-heading.discuss { color: var(--c-red); }
-	.section-heading.changes { color: var(--c-green-signal); }
-	.section-heading.deliverables { color: var(--c-text-muted); }
-	.section-heading.context { color: var(--c-text-muted); }
-
-	.section-hint {
-		margin: 0;
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-	}
-
-	.agenda-card {
-		background: var(--c-surface);
-		border: 1px solid var(--c-border-soft);
-		border-radius: var(--radius-sm);
-		padding: var(--sp-sm) var(--sp-md);
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		cursor: pointer;
-		text-align: left;
-		font: inherit;
-		color: var(--c-text);
-		transition: background var(--tr-fast);
-	}
-
-	.agenda-card:hover {
-		background: var(--c-hover);
-	}
-
-	.agenda-card.compact {
-		padding: var(--sp-xs) var(--sp-sm);
-	}
-
-	.agenda-card.overdue {
-		border-left: 3px solid var(--c-red);
-	}
-
-	.card-title {
-		font-size: var(--fs-sm);
-		font-weight: var(--fw-medium);
-	}
-
-	.card-detail {
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-		display: flex;
-		align-items: center;
 		gap: var(--sp-xs);
 		flex-wrap: wrap;
 	}
 
-	.card-question {
+	.summary-pill {
+		font-size: var(--fs-2xs);
+		padding: 2px var(--sp-sm);
+		border-radius: var(--radius-sm);
+		font-weight: var(--fw-medium);
+	}
+
+	.summary-pill.overdue { background: var(--c-red-bg); color: var(--c-red); }
+	.summary-pill.soon { background: var(--c-warm-bg); color: var(--c-warm); }
+	.summary-pill.conflict { background: var(--c-red-bg); color: var(--c-red); }
+	.summary-pill.unscored { background: color-mix(in srgb, var(--c-accent) var(--opacity-moderate), transparent); color: var(--c-accent); }
+	.summary-pill.changed { background: var(--c-green-bg); color: var(--c-green-signal); }
+
+	/* ── Entity cards ── */
+
+	.entity-card {
+		background: var(--c-surface);
+		border: 1px solid var(--c-border-soft);
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+		transition: opacity var(--tr-fast);
+	}
+
+	.entity-card.discussed {
+		opacity: 0.55;
+	}
+
+	.entity-card.expanded {
+		border-color: var(--c-accent);
+	}
+
+	.open-link {
+		background: none;
+		border: none;
+		font: inherit;
 		font-size: var(--fs-xs);
 		color: var(--c-text-ghost);
-		font-style: italic;
+		cursor: pointer;
+		padding: 0 2px;
+		line-height: 1;
+		opacity: 0;
+		transition: opacity var(--tr-fast), color var(--tr-fast);
 	}
 
-	.card-verdict {
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-		font-style: italic;
+	.entity-header:hover .open-link,
+	.nested-header:hover .open-link,
+	.open-link:focus-visible {
+		opacity: 1;
 	}
 
-	.card-links {
+	.open-link:hover {
+		color: var(--c-accent);
+	}
+
+	.entity-header {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-sm);
+		padding: var(--sp-sm) var(--sp-md);
+	}
+
+	.entity-title {
+		background: none;
+		border: none;
+		font: inherit;
+		font-size: var(--fs-sm);
+		font-weight: var(--fw-bold);
+		color: var(--c-accent);
+		cursor: pointer;
+		padding: 0;
+		text-align: left;
+		text-decoration: none;
+		flex: 1;
+		min-width: 0;
+	}
+
+	.entity-title:hover {
+		text-decoration: underline;
+	}
+
+	.entity-meta {
+		display: flex;
+		gap: var(--sp-xs);
+		flex-shrink: 0;
+	}
+
+	.entity-type-tag {
 		font-size: var(--fs-2xs);
-		color: var(--c-text-ghost);
-	}
-
-	.perspective-tag {
-		font-size: var(--fs-2xs);
-		background: color-mix(in srgb, var(--c-accent) var(--opacity-moderate), transparent);
+		background: var(--c-neutral-bg);
 		padding: 1px var(--sp-xs);
 		border-radius: var(--radius-sm);
-		color: var(--c-accent);
+		color: var(--c-text-muted);
+	}
+
+	.entity-items {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.sub-item {
+		padding: var(--sp-xs) var(--sp-md) var(--sp-xs) calc(var(--sp-md) + 14px + var(--sp-sm));
+		border-top: 1px solid var(--c-border-soft);
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		font-size: var(--fs-xs);
+	}
+
+	.sub-label {
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-bold);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--c-text-ghost);
+	}
+
+	.sub-content {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-xs);
+		flex-wrap: wrap;
+		color: var(--c-text-muted);
+	}
+
+	.commitment-item.overdue {
+		background: color-mix(in srgb, var(--c-red) 4%, transparent);
+	}
+
+	.change-item {
+		background: color-mix(in srgb, var(--c-green-signal) 4%, transparent);
+	}
+
+	.conflict-item {
+		background: color-mix(in srgb, var(--c-red) 4%, transparent);
+	}
+
+	/* ── Nested deliverables ── */
+
+	.nested-deliverable {
+		background: color-mix(in srgb, var(--c-accent) 3%, transparent);
+		transition: opacity var(--tr-fast);
+	}
+
+	.nested-deliverable.discussed {
+		opacity: 0.55;
+	}
+
+	.nested-header {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-sm);
+	}
+
+	.nested-title {
+		background: none;
+		border: none;
+		font: inherit;
+		font-size: var(--fs-xs);
 		font-weight: var(--fw-medium);
+		color: var(--c-accent);
+		cursor: pointer;
+		padding: 0;
+		text-align: left;
+		flex: 1;
+		min-width: 0;
+	}
+
+	.nested-title:hover {
+		text-decoration: underline;
+	}
+
+	.nested-meta {
+		margin-left: calc(16px + var(--sp-sm));
+	}
+
+	/* ── Inline detail (P3) ── */
+
+	.inline-detail {
+		padding: var(--sp-sm) var(--sp-md);
+		border-top: 1px solid var(--c-border-soft);
+		background: color-mix(in srgb, var(--c-accent) 3%, var(--c-surface));
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-xs);
+	}
+
+	.detail-description {
+		margin: 0;
+		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+		line-height: var(--lh-relaxed);
+	}
+
+	.detail-row {
+		display: flex;
+		align-items: baseline;
+		gap: var(--sp-sm);
+		font-size: var(--fs-xs);
+	}
+
+	.detail-label {
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-bold);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--c-text-ghost);
+		flex-shrink: 0;
+		min-width: 5em;
+	}
+
+	.detail-value {
+		color: var(--c-text-muted);
+		display: flex;
+		gap: var(--sp-xs);
+		flex-wrap: wrap;
+	}
+
+	.detail-value a {
+		color: var(--c-accent);
+		text-decoration: none;
+	}
+
+	.detail-value a:hover {
+		text-decoration: underline;
+	}
+
+	/* ── Shared styles ── */
+
+	.role-tag {
+		font-size: var(--fs-2xs);
+		background: var(--c-neutral-bg);
+		padding: 1px var(--sp-xs);
+		border-radius: var(--radius-sm);
+		color: var(--c-text-muted);
 	}
 
 	.stage-badge {
@@ -651,6 +1166,15 @@
 		font-size: var(--fs-3xs);
 		letter-spacing: 1px;
 		color: var(--c-text-muted);
+	}
+
+	.perspective-tag {
+		font-size: var(--fs-2xs);
+		background: color-mix(in srgb, var(--c-accent) var(--opacity-moderate), transparent);
+		padding: 1px var(--sp-xs);
+		border-radius: var(--radius-sm);
+		color: var(--c-accent);
+		font-weight: var(--fw-medium);
 	}
 
 	.days-ago {
@@ -680,46 +1204,38 @@
 		color: var(--c-green-signal);
 	}
 
+	.change-badge {
+		font-size: var(--fs-2xs);
+		background: var(--c-green-bg);
+		color: var(--c-green-signal);
+		padding: 1px var(--sp-xs);
+		border-radius: var(--radius-sm);
+		font-weight: var(--fw-medium);
+	}
+
+	.card-question {
+		font-size: var(--fs-xs);
+		color: var(--c-text-ghost);
+		font-style: italic;
+	}
+
+	.card-verdict {
+		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+		font-style: italic;
+	}
+
+	.card-links {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-ghost);
+	}
+
 	.empty-hint {
 		font-size: var(--fs-xs);
 		color: var(--c-text-ghost);
 	}
 
-	.no-changes-hint {
-		font-size: var(--fs-xs);
-		color: var(--c-text-ghost);
-		font-style: italic;
-		margin: 0 0 var(--sp-sm);
-	}
-
 	/* ── Inline scoring ── */
-
-	.scoring-card {
-		cursor: default;
-	}
-
-	.scoring-header {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.card-title-link {
-		background: none;
-		border: none;
-		font: inherit;
-		font-size: var(--fs-sm);
-		font-weight: var(--fw-medium);
-		color: var(--c-accent);
-		cursor: pointer;
-		padding: 0;
-		text-align: left;
-		text-decoration: none;
-	}
-
-	.card-title-link:hover {
-		text-decoration: underline;
-	}
 
 	.scoring-controls {
 		display: flex;
@@ -785,33 +1301,23 @@
 		border-color: var(--c-accent);
 	}
 
-	/* ── Change detection ── */
-
-	.changed-card {
-		border-left: 3px solid var(--c-green-signal);
-	}
-
-	.change-dot {
-		color: var(--c-green-signal);
-		font-size: var(--fs-3xs);
-		margin-left: var(--sp-xs);
-	}
-
-	.change-badge {
-		font-size: var(--fs-2xs);
-		background: var(--c-green-bg);
-		color: var(--c-green-signal);
-		padding: 1px var(--sp-xs);
-		border-radius: var(--radius-sm);
-		font-weight: var(--fw-medium);
-	}
-
-	.entity-type {
-		font-size: var(--fs-2xs);
-		color: var(--c-text-ghost);
-	}
-
 	/* ── Past meetings ── */
+
+	.agenda-section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-sm);
+	}
+
+	.section-heading {
+		margin: 0;
+		font-size: var(--fs-sm);
+		font-weight: var(--fw-bold);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.section-heading.context { color: var(--c-text-muted); }
 
 	.past-meetings {
 		opacity: 0.7;
@@ -835,5 +1341,43 @@
 
 	.past-summary {
 		color: var(--c-text-ghost);
+	}
+
+	/* ── Item checkboxes (left-aligned) ── */
+
+	.item-check {
+		display: flex;
+		align-items: center;
+		cursor: pointer;
+		flex-shrink: 0;
+	}
+
+	.check-mark {
+		width: 16px;
+		height: 16px;
+		border: 1px solid var(--c-border);
+		border-radius: 3px;
+		background: var(--c-surface);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: background var(--tr-fast), border-color var(--tr-fast);
+	}
+
+	.item-check[aria-checked="true"] .check-mark {
+		background: var(--c-accent);
+		border-color: var(--c-accent);
+	}
+
+	.item-check[aria-checked="true"] .check-mark::after {
+		content: '✓';
+		color: var(--c-surface);
+		font-size: 11px;
+		font-weight: bold;
+		line-height: 1;
+	}
+
+	.item-check:focus-visible .check-mark {
+		box-shadow: 0 0 0 2px var(--c-accent);
 	}
 </style>

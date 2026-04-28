@@ -35,13 +35,20 @@ interface OppSnapshot {
 	stage: Stage
 	/** Flat map: "stage:perspective" → score */
 	scores: Record<string, Score>
+	title: string
+	horizon: string
+	peopleCount: number
+	commitmentsCount: number
 }
 
 /** Snapshot of a deliverable's key fields at meeting time */
 interface DelSnapshot {
+	title: string
 	size: TShirtSize | null
 	certainty: Certainty | null
 	linkCount: number
+	contributorCount: number
+	consumerCount: number
 }
 
 /** State captured at meeting completion, used to diff next time */
@@ -58,6 +65,14 @@ export interface MeetingData {
 	records: MeetingRecord[]
 	/** Person name → snapshot of board state at last meeting */
 	snapshots: Record<string, PersonSnapshot>
+	/** In-progress meeting state (survives tab close) */
+	inProgress?: Record<string, InProgressMeeting>
+}
+
+/** Transient state for a meeting that hasn't been stamped yet */
+export interface InProgressMeeting {
+	discussed: string[]
+	recentlyScored: string[]
 }
 
 // ── Snapshot helpers ──
@@ -72,18 +87,30 @@ function snapshotOpp(opp: Opportunity): OppSnapshot {
 			}
 		}
 	}
-	return { stage: opp.stage, scores }
+	return { stage: opp.stage, scores, title: opp.title, horizon: opp.horizon, peopleCount: opp.people.length, commitmentsCount: opp.commitments.length }
 }
 
 function snapshotDel(del: Deliverable, linkCount: number): DelSnapshot {
-	return { size: del.size, certainty: del.certainty, linkCount }
+	return { title: del.title, size: del.size, certainty: del.certainty, linkCount, contributorCount: del.extraContributors.length, consumerCount: del.extraConsumers.length }
 }
 
 /** Describe what changed in an opportunity compared to a previous snapshot */
 function diffOpp(opp: Opportunity, prev: OppSnapshot): string[] {
 	const descs: string[] = []
+	if (prev.title !== undefined && opp.title !== prev.title) {
+		descs.push(`Renamed: "${prev.title}" → "${opp.title}"`)
+	}
 	if (opp.stage !== prev.stage) {
 		descs.push(`Stage: ${prev.stage} → ${opp.stage}`)
+	}
+	if (prev.horizon !== undefined && opp.horizon !== prev.horizon) {
+		descs.push(`Horizon: ${prev.horizon} → ${opp.horizon}`)
+	}
+	if (prev.peopleCount !== undefined && opp.people.length !== prev.peopleCount) {
+		descs.push(`People: ${prev.peopleCount} → ${opp.people.length}`)
+	}
+	if (prev.commitmentsCount !== undefined && opp.commitments.length !== prev.commitmentsCount) {
+		descs.push(`Commitments: ${prev.commitmentsCount} → ${opp.commitments.length}`)
 	}
 	// Check for new or changed scores
 	for (const stage of STAGES) {
@@ -105,6 +132,9 @@ function diffOpp(opp: Opportunity, prev: OppSnapshot): string[] {
 /** Describe what changed in a deliverable compared to a previous snapshot */
 function diffDel(del: Deliverable, linkCount: number, prev: DelSnapshot): string[] {
 	const descs: string[] = []
+	if (prev.title !== undefined && del.title !== prev.title) {
+		descs.push(`Renamed: "${prev.title}" → "${del.title}"`)
+	}
 	if (del.size !== prev.size) {
 		descs.push(`Size: ${prev.size ?? '—'} → ${del.size ?? '—'}`)
 	}
@@ -113,6 +143,12 @@ function diffDel(del: Deliverable, linkCount: number, prev: DelSnapshot): string
 	}
 	if (linkCount !== prev.linkCount) {
 		descs.push(`Links: ${prev.linkCount} → ${linkCount}`)
+	}
+	if (prev.contributorCount !== undefined && del.extraContributors.length !== prev.contributorCount) {
+		descs.push(`Contributors: ${prev.contributorCount} → ${del.extraContributors.length}`)
+	}
+	if (prev.consumerCount !== undefined && del.extraConsumers.length !== prev.consumerCount) {
+		descs.push(`Consumers: ${prev.consumerCount} → ${del.extraConsumers.length}`)
 	}
 	return descs
 }
@@ -373,9 +409,13 @@ export function buildMeetingAgenda(
 		// Find this person's link on the opportunity
 		const personLinks = opp.people.filter((p) => p.name.toLowerCase() === personName.toLowerCase())
 
-		// Detect changes since last meeting
-		const oppChanged = since !== null && (opp.updatedAt ?? opp.createdAt) > since
+		// Detect changes since last meeting (timestamp or snapshot diff)
+		const changedByTime = since !== null && (opp.updatedAt ?? opp.createdAt) > since
 		const isNewOpp = since !== null && opp.createdAt > since
+		const prevOppSnap = snapshot?.opportunities[opp.id]
+		const changedByDiff = since !== null && prevOppSnap !== undefined && diffOpp(opp, prevOppSnap).length > 0
+		const neverReviewed = since !== null && !prevOppSnap
+		const oppChanged = changedByTime || changedByDiff || neverReviewed
 
 		if (
 			oppChanged &&
@@ -404,7 +444,7 @@ export function buildMeetingAgenda(
 						entityId: opp.id,
 						entityTitle: opp.title,
 						entityType: 'opportunity',
-						description: 'Updated',
+						description: 'Description or notes edited',
 					})
 				}
 			} else {
@@ -412,7 +452,7 @@ export function buildMeetingAgenda(
 					entityId: opp.id,
 					entityTitle: opp.title,
 					entityType: 'opportunity',
-					description: 'Updated',
+					description: 'New to agenda',
 				})
 			}
 		}
@@ -524,8 +564,11 @@ export function buildMeetingAgenda(
 
 		if (!role) continue
 
-		const delChanged = since !== null && (d.updatedAt ?? 0) > since
-		const isNewDel = since !== null && (d.updatedAt ?? 0) > since && !since
+		const delChangedByTime = since !== null && (d.updatedAt ?? 0) > since
+		const prevDelSnap = snapshot?.deliverables[d.id]
+		const delChangedByDiff = since !== null && prevDelSnap !== undefined && diffDel(d, dLinks.length, prevDelSnap).length > 0
+		const delNeverReviewed = since !== null && !prevDelSnap
+		const delChanged = delChangedByTime || delChangedByDiff || delNeverReviewed
 
 		if (delChanged) {
 			const dLinks = linksForDeliverable(links, d.id)
@@ -544,7 +587,7 @@ export function buildMeetingAgenda(
 						entityId: d.id,
 						entityTitle: d.title,
 						entityType: 'deliverable',
-						description: 'Updated',
+						description: 'Description or notes edited',
 					})
 				}
 			} else {
@@ -552,7 +595,7 @@ export function buildMeetingAgenda(
 					entityId: d.id,
 					entityTitle: d.title,
 					entityType: 'deliverable',
-					description: 'Updated',
+					description: 'New to agenda',
 				})
 			}
 		}
@@ -582,7 +625,9 @@ export function buildMeetingAgenda(
 	return agenda
 }
 
-/** Complete a meeting session — returns updated meeting data */
+/** Complete a meeting session — returns updated meeting data.
+ *  If discussedEntityIds is provided, only snapshot those entities (scoped stamp).
+ *  Undiscussed entities keep their previous snapshot so changes surface next meeting. */
 export function completeMeeting(
 	personName: string,
 	agenda: MeetingAgenda,
@@ -590,13 +635,21 @@ export function completeMeeting(
 	opportunities: Opportunity[],
 	deliverables: Deliverable[],
 	links: OpportunityDeliverableLink[],
+	discussedEntityIds?: Set<string>,
 ): MeetingData {
+	const isScoped = discussedEntityIds !== undefined
+	const inScope = (id: string) => !isScoped || discussedEntityIds.has(id)
+
+	const unscoredCount = agenda.unscoredCells.filter((c) => inScope(c.opportunityId)).length
+	const commitmentCount = agenda.commitments.filter((c) => inScope(c.opportunityId)).length
+	const changeCount = agenda.changes.filter((c) => inScope(c.entityId)).length
+	const conflictCount = agenda.conflicts.filter((c) => inScope(c.opportunityId)).length
+
 	const summary: string[] = []
-	if (agenda.unscoredCells.length > 0) summary.push(`${agenda.unscoredCells.length} cells to score`)
-	if (agenda.commitments.length > 0)
-		summary.push(`${agenda.commitments.length} commitments reviewed`)
-	if (agenda.changes.length > 0) summary.push(`${agenda.changes.length} changes discussed`)
-	if (agenda.conflicts.length > 0) summary.push(`${agenda.conflicts.length} conflicts`)
+	if (unscoredCount > 0) summary.push(`${unscoredCount} cells to score`)
+	if (commitmentCount > 0) summary.push(`${commitmentCount} commitments reviewed`)
+	if (changeCount > 0) summary.push(`${changeCount} changes discussed`)
+	if (conflictCount > 0) summary.push(`${conflictCount} conflicts`)
 	if (summary.length === 0) summary.push('No items')
 
 	const record: MeetingRecord = {
@@ -605,7 +658,24 @@ export function completeMeeting(
 		summary,
 	}
 
-	const snap = buildPersonSnapshot(personName, opportunities, deliverables, links)
+	const fullSnap = buildPersonSnapshot(personName, opportunities, deliverables, links)
+
+	let snap: PersonSnapshot
+	if (isScoped) {
+		const existing = meetingData.snapshots[personName] ?? { opportunities: {}, deliverables: {} }
+		snap = {
+			opportunities: { ...existing.opportunities },
+			deliverables: { ...existing.deliverables },
+		}
+		for (const [id, s] of Object.entries(fullSnap.opportunities)) {
+			if (discussedEntityIds.has(id)) snap.opportunities[id] = s
+		}
+		for (const [id, s] of Object.entries(fullSnap.deliverables)) {
+			if (discussedEntityIds.has(id)) snap.deliverables[id] = s
+		}
+	} else {
+		snap = fullSnap
+	}
 
 	return {
 		lastDiscussed: { ...meetingData.lastDiscussed, [personName]: Date.now() },

@@ -81,8 +81,9 @@ export function loadMeetingData(): MeetingData {
 		if (!data.lastDiscussed || !Array.isArray(data.records)) {
 			return empty
 		}
-		// Backfill missing snapshots field
+		// Backfill missing fields
 		if (!data.snapshots) data.snapshots = {}
+		if (!data.inProgress) data.inProgress = {}
 		return data
 	} catch {
 		return empty
