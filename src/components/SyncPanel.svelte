@@ -1,17 +1,33 @@
-<script lang="ts">
-	import type { Opportunity, Deliverable, OpportunityDeliverableLink, Stage, Perspective, CellSignal } from '../lib/types'
-	import { PERSPECTIVES, PERSPECTIVE_LABELS, SCORE_DISPLAY, STAGES, stageLabel } from '../lib/types'
-	import { publishBoard, queryBoard, publishScores, queryScores, applyScores, generateSyncKeys, generateRoomCode, type SyncKeys, type ScoreEntry } from '../lib/sync'
+<script lang="ts" module>
 	import type { BoardData } from '../lib/store'
+	import type { ScoreEntry } from '../lib/sync'
+	import type { Stage, Perspective, CellSignal } from '../lib/types'
+
+	export interface ContributorInfo {
+		name: string
+		board: BoardData
+		scores: ScoreEntry[]
+		submittedScores: ScoreEntry[]
+		busy: boolean
+		addScore: (oppId: string, stage: Stage, perspective: Perspective, signal: CellSignal) => void
+		submitScores: () => void
+		refreshBoard: () => void
+	}
+</script>
+
+<script lang="ts">
+	import type { Opportunity, Deliverable, OpportunityDeliverableLink } from '../lib/types'
+	import { publishBoard, queryBoard, publishScores, queryScores, applyScores, generateSyncKeys, generateRoomCode, type SyncKeys } from '../lib/sync'
 
 	interface Props {
 		opportunities: Opportunity[]
 		deliverables: Deliverable[]
 		links: OpportunityDeliverableLink[]
 		onApplyScores: (updatedOpportunities: Opportunity[], message: string) => void
+		onContributorChange?: (info: ContributorInfo | null) => void
 	}
 
-	let { opportunities, deliverables, links, onApplyScores }: Props = $props()
+	let { opportunities, deliverables, links, onApplyScores, onContributorChange }: Props = $props()
 
 	// --- Persistent sync state (stored in localStorage) ---
 	const SYNC_KEY = 'upstream-sync'
@@ -42,6 +58,69 @@
 	let busy = $state(false)
 	let showPanel = $state(false)
 	let contributorScores = $state<ScoreEntry[]>([])
+	let submittedScores = $state<ScoreEntry[]>([])
+	let remoteBoard = $state<BoardData | null>(null)
+
+	// Notify parent of contributor state changes (called by $effect below)
+	// Also used for imperative leaveRoom notification
+
+	// Re-notify parent whenever contributor-relevant state changes
+	$effect(() => {
+		if (syncState?.role === 'contributor' && remoteBoard) {
+			// Read all reactive values to establish dependencies
+			const _b = busy
+			const _s = contributorScores
+			const _ss = submittedScores
+			onContributorChange?.({
+				name: syncState.contributorName ?? '',
+				board: remoteBoard,
+				scores: contributorScores,
+				submittedScores,
+				busy,
+				addScore,
+				submitScores,
+				refreshBoard,
+			})
+		} else if (!syncState) {
+			onContributorChange?.(null)
+		}
+	})
+
+	// Load remote board on init if we're a contributor
+	if (syncState?.role === 'contributor') {
+		queryBoard(syncState.roomCode).then((board) => {
+			if (board) {
+				remoteBoard = board
+			}
+		})
+	}
+
+	// Track pending submissions for PO notification badge
+	let pendingSubmissionCount = $state(0)
+
+	async function checkForSubmissions() {
+		if (!syncState || syncState.role !== 'owner') return
+		try {
+			const submissions = await queryScores(syncState.roomCode)
+			// Count only submissions that would actually apply new scores
+			const cloned: BoardData = JSON.parse(JSON.stringify({ opportunities, deliverables, links }))
+			const wouldApply = applyScores(cloned, submissions)
+			pendingSubmissionCount = wouldApply
+		} catch {
+			// Silently ignore — this is a background check
+		}
+	}
+
+	// Auto-check for submissions when owner has a room
+	$effect(() => {
+		if (syncState?.role === 'owner') {
+			checkForSubmissions()
+			const interval = setInterval(checkForSubmissions, 30_000)
+			return () => clearInterval(interval)
+		} else {
+			pendingSubmissionCount = 0
+		}
+	})
 
 	// --- Owner actions ---
 
@@ -86,12 +165,13 @@
 			if (submissions.length === 0) {
 				status = 'No score submissions found.'
 			} else {
-				const clonedOpps = structuredClone(opportunities)
-				const board: BoardData = { opportunities: clonedOpps, deliverables, links }
+				const clonedOpps: Opportunity[] = JSON.parse(JSON.stringify(opportunities))
+				const board: BoardData = { opportunities: clonedOpps, deliverables: JSON.parse(JSON.stringify(deliverables)), links: JSON.parse(JSON.stringify(links)) }
 				const count = applyScores(board, submissions)
 				if (count > 0) {
 					onApplyScores(clonedOpps, `Applied ${count} score${count === 1 ? '' : 's'} from ${submissions.length} submission${submissions.length === 1 ? '' : 's'}.`)
 					status = `Applied ${count} score${count === 1 ? '' : 's'} from ${submissions.length} submission${submissions.length === 1 ? '' : 's'}.`
+					pendingSubmissionCount = 0
 				} else {
 					status = 'Submissions found but no new scores to apply.'
 				}
@@ -120,6 +200,7 @@
 			syncState = state
 			saveSyncState(state)
 			contributorScores = []
+			remoteBoard = board
 			status = `Joined room. Board has ${board.opportunities.length} opportunities.`
 		} catch (e) {
 			status = `Join failed: ${e instanceof Error ? e.message : 'unknown error'}`
@@ -137,10 +218,30 @@
 				scores: contributorScores,
 				timestamp: Date.now(),
 			})
-			status = `Submitted ${contributorScores.length} score${contributorScores.length === 1 ? '' : 's'}.`
+			status = `Submitted ${contributorScores.length} score${contributorScores.length === 1 ? '' : 's'}. Your input has been sent to the PO.`
+			submittedScores = [...submittedScores, ...contributorScores]
 			contributorScores = []
 		} catch (e) {
 			status = `Submit failed: ${e instanceof Error ? e.message : 'unknown error'}`
+		}
+		busy = false
+	}
+
+	async function refreshBoard() {
+		if (!syncState) return
+		busy = true
+		status = 'Refreshing board…'
+		try {
+			const board = await queryBoard(syncState.roomCode)
+			if (board) {
+				remoteBoard = board
+				submittedScores = []
+				status = `Board refreshed — ${board.opportunities.length} opportunities.`
+			} else {
+				status = 'Could not fetch board.'
+			}
+		} catch (e) {
+			status = `Refresh failed: ${e instanceof Error ? e.message : 'unknown error'}`
 		}
 		busy = false
 	}
@@ -149,7 +250,10 @@
 		syncState = null
 		saveSyncState(null)
 		contributorScores = []
+		submittedScores = []
+		remoteBoard = null
 		status = ''
+		onContributorChange?.(null)
 	}
 
 	function copyRoomCode() {
@@ -177,6 +281,9 @@
 	<button class="sync-toggle" onclick={() => showPanel = !showPanel} title="Share & sync board via encrypted relay">
 		{#if syncState}
 			🔗 {syncState.role === 'owner' ? 'Room' : 'Contributor'}
+			{#if pendingSubmissionCount > 0}
+				<span class="sync-badge">{pendingSubmissionCount}</span>
+			{/if}
 		{:else}
 			Share
 		{/if}
@@ -209,7 +316,9 @@
 					</div>
 					<div class="sync-actions">
 						<button class="sync-btn primary" onclick={publishUpdate} disabled={busy}>Publish Board</button>
-						<button class="sync-btn" onclick={pullScores} disabled={busy}>Pull Scores</button>
+						<button class="sync-btn{pendingSubmissionCount > 0 ? ' primary' : ''}" onclick={pullScores} disabled={busy}>
+							Pull Scores{#if pendingSubmissionCount > 0} ({pendingSubmissionCount}){/if}
+						</button>
 						<button class="sync-btn danger" onclick={leaveRoom}>Leave Room</button>
 					</div>
 				</div>
@@ -218,12 +327,16 @@
 				<!-- Contributor panel -->
 				<div class="sync-section">
 					<h3>Contributing as {syncState.contributorName}</h3>
-					<p class="sync-hint">Score cells in the board, then submit.</p>
-					{#if contributorScores.length > 0}
-						<p class="score-count">{contributorScores.length} score{contributorScores.length === 1 ? '' : 's'} pending</p>
-						<button class="sync-btn primary" onclick={submitScores} disabled={busy}>Submit Scores</button>
-					{/if}
-					<button class="sync-btn danger" onclick={leaveRoom}>Leave Room</button>
+					<p class="sync-hint">Score your assigned cells below, then submit.</p>
+					<div class="sync-actions">
+						<button class="sync-btn" onclick={refreshBoard} disabled={busy}>Refresh Board</button>
+						{#if contributorScores.length > 0}
+							<button class="sync-btn primary" onclick={submitScores} disabled={busy}>
+								Submit {contributorScores.length} score{contributorScores.length === 1 ? '' : 's'}
+							</button>
+						{/if}
+						<button class="sync-btn danger" onclick={leaveRoom}>Leave</button>
+					</div>
 				</div>
 			{/if}
 
@@ -251,6 +364,22 @@
 
 	.sync-toggle:hover {
 		background: var(--c-surface-hover);
+	}
+
+	.sync-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 18px;
+		height: 18px;
+		padding: 0 5px;
+		margin-left: 4px;
+		border-radius: 9px;
+		background: var(--c-accent);
+		color: white;
+		font-size: 11px;
+		font-weight: var(--fw-bold);
+		line-height: 1;
 	}
 
 	.sync-panel {

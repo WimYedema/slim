@@ -8,6 +8,8 @@
 	import KeyboardHelp from './components/KeyboardHelp.svelte'
 	import QuickAdd from './components/QuickAdd.svelte'
 	import SyncPanel from './components/SyncPanel.svelte'
+	import ContributorView from './components/ContributorView.svelte'
+	import type { ContributorInfo } from './components/SyncPanel.svelte'
 	import {
 		type Opportunity,
 		type Deliverable,
@@ -19,11 +21,12 @@
 	} from './lib/types'
 	import { saveBoard, loadBoard, clearBoard, saveMeetingData, loadMeetingData, type BoardData } from './lib/store'
 	import type { MeetingData } from './lib/meeting'
-	import type { BoardSnapshot } from './lib/briefing'
+	import { snapshotBoard, type BoardSnapshot } from './lib/briefing'
 	import { opportunitiesToCsv, csvToOpportunities } from './lib/csv'
 	import { mergeBoards, formatMergeStats } from './lib/merge'
 
 	type ViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'meetings'
+	type ContributorViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'assignments'
 
 	/**
 	 * Sample data based on SAMPLE-SCENARIO.md
@@ -282,7 +285,9 @@
 	let meetingData: MeetingData = $state(
 		savedMeetings.records.length > 0 ? savedMeetings : createSampleMeetingData(),
 	)
-	let briefingSnapshot: BoardSnapshot | null = $state(saved?.briefingSnapshot ?? null)
+	let briefingSnapshot: BoardSnapshot | null = $state(
+		saved?.briefingSnapshot ?? snapshotBoard({ opportunities, deliverables, links })
+	)
 	let selectedId: string | null = $state(null)
 	let selectedDeliverableId: string | null = $state(null)
 	let view: ViewMode = $state('briefing')
@@ -290,6 +295,36 @@
 	let showHelp = $state(false)
 	let showQuickAdd = $state(false)
 	let showDataMenu = $state(false)
+	let contributorInfo: ContributorInfo | null = $state(null)
+	let contributorView: ContributorViewMode = $state('assignments')
+
+	// Contributor briefing derived data
+	const cbMyOpps = $derived(
+		contributorInfo
+			? contributorInfo.board.opportunities.filter(o =>
+				!o.discontinuedAt && o.people.some(p => p.name.toLowerCase() === contributorInfo!.name.toLowerCase())
+			)
+			: [],
+	)
+	const cbUnscoredCount = $derived(
+		cbMyOpps.reduce((n, o) => {
+			const person = o.people.find(p => p.name.toLowerCase() === contributorInfo?.name.toLowerCase())
+			if (!person) return n
+			return n + person.perspectives.filter(a => {
+				const sig = o.signals[a.stage]?.[a.perspective]
+				return sig && sig.score === 'none'
+			}).length
+		}, 0),
+	)
+	const cbTotalActive = $derived(
+		contributorInfo ? contributorInfo.board.opportunities.filter(o => !o.discontinuedAt).length : 0,
+	)
+	const cbUnscoredOppCount = $derived(
+		cbMyOpps.filter(o => {
+			const person = o.people.find(p => p.name.toLowerCase() === contributorInfo?.name.toLowerCase())
+			return person?.perspectives.some(a => o.signals[a.stage]?.[a.perspective]?.score === 'none')
+		}).length,
+	)
 
 	// ── Undo stack (snapshot-based) ──
 	interface UndoSnapshot {
@@ -760,19 +795,30 @@
 <main class="app">
 	<header class="app-header">
 		<h1>Upstream</h1>
+		{#if !contributorInfo}
 		<nav class="view-tabs">
 			<button class="view-tab" class:active={view === 'briefing'} onclick={() => switchView('briefing')}>Briefing</button>
 			<button class="view-tab" class:active={view === 'pipeline'} onclick={() => switchView('pipeline')}>Pipeline</button>
 			<button class="view-tab" class:active={view === 'deliverables'} onclick={() => switchView('deliverables')}>Deliverables</button>
 			<button class="view-tab" class:active={view === 'meetings'} onclick={() => switchView('meetings')}>Meetings</button>
 		</nav>
+		{:else}
+		<nav class="view-tabs">
+			<button class="view-tab" class:active={contributorView === 'briefing'} onclick={() => contributorView = 'briefing'}>Briefing</button>
+			<button class="view-tab" class:active={contributorView === 'pipeline'} onclick={() => contributorView = 'pipeline'}>Pipeline</button>
+			<button class="view-tab" class:active={contributorView === 'deliverables'} onclick={() => contributorView = 'deliverables'}>Deliverables</button>
+			<button class="view-tab" class:active={contributorView === 'assignments'} onclick={() => contributorView = 'assignments'}>Assignments</button>
+		</nav>
+		{/if}
 		<div class="header-actions">
-			<SyncPanel {opportunities} {deliverables} {links}
+		<SyncPanel {opportunities} {deliverables} {links}
 				onApplyScores={(updatedOpps, message) => {
 					pushUndo('Sync scores')
 					opportunities = updatedOpps
 				}}
+				onContributorChange={(info) => { contributorInfo = info }}
 			/>
+			{#if !contributorInfo}
 			<div class="data-menu-container">
 				<button class="action-btn" onclick={() => showDataMenu = !showDataMenu} title="Import, export, and data management">
 					Data ↕
@@ -810,10 +856,96 @@
 					</div>
 				{/if}
 			</div>
+			{/if}
 			<button class="help-btn" onclick={() => showHelp = true} title="Keyboard shortcuts (?)">?</button>
 		</div>
 	</header>
-	{#if view === 'briefing'}
+	{#if contributorInfo}
+	{#if contributorView === 'assignments'}
+	<ContributorView
+		opportunities={contributorInfo.board.opportunities}
+		deliverables={contributorInfo.board.deliverables}
+		links={contributorInfo.board.links}
+		contributorName={contributorInfo.name}
+		pendingScores={contributorInfo.scores}
+		submittedScores={contributorInfo.submittedScores}
+		busy={contributorInfo.busy}
+		onScore={contributorInfo.addScore}
+		onSubmit={contributorInfo.submitScores}
+		onRefresh={contributorInfo.refreshBoard}
+	/>
+	{:else if contributorView === 'pipeline'}
+	<div class="split-layout">
+		<div class="split-list">
+			<PipelineView
+				opportunities={contributorInfo.board.opportunities}
+				deliverables={contributorInfo.board.deliverables}
+				links={contributorInfo.board.links}
+				onSelect={() => {}} onAdvance={() => {}} onAdd={() => {}}
+				compact={false}
+			/>
+		</div>
+	</div>
+	{:else if contributorView === 'deliverables'}
+	<div class="split-layout">
+		<div class="split-list">
+			<DeliverablesView
+				deliverables={contributorInfo.board.deliverables}
+				links={contributorInfo.board.links}
+				opportunities={contributorInfo.board.opportunities}
+				selectedId={null}
+				onAdd={() => createDeliverable('_')} onUpdate={() => {}} onRemove={() => {}}
+				onLink={() => {}} onUnlink={() => {}} onUpdateCoverage={() => {}}
+				onSelectOpportunity={() => {}} onSelectDeliverable={() => {}}
+			/>
+		</div>
+	</div>
+	{:else}
+	<div class="contributor-briefing">
+		<div class="cb-container">
+			<h2 class="cb-title">Welcome back, {contributorInfo.name}</h2>
+			<div class="cb-summary">
+				<div class="cb-stat">
+					<span class="cb-stat-value">{cbUnscoredCount}</span>
+					<span class="cb-stat-label">cells awaiting your input</span>
+				</div>
+				<div class="cb-stat">
+					<span class="cb-stat-value">{cbMyOpps.length}</span>
+					<span class="cb-stat-label">opportunities you're assigned to</span>
+				</div>
+				<div class="cb-stat">
+					<span class="cb-stat-value">{cbTotalActive}</span>
+					<span class="cb-stat-label">active in the pipeline</span>
+				</div>
+			</div>
+			{#if contributorInfo.submittedScores.length > 0}
+				<div class="cb-section">
+					<h3 class="cb-section-title">Recently submitted</h3>
+					<p class="cb-section-text">
+						You submitted {contributorInfo.submittedScores.length} score{contributorInfo.submittedScores.length === 1 ? '' : 's'} — the PO will see them on their next pull. Hit <strong>Refresh board</strong> in Assignments to check for updates.
+					</p>
+				</div>
+			{/if}
+			{#if cbUnscoredCount > 0}
+				<div class="cb-section">
+					<h3 class="cb-section-title">Action needed</h3>
+					<p class="cb-section-text">
+						{cbUnscoredCount} perspective cell{cbUnscoredCount === 1 ? '' : 's'} across {cbUnscoredOppCount} opportunit{cbUnscoredOppCount === 1 ? 'y' : 'ies'} need{cbUnscoredCount === 1 ? 's' : ''} your input.
+					</p>
+					<button class="cv-action-btn cv-action-primary" onclick={() => contributorView = 'assignments'}>
+						Go to Assignments
+					</button>
+				</div>
+			{:else}
+				<div class="cb-section">
+					<h3 class="cb-section-title">All caught up</h3>
+					<p class="cb-section-text">No unscored cells assigned to you. Browse the Pipeline or Deliverables tabs for context.</p>
+				</div>
+			{/if}
+		</div>
+	</div>
+	{/if}
+	{:else if view === 'briefing'}
 	<div class="split-layout">
 		<div class="split-list">
 			<BriefingView
@@ -1122,5 +1254,72 @@
 		box-shadow: var(--shadow-md);
 		z-index: 1000;
 		pointer-events: none;
+	}
+
+	/* Contributor briefing */
+	.contributor-briefing {
+		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		padding: var(--sp-md) var(--sp-lg);
+	}
+
+	.cb-container {
+		width: 100%;
+		max-width: 42rem;
+	}
+
+	.cb-title {
+		margin: 0 0 var(--sp-md);
+		font-size: var(--fs-xl);
+		font-weight: var(--fw-bold);
+	}
+
+	.cb-summary {
+		display: flex;
+		gap: var(--sp-md);
+		margin-bottom: var(--sp-lg);
+	}
+
+	.cb-stat {
+		flex: 1;
+		padding: var(--sp-sm) var(--sp-md);
+		background: var(--c-surface);
+		border: 1px solid var(--c-border);
+		border-radius: var(--radius-md);
+		text-align: center;
+	}
+
+	.cb-stat-value {
+		display: block;
+		font-size: var(--fs-2xl);
+		font-weight: var(--fw-bold);
+		color: var(--c-text);
+	}
+
+	.cb-stat-label {
+		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+	}
+
+	.cb-section {
+		margin-bottom: var(--sp-md);
+		padding: var(--sp-sm) var(--sp-md);
+		background: var(--c-surface);
+		border: 1px solid var(--c-border);
+		border-radius: var(--radius-md);
+	}
+
+	.cb-section-title {
+		margin: 0 0 var(--sp-xs);
+		font-size: var(--fs-md);
+		font-weight: var(--fw-semibold);
+	}
+
+	.cb-section-text {
+		margin: 0 0 var(--sp-sm);
+		font-size: var(--fs-sm);
+		color: var(--c-text-muted);
 	}
 </style>

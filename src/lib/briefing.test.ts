@@ -281,7 +281,7 @@ describe('briefing', () => {
 	})
 
 	describe('deduplicateItems', () => {
-		it('removes duplicate verb+target combos', () => {
+		it('keeps signal-changed items with different descriptions (different perspectives)', () => {
 			const items: BriefingItem[] = [
 				{
 					id: '1',
@@ -305,7 +305,7 @@ describe('briefing', () => {
 				},
 			]
 			const deduped = deduplicateItems(items)
-			expect(deduped).toHaveLength(1)
+			expect(deduped).toHaveLength(2)
 		})
 
 		it('keeps items with different verbs for same target', () => {
@@ -736,5 +736,116 @@ describe('WIP warnings in diffBoard', () => {
 		// Explore has 5 (healthy), but other stages have 0 (under floor)
 		const exploreWip = wipItems.filter((i) => i.targetTitle === 'Explore')
 		expect(exploreWip).toHaveLength(0)
+	})
+
+	describe('pulled score scenario (P2P sync)', () => {
+		it('shows signal-changed with owner name when score goes from none to positive', () => {
+			const opp = createOpportunity('SSO')
+			const snap = snapshotBoard(makeBoard([opp]))
+
+			// Simulate pulled score: Marcus scored feasibility positive
+			const updated = structuredClone(opp)
+			updated.signals.explore.feasibility = {
+				score: 'positive',
+				source: 'manual',
+				verdict: 'Looks good technically',
+				evidence: '',
+				owner: 'Marcus',
+			}
+			updated.updatedAt = Date.now()
+			const board = makeBoard([updated])
+			const items = diffBoard(snap, board)
+
+			const signalItem = items.find(i => i.verb === 'signal-changed')
+			expect(signalItem).toBeDefined()
+			expect(signalItem!.description).toContain('Marcus')
+			expect(signalItem!.description).toContain('verdict in')
+			expect(signalItem!.tier).toBe(2)
+		})
+
+		it('shows objection-added with owner name when score goes to negative', () => {
+			const opp = createOpportunity('SSO')
+			const snap = snapshotBoard(makeBoard([opp]))
+
+			const updated = structuredClone(opp)
+			updated.signals.explore.desirability = {
+				score: 'negative',
+				source: 'manual',
+				verdict: 'No market demand',
+				evidence: '',
+				owner: 'Marcus',
+			}
+			updated.updatedAt = Date.now()
+			const board = makeBoard([updated])
+			const items = diffBoard(snap, board)
+
+			const objection = items.find(i => i.verb === 'objection-added')
+			expect(objection).toBeDefined()
+			expect(objection!.description).toContain('Marcus')
+			expect(objection!.tier).toBe(1)
+		})
+
+		it('suppresses stale warning when opportunity has fresh signal activity', () => {
+			const opp = createOpportunity('Stale but scored')
+			opp.stageEnteredAt = Date.now() - 31 * 86400000 // stale
+			const snap = snapshotBoard(makeBoard([opp]))
+
+			const updated = structuredClone(opp)
+			updated.signals.explore.feasibility = {
+				score: 'positive',
+				source: 'manual',
+				verdict: 'OK',
+				evidence: '',
+				owner: 'Marcus',
+			}
+			updated.updatedAt = Date.now()
+			const board = makeBoard([updated])
+			const items = diffBoard(snap, board)
+
+			const stale = items.find(i => i.verb === 'stale')
+			expect(stale).toBeUndefined()
+			const signal = items.find(i => i.verb === 'signal-changed')
+			expect(signal).toBeDefined()
+		})
+
+		it('keeps stale warning when no signal activity', () => {
+			const opp = createOpportunity('Just stale')
+			const snap = snapshotBoard(makeBoard([opp]))
+
+			const updated = structuredClone(opp)
+			updated.stageEnteredAt = Date.now() - 31 * 86400000
+			const board = makeBoard([updated])
+			const items = diffBoard(snap, board)
+
+			const stale = items.find(i => i.verb === 'stale')
+			expect(stale).toBeDefined()
+		})
+
+		it('shows multiple signal-changed items for different perspectives before dedup', () => {
+			const opp = createOpportunity('Multi-score')
+			const snap = snapshotBoard(makeBoard([opp]))
+
+			const updated = structuredClone(opp)
+			updated.signals.explore.feasibility = {
+				score: 'positive', source: 'manual', verdict: 'OK', evidence: '', owner: 'Marcus',
+			}
+			updated.signals.explore.desirability = {
+				score: 'positive', source: 'manual', verdict: 'Yes!', evidence: '', owner: 'Sarah',
+			}
+			updated.updatedAt = Date.now()
+			const board = makeBoard([updated])
+			const rawItems = diffBoard(snap, board)
+
+			// Before dedup, both signal-changed items should exist
+			const signals = rawItems.filter(i => i.verb === 'signal-changed')
+			expect(signals).toHaveLength(2)
+			expect(signals.some(i => i.description.includes('Marcus'))).toBe(true)
+			expect(signals.some(i => i.description.includes('Sarah'))).toBe(true)
+
+			// After dedup, both survive (each perspective is distinct)
+			const deduped = deduplicateItems(rawItems)
+			const dedupedSignals = deduped.filter(i => i.verb === 'signal-changed')
+			expect(dedupedSignals).toHaveLength(2)
+		})
 	})
 })

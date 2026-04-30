@@ -31,9 +31,9 @@ export interface BoardSnapshot {
 
 export function snapshotBoard(data: BoardData): BoardSnapshot {
 	return {
-		opportunities: structuredClone(data.opportunities),
-		deliverables: structuredClone(data.deliverables),
-		links: structuredClone(data.links),
+		opportunities: JSON.parse(JSON.stringify(data.opportunities)),
+		deliverables: JSON.parse(JSON.stringify(data.deliverables)),
+		links: JSON.parse(JSON.stringify(data.links)),
 		takenAt: Date.now(),
 	}
 }
@@ -307,6 +307,9 @@ function diffSignals(old: Opportunity, curr: Opportunity, items: BriefingItem[])
 			const newScore = curr.signals[stage.key][p].score
 			if (oldScore === newScore) continue
 
+			const owner = curr.signals[stage.key][p].owner
+			const byWhom = owner ? ` by ${owner}` : ''
+
 			// Objection added
 			if (newScore === 'negative' && oldScore !== 'negative') {
 				items.push({
@@ -315,7 +318,7 @@ function diffSignals(old: Opportunity, curr: Opportunity, items: BriefingItem[])
 					targetId: curr.id,
 					targetTitle: curr.title,
 					verb: 'objection-added',
-					description: `${PERSPECTIVE_LABELS[p]} objection at ${stage.label}`,
+					description: `${PERSPECTIVE_LABELS[p]} objection at ${stage.label}${byWhom}`,
 					tier: TIER_MAP['objection-added'],
 					timestamp: curr.updatedAt,
 				})
@@ -328,8 +331,21 @@ function diffSignals(old: Opportunity, curr: Opportunity, items: BriefingItem[])
 					targetId: curr.id,
 					targetTitle: curr.title,
 					verb: 'objection-resolved',
-					description: `${PERSPECTIVE_LABELS[p]} objection cleared at ${stage.label}`,
+					description: `${PERSPECTIVE_LABELS[p]} objection cleared at ${stage.label}${byWhom}`,
 					tier: TIER_MAP['objection-resolved'],
+					timestamp: curr.updatedAt,
+				})
+			}
+			// New verdict (was unscored)
+			else if (oldScore === 'none') {
+				items.push({
+					id: itemId(),
+					targetType: 'opportunity',
+					targetId: curr.id,
+					targetTitle: curr.title,
+					verb: 'signal-changed',
+					description: `${PERSPECTIVE_LABELS[p]} verdict in${byWhom} at ${stage.label}`,
+					tier: TIER_MAP['signal-changed'],
 					timestamp: curr.updatedAt,
 				})
 			}
@@ -341,7 +357,7 @@ function diffSignals(old: Opportunity, curr: Opportunity, items: BriefingItem[])
 					targetId: curr.id,
 					targetTitle: curr.title,
 					verb: 'signal-changed',
-					description: `${PERSPECTIVE_LABELS[p]} updated at ${stage.label}`,
+					description: `${PERSPECTIVE_LABELS[p]} updated${byWhom} at ${stage.label}`,
 					tier: TIER_MAP['signal-changed'],
 					timestamp: curr.updatedAt,
 				})
@@ -616,17 +632,28 @@ export function diffBoard(
 
 	const all = [...oppItems, ...delItems, ...revisitItems, ...pWarnings, ...wipItems]
 
-	// Sort: tier 1 first, then tier 2, then tier 3. Within each tier, newest first.
-	all.sort((a, b) => a.tier - b.tier || b.timestamp - a.timestamp)
+	// Suppress stale warnings for opportunities that have fresh signal activity
+	const signalActivityIds = new Set(
+		oppItems
+			.filter(i => i.verb === 'signal-changed' || i.verb === 'objection-added' || i.verb === 'objection-resolved')
+			.map(i => i.targetId),
+	)
+	const filtered = all.filter(i => !(i.verb === 'stale' && signalActivityIds.has(i.targetId)))
 
-	return all
+	// Sort: tier 1 first, then tier 2, then tier 3. Within each tier, newest first.
+	filtered.sort((a, b) => a.tier - b.tier || b.timestamp - a.timestamp)
+
+	return filtered
 }
 
 /** Deduplicate items targeting the same entity with the same verb */
 export function deduplicateItems(items: BriefingItem[]): BriefingItem[] {
 	const seen = new Set<string>()
 	return items.filter((item) => {
-		const key = `${item.targetType}:${item.targetId}:${item.verb}`
+		// Signal changes are per-perspective, so include description to keep them distinct
+		const key = item.verb === 'signal-changed' || item.verb === 'objection-added' || item.verb === 'objection-resolved'
+			? `${item.targetType}:${item.targetId}:${item.verb}:${item.description}`
+			: `${item.targetType}:${item.targetId}:${item.verb}`
 		if (seen.has(key)) return false
 		seen.add(key)
 		return true
