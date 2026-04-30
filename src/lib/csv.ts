@@ -1,5 +1,5 @@
-import type { Opportunity, Stage, Score, OriginType } from './types'
-import { PERSPECTIVES, createOpportunity } from './types'
+import type { Opportunity, OriginType, Score, Stage } from './types'
+import { createOpportunity, PERSPECTIVES } from './types'
 
 /** Escape a value for CSV: wrap in quotes if it contains comma, quote, or newline */
 export function csvEscape(s: string): string {

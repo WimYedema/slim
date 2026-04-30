@@ -1,5 +1,5 @@
-import type { Opportunity, Deliverable, OpportunityDeliverableLink } from './types'
 import type { BoardData } from './store'
+import type { Deliverable, Opportunity, OpportunityDeliverableLink } from './types'
 
 export interface MergeResult {
 	opportunities: Opportunity[]
@@ -23,7 +23,13 @@ export interface MergeStats {
  * - Links are deduplicated by (opportunityId, deliverableId) pair; incoming wins.
  */
 export function mergeBoards(local: BoardData, incoming: BoardData): MergeResult {
-	const stats: MergeStats = { oppsAdded: 0, oppsUpdated: 0, delsAdded: 0, delsUpdated: 0, linksAdded: 0 }
+	const stats: MergeStats = {
+		oppsAdded: 0,
+		oppsUpdated: 0,
+		delsAdded: 0,
+		delsUpdated: 0,
+		linksAdded: 0,
+	}
 
 	const opportunities = mergeById(
 		local.opportunities,
@@ -109,11 +115,16 @@ function mergeLinks(
 /** Format merge stats into a human-readable summary */
 export function formatMergeStats(stats: MergeStats): string {
 	const parts: string[] = []
-	if (stats.oppsAdded > 0) parts.push(`${stats.oppsAdded} new opportunit${stats.oppsAdded === 1 ? 'y' : 'ies'}`)
-	if (stats.oppsUpdated > 0) parts.push(`${stats.oppsUpdated} opportunit${stats.oppsUpdated === 1 ? 'y' : 'ies'} updated`)
-	if (stats.delsAdded > 0) parts.push(`${stats.delsAdded} new deliverable${stats.delsAdded === 1 ? '' : 's'}`)
-	if (stats.delsUpdated > 0) parts.push(`${stats.delsUpdated} deliverable${stats.delsUpdated === 1 ? '' : 's'} updated`)
-	if (stats.linksAdded > 0) parts.push(`${stats.linksAdded} new link${stats.linksAdded === 1 ? '' : 's'}`)
+	if (stats.oppsAdded > 0)
+		parts.push(`${stats.oppsAdded} new opportunit${stats.oppsAdded === 1 ? 'y' : 'ies'}`)
+	if (stats.oppsUpdated > 0)
+		parts.push(`${stats.oppsUpdated} opportunit${stats.oppsUpdated === 1 ? 'y' : 'ies'} updated`)
+	if (stats.delsAdded > 0)
+		parts.push(`${stats.delsAdded} new deliverable${stats.delsAdded === 1 ? '' : 's'}`)
+	if (stats.delsUpdated > 0)
+		parts.push(`${stats.delsUpdated} deliverable${stats.delsUpdated === 1 ? '' : 's'} updated`)
+	if (stats.linksAdded > 0)
+		parts.push(`${stats.linksAdded} new link${stats.linksAdded === 1 ? '' : 's'}`)
 	if (parts.length === 0) return 'No changes — boards are identical.'
 	return `Merged: ${parts.join(', ')}.`
 }

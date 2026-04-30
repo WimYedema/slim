@@ -229,11 +229,11 @@ export async function subscribeScores(
 	try {
 		sub = pool.subscribeMany(
 			RELAY_URLS,
-			[{
+			{
 				kinds: [KIND_SCORE_SUBMISSION],
 				'#r': [roomDTag],
 				since: Math.floor(Date.now() / 1000) - 5,
-			}],
+			},
 			{
 				onevent(event) {
 					decrypt(roomKey, event.content)
@@ -243,7 +243,9 @@ export async function subscribeScores(
 								onScore(data as ScoreSubmission)
 							}
 						})
-						.catch(() => { /* skip */ })
+						.catch(() => {
+							/* skip */
+						})
 				},
 			},
 		)
@@ -265,11 +267,15 @@ export async function subscribeScores(
 function isBoardData(v: unknown): v is BoardData {
 	if (typeof v !== 'object' || v === null) return false
 	const obj = v as Record<string, unknown>
-	return Array.isArray(obj.opportunities) && Array.isArray(obj.deliverables) && Array.isArray(obj.links)
+	return (
+		Array.isArray(obj.opportunities) && Array.isArray(obj.deliverables) && Array.isArray(obj.links)
+	)
 }
 
 function isScoreSubmission(v: unknown): v is ScoreSubmission {
 	if (typeof v !== 'object' || v === null) return false
 	const obj = v as Record<string, unknown>
-	return typeof obj.name === 'string' && Array.isArray(obj.scores) && typeof obj.timestamp === 'number'
+	return (
+		typeof obj.name === 'string' && Array.isArray(obj.scores) && typeof obj.timestamp === 'number'
+	)
 }

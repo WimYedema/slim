@@ -146,7 +146,7 @@ export interface Opportunity {
 }
 
 /** Default horizon label: next quarter, e.g. "2026Q3" — new ideas need exploration before "now" */
-export { defaultHorizon, currentQuarter, isFutureHorizon } from './queries'
+export { currentQuarter, defaultHorizon, isFutureHorizon } from './queries'
 
 export const STAGES: { key: Stage; label: string; thinking: string }[] = [
 	{ key: 'explore', label: 'Explore', thinking: 'Open' },
@@ -254,14 +254,14 @@ export type HorizonPressure = 'now' | 'next' | 'none'
 export type ConsentStatus = 'consent' | 'objection' | 'unheard'
 
 export {
-	stageIndex,
-	nextStage,
-	prevStage,
-	daysInStage,
 	agingLevel,
-	pacingSummary,
-	originLabel,
 	cellHasSignal,
+	daysInStage,
+	nextStage,
+	originLabel,
+	pacingSummary,
+	prevStage,
+	stageIndex,
 } from './queries'
 
 // ── Deliverables (many-to-many with opportunities) ──
@@ -334,22 +334,22 @@ export const SIZE_ROW_HEIGHT: Record<TShirtSize, number> = { XS: 18, S: 28, M: 4
 export const UNESTIMATED_ROW_HEIGHT = 40
 
 export {
-	linksForOpportunity,
-	linksForDeliverable,
 	commitmentUrgency,
-	currentStageScores,
-	perspectiveOwner,
-	perspectiveAssignment,
-	perspectiveWeight,
 	consentStatus,
-	stageConsent,
-	ternaryPosition,
-	scoreClass,
-	stageLabel,
+	currentStageScores,
 	formatDaysLeft,
 	inheritedPeople,
+	linksForDeliverable,
+	linksForOpportunity,
+	perspectiveAssignment,
+	perspectiveOwner,
+	perspectiveWeight,
+	scoreClass,
+	stageConsent,
+	stageLabel,
+	ternaryPosition,
 	WIP_THRESHOLDS,
+	type WipLevel,
 	wipLevel,
 	wipNudge,
-	type WipLevel,
 } from './queries'

@@ -87,11 +87,25 @@ function snapshotOpp(opp: Opportunity): OppSnapshot {
 			}
 		}
 	}
-	return { stage: opp.stage, scores, title: opp.title, horizon: opp.horizon, peopleCount: opp.people.length, commitmentsCount: opp.commitments.length }
+	return {
+		stage: opp.stage,
+		scores,
+		title: opp.title,
+		horizon: opp.horizon,
+		peopleCount: opp.people.length,
+		commitmentsCount: opp.commitments.length,
+	}
 }
 
 function snapshotDel(del: Deliverable, linkCount: number): DelSnapshot {
-	return { title: del.title, size: del.size, certainty: del.certainty, linkCount, contributorCount: del.extraContributors.length, consumerCount: del.extraConsumers.length }
+	return {
+		title: del.title,
+		size: del.size,
+		certainty: del.certainty,
+		linkCount,
+		contributorCount: del.extraContributors.length,
+		consumerCount: del.extraConsumers.length,
+	}
 }
 
 /** Describe what changed in an opportunity compared to a previous snapshot */
@@ -144,7 +158,10 @@ function diffDel(del: Deliverable, linkCount: number, prev: DelSnapshot): string
 	if (linkCount !== prev.linkCount) {
 		descs.push(`Links: ${prev.linkCount} → ${linkCount}`)
 	}
-	if (prev.contributorCount !== undefined && del.extraContributors.length !== prev.contributorCount) {
+	if (
+		prev.contributorCount !== undefined &&
+		del.extraContributors.length !== prev.contributorCount
+	) {
 		descs.push(`Contributors: ${prev.contributorCount} → ${del.extraContributors.length}`)
 	}
 	if (prev.consumerCount !== undefined && del.extraConsumers.length !== prev.consumerCount) {
@@ -413,7 +430,8 @@ export function buildMeetingAgenda(
 		const changedByTime = since !== null && (opp.updatedAt ?? opp.createdAt) > since
 		const isNewOpp = since !== null && opp.createdAt > since
 		const prevOppSnap = snapshot?.opportunities[opp.id]
-		const changedByDiff = since !== null && prevOppSnap !== undefined && diffOpp(opp, prevOppSnap).length > 0
+		const changedByDiff =
+			since !== null && prevOppSnap !== undefined && diffOpp(opp, prevOppSnap).length > 0
 		const neverReviewed = since !== null && !prevOppSnap
 		const oppChanged = changedByTime || changedByDiff || neverReviewed
 
@@ -566,7 +584,10 @@ export function buildMeetingAgenda(
 
 		const delChangedByTime = since !== null && (d.updatedAt ?? 0) > since
 		const prevDelSnap = snapshot?.deliverables[d.id]
-		const delChangedByDiff = since !== null && prevDelSnap !== undefined && diffDel(d, dLinks.length, prevDelSnap).length > 0
+		const delChangedByDiff =
+			since !== null &&
+			prevDelSnap !== undefined &&
+			diffDel(d, dLinks.length, prevDelSnap).length > 0
 		const delNeverReviewed = since !== null && !prevDelSnap
 		const delChanged = delChangedByTime || delChangedByDiff || delNeverReviewed
 

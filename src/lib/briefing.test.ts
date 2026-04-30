@@ -14,8 +14,8 @@ import {
 	createDeliverable,
 	createOpportunity,
 	currentQuarter,
-	defaultHorizon,
 	type Deliverable,
+	defaultHorizon,
 	type Opportunity,
 	type OpportunityDeliverableLink,
 } from './types'
@@ -707,9 +707,7 @@ describe('briefing', () => {
 describe('WIP warnings in diffBoard', () => {
 	it('surfaces wip-over when a stage exceeds its ceiling', () => {
 		// Create 16 explore opportunities (ceiling is 15)
-		const opps = Array.from({ length: 16 }, (_, i) =>
-			createOpportunity(`Opp ${i}`),
-		)
+		const opps = Array.from({ length: 16 }, (_, i) => createOpportunity(`Opp ${i}`))
 		const current = { opportunities: opps, deliverables: [], links: [], customHorizons: [] }
 		const items = diffBoard(null, current)
 		const wipItems = items.filter((i) => i.verb === 'wip-over')
@@ -727,9 +725,7 @@ describe('WIP warnings in diffBoard', () => {
 	})
 
 	it('does not surface WIP warnings for healthy counts', () => {
-		const opps = Array.from({ length: 5 }, (_, i) =>
-			createOpportunity(`Opp ${i}`),
-		)
+		const opps = Array.from({ length: 5 }, (_, i) => createOpportunity(`Opp ${i}`))
 		const current = { opportunities: opps, deliverables: [], links: [], customHorizons: [] }
 		const items = diffBoard(null, current)
 		const wipItems = items.filter((i) => i.verb === 'wip-over' || i.verb === 'wip-under')
@@ -756,7 +752,7 @@ describe('WIP warnings in diffBoard', () => {
 			const board = makeBoard([updated])
 			const items = diffBoard(snap, board)
 
-			const signalItem = items.find(i => i.verb === 'signal-changed')
+			const signalItem = items.find((i) => i.verb === 'signal-changed')
 			expect(signalItem).toBeDefined()
 			expect(signalItem!.description).toContain('Marcus')
 			expect(signalItem!.description).toContain('verdict in')
@@ -779,7 +775,7 @@ describe('WIP warnings in diffBoard', () => {
 			const board = makeBoard([updated])
 			const items = diffBoard(snap, board)
 
-			const objection = items.find(i => i.verb === 'objection-added')
+			const objection = items.find((i) => i.verb === 'objection-added')
 			expect(objection).toBeDefined()
 			expect(objection!.description).toContain('Marcus')
 			expect(objection!.tier).toBe(1)
@@ -802,9 +798,9 @@ describe('WIP warnings in diffBoard', () => {
 			const board = makeBoard([updated])
 			const items = diffBoard(snap, board)
 
-			const stale = items.find(i => i.verb === 'stale')
+			const stale = items.find((i) => i.verb === 'stale')
 			expect(stale).toBeUndefined()
-			const signal = items.find(i => i.verb === 'signal-changed')
+			const signal = items.find((i) => i.verb === 'signal-changed')
 			expect(signal).toBeDefined()
 		})
 
@@ -817,7 +813,7 @@ describe('WIP warnings in diffBoard', () => {
 			const board = makeBoard([updated])
 			const items = diffBoard(snap, board)
 
-			const stale = items.find(i => i.verb === 'stale')
+			const stale = items.find((i) => i.verb === 'stale')
 			expect(stale).toBeDefined()
 		})
 
@@ -827,24 +823,32 @@ describe('WIP warnings in diffBoard', () => {
 
 			const updated = structuredClone(opp)
 			updated.signals.explore.feasibility = {
-				score: 'positive', source: 'manual', verdict: 'OK', evidence: '', owner: 'Marcus',
+				score: 'positive',
+				source: 'manual',
+				verdict: 'OK',
+				evidence: '',
+				owner: 'Marcus',
 			}
 			updated.signals.explore.desirability = {
-				score: 'positive', source: 'manual', verdict: 'Yes!', evidence: '', owner: 'Sarah',
+				score: 'positive',
+				source: 'manual',
+				verdict: 'Yes!',
+				evidence: '',
+				owner: 'Sarah',
 			}
 			updated.updatedAt = Date.now()
 			const board = makeBoard([updated])
 			const rawItems = diffBoard(snap, board)
 
 			// Before dedup, both signal-changed items should exist
-			const signals = rawItems.filter(i => i.verb === 'signal-changed')
+			const signals = rawItems.filter((i) => i.verb === 'signal-changed')
 			expect(signals).toHaveLength(2)
-			expect(signals.some(i => i.description.includes('Marcus'))).toBe(true)
-			expect(signals.some(i => i.description.includes('Sarah'))).toBe(true)
+			expect(signals.some((i) => i.description.includes('Marcus'))).toBe(true)
+			expect(signals.some((i) => i.description.includes('Sarah'))).toBe(true)
 
 			// After dedup, both survive (each perspective is distinct)
 			const deduped = deduplicateItems(rawItems)
-			const dedupedSignals = deduped.filter(i => i.verb === 'signal-changed')
+			const dedupedSignals = deduped.filter((i) => i.verb === 'signal-changed')
 			expect(dedupedSignals).toHaveLength(2)
 		})
 	})

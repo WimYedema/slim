@@ -14,6 +14,8 @@
 		type Opportunity,
 		type Deliverable,
 		type OpportunityDeliverableLink,
+		type Stage,
+		type Perspective,
 		createOpportunity,
 		createDeliverable,
 		nextStage,
@@ -295,34 +297,35 @@
 	let showHelp = $state(false)
 	let showQuickAdd = $state(false)
 	let showDataMenu = $state(false)
-	let contributorInfo: ContributorInfo | null = $state(null)
+	let contributorInfo = $state(null as ContributorInfo | null)
 	let contributorView: ContributorViewMode = $state('assignments')
 
 	// Contributor briefing derived data
+	const cbBoard = $derived(contributorInfo?.board)
 	const cbMyOpps = $derived(
-		contributorInfo
-			? contributorInfo.board.opportunities.filter(o =>
-				!o.discontinuedAt && o.people.some(p => p.name.toLowerCase() === contributorInfo!.name.toLowerCase())
+		cbBoard
+			? cbBoard.opportunities.filter((o: Opportunity) =>
+				!o.discontinuedAt && o.people.some((p: { name: string }) => p.name.toLowerCase() === contributorInfo!.name.toLowerCase())
 			)
-			: [],
+			: [] as Opportunity[],
 	)
 	const cbUnscoredCount = $derived(
-		cbMyOpps.reduce((n, o) => {
-			const person = o.people.find(p => p.name.toLowerCase() === contributorInfo?.name.toLowerCase())
+		cbMyOpps.reduce((n: number, o: Opportunity) => {
+			const person = o.people.find((p: { name: string }) => p.name.toLowerCase() === contributorInfo?.name.toLowerCase())
 			if (!person) return n
-			return n + person.perspectives.filter(a => {
+			return n + person.perspectives.filter((a: { stage: Stage; perspective: Perspective }) => {
 				const sig = o.signals[a.stage]?.[a.perspective]
 				return sig && sig.score === 'none'
 			}).length
 		}, 0),
 	)
 	const cbTotalActive = $derived(
-		contributorInfo ? contributorInfo.board.opportunities.filter(o => !o.discontinuedAt).length : 0,
+		cbBoard ? cbBoard.opportunities.filter((o: Opportunity) => !o.discontinuedAt).length : 0,
 	)
 	const cbUnscoredOppCount = $derived(
-		cbMyOpps.filter(o => {
-			const person = o.people.find(p => p.name.toLowerCase() === contributorInfo?.name.toLowerCase())
-			return person?.perspectives.some(a => o.signals[a.stage]?.[a.perspective]?.score === 'none')
+		cbMyOpps.filter((o: Opportunity) => {
+			const person = o.people.find((p: { name: string }) => p.name.toLowerCase() === contributorInfo?.name.toLowerCase())
+			return person?.perspectives.some((a: { stage: Stage; perspective: Perspective }) => o.signals[a.stage]?.[a.perspective]?.score === 'none')
 		}).length,
 	)
 
@@ -864,8 +867,6 @@
 	{#if contributorView === 'assignments'}
 	<ContributorView
 		opportunities={contributorInfo.board.opportunities}
-		deliverables={contributorInfo.board.deliverables}
-		links={contributorInfo.board.links}
 		contributorName={contributorInfo.name}
 		pendingScores={contributorInfo.scores}
 		submittedScores={contributorInfo.submittedScores}

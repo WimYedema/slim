@@ -7,9 +7,9 @@ import {
 	daysInStage,
 	type HorizonPressure,
 	isFutureHorizon,
-	pacingSummary,
 	PERSPECTIVE_LABELS,
 	PERSPECTIVES,
+	pacingSummary,
 	STAGES,
 	stageIndex,
 	stageLabel,
@@ -41,7 +41,10 @@ export function snapshotBoard(data: BoardData): BoardSnapshot {
 /** Stable key for a briefing item, used for per-item dismissal */
 export function briefingKey(item: AnyBriefingItem): string {
 	if (isGrouped(item)) {
-		const ids = item.targets.map(t => t.id).sort().join(',')
+		const ids = item.targets
+			.map((t) => t.id)
+			.sort()
+			.join(',')
 		return `${item.verb}:${ids}`
 	}
 	return `${item.verb}:${item.targetId}`
@@ -153,7 +156,7 @@ function diffOpportunities(
 			const desc = advanced
 				? `Advanced to ${stageLabel(opp.stage)}`
 				: `New in ${stageLabel(opp.stage)}`
-			const activeInStage = curr.filter(o => !o.discontinuedAt && o.stage === opp.stage).length
+			const activeInStage = curr.filter((o) => !o.discontinuedAt && o.stage === opp.stage).length
 			items.push({
 				id: itemId(),
 				targetType: 'opportunity',
@@ -192,8 +195,8 @@ function diffOpportunities(
 		// Stage change
 		if (opp.stage !== old.stage) {
 			const forward = stageIndex(opp.stage) > stageIndex(old.stage)
-			const activeInTo = curr.filter(o => !o.discontinuedAt && o.stage === opp.stage).length
-			const activeInFrom = curr.filter(o => !o.discontinuedAt && o.stage === old.stage).length
+			const activeInTo = curr.filter((o) => !o.discontinuedAt && o.stage === opp.stage).length
+			const activeInFrom = curr.filter((o) => !o.discontinuedAt && o.stage === old.stage).length
 			const verb = forward ? 'Advanced to' : 'Returned to'
 			items.push({
 				id: itemId(),
@@ -607,7 +610,12 @@ export function diffBoard(
 			meetingData ?? null,
 			now,
 		)
-		const all = [...warnings, ...revisitItems, ...pWarnings, ...wipWarnings(current.opportunities, now)]
+		const all = [
+			...warnings,
+			...revisitItems,
+			...pWarnings,
+			...wipWarnings(current.opportunities, now),
+		]
 		all.sort((a, b) => a.tier - b.tier || b.timestamp - a.timestamp)
 		return all
 	}
@@ -635,10 +643,15 @@ export function diffBoard(
 	// Suppress stale warnings for opportunities that have fresh signal activity
 	const signalActivityIds = new Set(
 		oppItems
-			.filter(i => i.verb === 'signal-changed' || i.verb === 'objection-added' || i.verb === 'objection-resolved')
-			.map(i => i.targetId),
+			.filter(
+				(i) =>
+					i.verb === 'signal-changed' ||
+					i.verb === 'objection-added' ||
+					i.verb === 'objection-resolved',
+			)
+			.map((i) => i.targetId),
 	)
-	const filtered = all.filter(i => !(i.verb === 'stale' && signalActivityIds.has(i.targetId)))
+	const filtered = all.filter((i) => !(i.verb === 'stale' && signalActivityIds.has(i.targetId)))
 
 	// Sort: tier 1 first, then tier 2, then tier 3. Within each tier, newest first.
 	filtered.sort((a, b) => a.tier - b.tier || b.timestamp - a.timestamp)
@@ -651,9 +664,12 @@ export function deduplicateItems(items: BriefingItem[]): BriefingItem[] {
 	const seen = new Set<string>()
 	return items.filter((item) => {
 		// Signal changes are per-perspective, so include description to keep them distinct
-		const key = item.verb === 'signal-changed' || item.verb === 'objection-added' || item.verb === 'objection-resolved'
-			? `${item.targetType}:${item.targetId}:${item.verb}:${item.description}`
-			: `${item.targetType}:${item.targetId}:${item.verb}`
+		const key =
+			item.verb === 'signal-changed' ||
+			item.verb === 'objection-added' ||
+			item.verb === 'objection-resolved'
+				? `${item.targetType}:${item.targetId}:${item.verb}:${item.description}`
+				: `${item.targetType}:${item.targetId}:${item.verb}`
 		if (seen.has(key)) return false
 		seen.add(key)
 		return true

@@ -7,15 +7,15 @@ import {
 	type HorizonPressure,
 	type Opportunity,
 	type OpportunityDeliverableLink,
+	ORIGIN_TYPES,
+	type OriginType,
+	PERSPECTIVES,
 	type PersonLink,
 	type Perspective,
 	type PerspectiveAssignment,
 	type Score,
-	type Stage,
-	type OriginType,
-	PERSPECTIVES,
 	STAGES,
-	ORIGIN_TYPES,
+	type Stage,
 } from './types'
 
 // ── Stage navigation ──

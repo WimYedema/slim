@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { mergeBoards, formatMergeStats } from './merge'
-import { createOpportunity, createDeliverable } from './types'
+import { describe, expect, it } from 'vitest'
+import { formatMergeStats, mergeBoards } from './merge'
 import type { BoardData } from './store'
 import type { OpportunityDeliverableLink } from './types'
+import { createDeliverable, createOpportunity } from './types'
 
 function board(
 	opps = [] as ReturnType<typeof createOpportunity>[],
@@ -30,10 +30,7 @@ describe('mergeBoards', () => {
 		const localOpp = { ...opp, title: 'A old', updatedAt: 1000 }
 		const incomingOpp = { ...opp, title: 'A new', updatedAt: 2000 }
 
-		const { opportunities, stats } = mergeBoards(
-			board([localOpp]),
-			board([incomingOpp]),
-		)
+		const { opportunities, stats } = mergeBoards(board([localOpp]), board([incomingOpp]))
 
 		expect(opportunities).toHaveLength(1)
 		expect(opportunities[0].title).toBe('A new')
@@ -45,10 +42,7 @@ describe('mergeBoards', () => {
 		const localOpp = { ...opp, title: 'A local', updatedAt: 3000 }
 		const incomingOpp = { ...opp, title: 'A incoming', updatedAt: 1000 }
 
-		const { opportunities } = mergeBoards(
-			board([localOpp]),
-			board([incomingOpp]),
-		)
+		const { opportunities } = mergeBoards(board([localOpp]), board([incomingOpp]))
 
 		expect(opportunities[0].title).toBe('A local')
 	})
@@ -58,10 +52,7 @@ describe('mergeBoards', () => {
 		const localOpp = { ...opp, title: 'A local', updatedAt: 1000 }
 		const incomingOpp = { ...opp, title: 'A incoming', updatedAt: 1000 }
 
-		const { opportunities } = mergeBoards(
-			board([localOpp]),
-			board([incomingOpp]),
-		)
+		const { opportunities } = mergeBoards(board([localOpp]), board([incomingOpp]))
 
 		expect(opportunities[0].title).toBe('A local')
 	})
@@ -80,36 +71,43 @@ describe('mergeBoards', () => {
 		const localDel = { ...del, title: 'D old', updatedAt: 100 }
 		const incomingDel = { ...del, title: 'D new', updatedAt: 200 }
 
-		const { deliverables, stats } = mergeBoards(
-			board([], [localDel]),
-			board([], [incomingDel]),
-		)
+		const { deliverables, stats } = mergeBoards(board([], [localDel]), board([], [incomingDel]))
 
 		expect(deliverables[0].title).toBe('D new')
 		expect(stats.delsUpdated).toBe(1)
 	})
 
 	it('appends new links', () => {
-		const link1: OpportunityDeliverableLink = { opportunityId: 'o1', deliverableId: 'd1', coverage: 'full' }
-		const link2: OpportunityDeliverableLink = { opportunityId: 'o2', deliverableId: 'd2', coverage: 'partial' }
+		const link1: OpportunityDeliverableLink = {
+			opportunityId: 'o1',
+			deliverableId: 'd1',
+			coverage: 'full',
+		}
+		const link2: OpportunityDeliverableLink = {
+			opportunityId: 'o2',
+			deliverableId: 'd2',
+			coverage: 'partial',
+		}
 
-		const { links, stats } = mergeBoards(
-			board([], [], [link1]),
-			board([], [], [link2]),
-		)
+		const { links, stats } = mergeBoards(board([], [], [link1]), board([], [], [link2]))
 
 		expect(links).toHaveLength(2)
 		expect(stats.linksAdded).toBe(1)
 	})
 
 	it('deduplicates links by (oppId, delId) — incoming wins', () => {
-		const link1: OpportunityDeliverableLink = { opportunityId: 'o1', deliverableId: 'd1', coverage: 'full' }
-		const link2: OpportunityDeliverableLink = { opportunityId: 'o1', deliverableId: 'd1', coverage: 'partial' }
+		const link1: OpportunityDeliverableLink = {
+			opportunityId: 'o1',
+			deliverableId: 'd1',
+			coverage: 'full',
+		}
+		const link2: OpportunityDeliverableLink = {
+			opportunityId: 'o1',
+			deliverableId: 'd1',
+			coverage: 'partial',
+		}
 
-		const { links, stats } = mergeBoards(
-			board([], [], [link1]),
-			board([], [], [link2]),
-		)
+		const { links, stats } = mergeBoards(board([], [], [link1]), board([], [], [link2]))
 
 		expect(links).toHaveLength(1)
 		expect(links[0].coverage).toBe('partial')
@@ -121,10 +119,7 @@ describe('mergeBoards', () => {
 		const o2 = createOpportunity('Second')
 		const o3 = createOpportunity('Third')
 
-		const { opportunities } = mergeBoards(
-			board([o1, o2]),
-			board([o3]),
-		)
+		const { opportunities } = mergeBoards(board([o1, o2]), board([o3]))
 
 		expect(opportunities.map((o) => o.title)).toEqual(['First', 'Second', 'Third'])
 	})
@@ -170,17 +165,37 @@ describe('mergeBoards', () => {
 
 describe('formatMergeStats', () => {
 	it('returns identity message for no changes', () => {
-		expect(formatMergeStats({ oppsAdded: 0, oppsUpdated: 0, delsAdded: 0, delsUpdated: 0, linksAdded: 0 }))
-			.toBe('No changes — boards are identical.')
+		expect(
+			formatMergeStats({
+				oppsAdded: 0,
+				oppsUpdated: 0,
+				delsAdded: 0,
+				delsUpdated: 0,
+				linksAdded: 0,
+			}),
+		).toBe('No changes — boards are identical.')
 	})
 
 	it('formats singular and plural correctly', () => {
-		expect(formatMergeStats({ oppsAdded: 1, oppsUpdated: 0, delsAdded: 2, delsUpdated: 0, linksAdded: 0 }))
-			.toBe('Merged: 1 new opportunity, 2 new deliverables.')
+		expect(
+			formatMergeStats({
+				oppsAdded: 1,
+				oppsUpdated: 0,
+				delsAdded: 2,
+				delsUpdated: 0,
+				linksAdded: 0,
+			}),
+		).toBe('Merged: 1 new opportunity, 2 new deliverables.')
 	})
 
 	it('includes all non-zero stats', () => {
-		const msg = formatMergeStats({ oppsAdded: 1, oppsUpdated: 2, delsAdded: 3, delsUpdated: 4, linksAdded: 5 })
+		const msg = formatMergeStats({
+			oppsAdded: 1,
+			oppsUpdated: 2,
+			delsAdded: 3,
+			delsUpdated: 4,
+			linksAdded: 5,
+		})
 		expect(msg).toContain('1 new opportunity')
 		expect(msg).toContain('2 opportunities updated')
 		expect(msg).toContain('3 new deliverables')

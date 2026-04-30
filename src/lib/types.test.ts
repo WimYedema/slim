@@ -32,9 +32,9 @@ import {
 	stageIndex,
 	stageLabel,
 	ternaryPosition,
+	WIP_THRESHOLDS,
 	wipLevel,
 	wipNudge,
-	WIP_THRESHOLDS,
 } from './types'
 
 // ── Helpers ──

@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { csvEscape, parseCsvRow, opportunitiesToCsv, csvToOpportunities } from './csv'
-import { createOpportunity } from './types'
+import { describe, expect, it } from 'vitest'
+import { csvEscape, csvToOpportunities, opportunitiesToCsv, parseCsvRow } from './csv'
 import type { Opportunity, Score } from './types'
+import { createOpportunity } from './types'
 
 describe('csvEscape', () => {
 	it('returns plain strings unchanged', () => {

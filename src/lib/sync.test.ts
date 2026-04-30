@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import type { BoardData } from './store'
 import { applyScores, type ScoreSubmission } from './sync'
 import { createOpportunity } from './types'
-import type { BoardData } from './store'
 
 function board(opps = [createOpportunity('Test')]): BoardData {
 	return { opportunities: opps, deliverables: [], links: [] }
@@ -17,12 +17,14 @@ function submission(
 	return {
 		name,
 		timestamp: Date.now(),
-		scores: [{
-			opportunityId: oppId,
-			stage,
-			perspective,
-			signal: { score, source: 'manual', verdict: '', evidence: '', owner: name },
-		}],
+		scores: [
+			{
+				opportunityId: oppId,
+				stage,
+				perspective,
+				signal: { score, source: 'manual', verdict: '', evidence: '', owner: name },
+			},
+		],
 	}
 }
 
@@ -66,8 +68,30 @@ describe('applyScores', () => {
 			name: 'Sam',
 			timestamp: Date.now(),
 			scores: [
-				{ opportunityId: opp.id, stage: 'explore', perspective: 'desirability', signal: { score: 'positive', source: 'manual', verdict: 'Users love it', evidence: '', owner: 'Sam' } },
-				{ opportunityId: opp.id, stage: 'explore', perspective: 'feasibility', signal: { score: 'uncertain', source: 'manual', verdict: 'Need spike', evidence: '', owner: 'Sam' } },
+				{
+					opportunityId: opp.id,
+					stage: 'explore',
+					perspective: 'desirability',
+					signal: {
+						score: 'positive',
+						source: 'manual',
+						verdict: 'Users love it',
+						evidence: '',
+						owner: 'Sam',
+					},
+				},
+				{
+					opportunityId: opp.id,
+					stage: 'explore',
+					perspective: 'feasibility',
+					signal: {
+						score: 'uncertain',
+						source: 'manual',
+						verdict: 'Need spike',
+						evidence: '',
+						owner: 'Sam',
+					},
+				},
 			],
 		}
 
@@ -97,12 +121,20 @@ describe('applyScores', () => {
 		const sub: ScoreSubmission = {
 			name: 'Sam',
 			timestamp: Date.now(),
-			scores: [{
-				opportunityId: opp.id,
-				stage: 'explore',
-				perspective: 'desirability',
-				signal: { score: 'positive', source: 'manual', verdict: 'Validated with 5 users', evidence: 'https://link.example', owner: 'Sam' },
-			}],
+			scores: [
+				{
+					opportunityId: opp.id,
+					stage: 'explore',
+					perspective: 'desirability',
+					signal: {
+						score: 'positive',
+						source: 'manual',
+						verdict: 'Validated with 5 users',
+						evidence: 'https://link.example',
+						owner: 'Sam',
+					},
+				},
+			],
 		}
 
 		applyScores(b, [sub])

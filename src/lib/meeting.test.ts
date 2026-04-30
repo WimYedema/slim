@@ -397,7 +397,13 @@ describe('completeMeeting', () => {
 		const opp2changed = { ...opp2, stage: 'sketch' as const }
 		const agenda2 = buildMeetingAgenda('Alice', [opp1, opp2changed], [], [])
 		const after2 = completeMeeting(
-			'Alice', agenda2, after1, [opp1, opp2changed], [], [], new Set(['o1']),
+			'Alice',
+			agenda2,
+			after1,
+			[opp1, opp2changed],
+			[],
+			[],
+			new Set(['o1']),
 		)
 
 		// opp1 was updated, opp2 keeps old snapshot
@@ -414,14 +420,10 @@ describe('completeMeeting', () => {
 					id: 'p1',
 					name: 'Alice',
 					role: 'expert',
-					perspectives: [
-						{ perspective: 'feasibility', stage: 'explore', assignedAt: Date.now() },
-					],
+					perspectives: [{ perspective: 'feasibility', stage: 'explore', assignedAt: Date.now() }],
 				},
 			],
-			commitments: [
-				{ id: 'c1', to: 'Alice', milestone: 'sketch', by: Date.now() + 86_400_000 },
-			],
+			commitments: [{ id: 'c1', to: 'Alice', milestone: 'sketch', by: Date.now() + 86_400_000 }],
 		})
 		const opp2 = makeOpp({
 			id: 'o2',
@@ -431,16 +433,20 @@ describe('completeMeeting', () => {
 					id: 'p2',
 					name: 'Alice',
 					role: 'expert',
-					perspectives: [
-						{ perspective: 'desirability', stage: 'explore', assignedAt: Date.now() },
-					],
+					perspectives: [{ perspective: 'desirability', stage: 'explore', assignedAt: Date.now() }],
 				},
 			],
 		})
 		const agenda = buildMeetingAgenda('Alice', [opp1, opp2], [], [])
 		// Only discuss opp1
 		const result = completeMeeting(
-			'Alice', agenda, emptyMeetingData(), [opp1, opp2], [], [], new Set(['o1']),
+			'Alice',
+			agenda,
+			emptyMeetingData(),
+			[opp1, opp2],
+			[],
+			[],
+			new Set(['o1']),
 		)
 		const summary = result.records[0].summary.join(', ')
 		expect(summary).toContain('1 cells to score')
@@ -454,7 +460,13 @@ describe('completeMeeting', () => {
 		})
 		const agenda = buildMeetingAgenda('Alice', [opp], [], [])
 		const result = completeMeeting(
-			'Alice', agenda, emptyMeetingData(), [opp], [], [], new Set<string>(),
+			'Alice',
+			agenda,
+			emptyMeetingData(),
+			[opp],
+			[],
+			[],
+			new Set<string>(),
 		)
 		expect(result.records[0].summary).toEqual(['No items'])
 	})
@@ -579,9 +591,16 @@ describe('buildMeetingAgenda — snapshot diff detection', () => {
 
 		const changedDel = { ...del, size: 'L' as const, updatedAt: Date.now() }
 		const agenda = buildMeetingAgenda(
-			'Alice', [opp], [changedDel], links, since, data.snapshots['Alice'],
+			'Alice',
+			[opp],
+			[changedDel],
+			links,
+			since,
+			data.snapshots['Alice'],
 		)
-		const descs = agenda.changes.filter((c) => c.entityType === 'deliverable').map((c) => c.description)
+		const descs = agenda.changes
+			.filter((c) => c.entityType === 'deliverable')
+			.map((c) => c.description)
 		expect(descs).toContainEqual(expect.stringContaining('Size'))
 	})
 
@@ -600,9 +619,16 @@ describe('buildMeetingAgenda — snapshot diff detection', () => {
 
 		const changedDel = { ...del, certainty: 4 as const, updatedAt: Date.now() }
 		const agenda = buildMeetingAgenda(
-			'Alice', [opp], [changedDel], links, since, data.snapshots['Alice'],
+			'Alice',
+			[opp],
+			[changedDel],
+			links,
+			since,
+			data.snapshots['Alice'],
 		)
-		const descs = agenda.changes.filter((c) => c.entityType === 'deliverable').map((c) => c.description)
+		const descs = agenda.changes
+			.filter((c) => c.entityType === 'deliverable')
+			.map((c) => c.description)
 		expect(descs).toContainEqual(expect.stringContaining('Certainty'))
 	})
 

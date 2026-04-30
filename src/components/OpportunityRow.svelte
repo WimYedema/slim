@@ -4,6 +4,7 @@
 		type Deliverable,
 		type OpportunityDeliverableLink,
 		type Perspective,
+		type Score,
 		type Stage,
 		type HorizonPressure,
 		PERSPECTIVES,
@@ -99,7 +100,7 @@
 	interface VerdictSnippet {
 		perspective: Perspective
 		label: string
-		score: string
+		score: Score
 		verdict: string
 		question: string
 		fromStage?: string

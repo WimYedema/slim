@@ -9,6 +9,7 @@
 		type PersonRole,
 		PERSPECTIVE_LABELS,
 		CELL_QUESTIONS,
+		SCORE_SYMBOL,
 		stageLabel,
 		linksForDeliverable,
 	} from '../lib/types'

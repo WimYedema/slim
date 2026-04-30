@@ -43,12 +43,12 @@
 		newTitle = ''
 	}
 
-	/** Orphan deliverables — linked to no opportunity */
-	const orphanCount = $derived(activeDeliverables.filter((d) => linksForDeliverable(links, d.id).length === 0).length)
-
 	/** Active vs archived split */
 	const activeDeliverables = $derived(deliverables.filter((d) => d.status === 'active'))
 	const archivedDeliverables = $derived(deliverables.filter((d) => d.status !== 'active'))
+
+	/** Orphan deliverables — linked to no opportunity */
+	const orphanCount = $derived(activeDeliverables.filter((d) => linksForDeliverable(links, d.id).length === 0).length)
 
 	// ── Contributor columns ──
 
