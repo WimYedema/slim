@@ -4,7 +4,7 @@
 
 Lean planning tool for product owners, covering the workflow *before* the sprint board. Models two entity types — **Opportunities** (value axis) and **Deliverables** (work axis) — connected by a many-to-many link graph. Fully local — all data in localStorage, deployed as a single static HTML file.
 
-See [PRODUCT.md](PRODUCT.md) for full product spec, [ARCHITECTURE.md](ARCHITECTURE.md) for architecture decisions, [USER-JOURNEYS.md](USER-JOURNEYS.md) for feature walkthrough, [UX-REVIEW.md](UX-REVIEW.md) for persona-based review.
+See [PRODUCT.md](PRODUCT.md) for product concept and rationale, [ARCHITECTURE.md](ARCHITECTURE.md) for architecture decisions, [USER-JOURNEYS.md](USER-JOURNEYS.md) for feature walkthrough, [PRODUCT-GUIDE.md](PRODUCT-GUIDE.md) for non-technical intro, [UX-REVIEW.md](UX-REVIEW.md) for persona-based review, [UX-PRINCIPLES.md](UX-PRINCIPLES.md) for design governance, [SAMPLE-SCENARIO.md](SAMPLE-SCENARIO.md) for demo data.
 
 ## Data Model
 
@@ -52,7 +52,7 @@ Stage advancement requires all three perspectives scored (no `none`) and no obje
 | Unit tests | Vitest |
 | Single-file output | vite-plugin-singlefile |
 
-No runtime dependencies. No P2P, no server, no database.
+One runtime dependency: `nostr-tools` (P2P relay communication). No server, no database.
 
 ## Code Style
 
@@ -71,7 +71,7 @@ No runtime dependencies. No P2P, no server, no database.
 - Entry point: `index.html` → `src/main.ts` → `App.svelte`
 - All state lives as `$state` in `App.svelte` — no external state library, no context API, no stores
 - Components receive state via props and emit changes via callback props or by mutating bound props
-- Persistence: localStorage (`upstream-board`, `upstream-meetings`, `upstream-briefing`), auto-saved in `$effect`
+- Persistence: localStorage (`upstream-board`, `upstream-meetings`, `upstream-sync`), auto-saved in `$effect`
 
 ### Module responsibilities
 
@@ -82,6 +82,10 @@ No runtime dependencies. No P2P, no server, no database.
 | `store.ts` | localStorage wrappers with schema backfill | `saveBoard`, `loadBoard`, `clearBoard`, `saveMeetingData`, `loadMeetingData`, `BoardData` |
 | `meeting.ts` | Meeting agenda computation, person aggregation, snapshot-based change detection | `collectPeople`, `buildMeetingAgenda`, `personUrgency`, `completeMeeting`, `MeetingAgenda`, `MeetingData` |
 | `briefing.ts` | Board-wide change detection, importance tier classification, grouping | `snapshotBoard`, `diffBoard`, `deduplicateItems`, `groupItems`, `BoardSnapshot`, `BriefingItem` |
+| `crypto.ts` | Room-level encryption using Web Crypto API (HKDF-SHA256 → AES-256-GCM) | `deriveRoomKey`, `computeDTag`, `encrypt`, `decrypt` |
+| `sync.ts` | Nostr relay pub/sub for P2P board sharing and score submission | `generateSyncKeys`, `publishBoard`, `queryBoard`, `publishScores`, `queryScores`, `applyScores` |
+| `merge.ts` | ID-based board merge with `updatedAt` conflict resolution | `mergeBoards`, `formatMergeStats`, `MergeResult` |
+| `csv.ts` | CSV import/export for opportunities | `opportunitiesToCsv`, `csvToOpportunities` |
 
 ### Component responsibilities
 
@@ -98,6 +102,8 @@ No runtime dependencies. No P2P, no server, no database.
 | `ScoreToggle.svelte` | Reusable score radiogroup (none/positive/uncertain/negative) with keyboard nav |
 | `KeyboardHelp.svelte` | Shortcut reference overlay (? key) |
 | `QuickAdd.svelte` | Quick-add dialog (n key, Tab to switch opportunity/deliverable) |
+| `SyncPanel.svelte` | P2P room management: create/join rooms, publish/pull board, contributor mode |
+| `ContributorView.svelte` | Contributor scoring view: assigned perspective cells with inline scoring |
 
 ## Conventions
 
@@ -161,7 +167,7 @@ Never put `max-width` on the scrollable container itself — that pulls the scro
 7. **Horizons are freeform** — no enforced format. Defaults to next quarter (e.g. "2026Q3"). Custom horizons can be any string.
 8. **Coverage is binary choice** — full or partial, no numeric percentages.
 9. **Deliverables are orphans until linked** — a new deliverable has no links and shows an "orphan" badge.
-10. **No runtime dependencies** — the app runs entirely on browser APIs (localStorage, crypto.randomUUID, DOM). No network calls.
+10. **No runtime dependencies beyond nostr-tools** — the app runs on browser APIs (localStorage, crypto.randomUUID, DOM) plus nostr-tools for P2P relay communication.
 
 ## Design Hygiene
 

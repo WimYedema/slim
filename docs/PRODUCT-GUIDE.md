@@ -249,6 +249,8 @@ The real competitor is the spreadsheet. Upstream must be easier for daily use wh
 
 | Feature | Status |
 |---|---|
+| Briefing view (board-wide news feed, 5 importance tiers) | Done |
+| Pipeline view with stage/horizon grouping + funnel + zoom | Done |
 | Triage list with smart sort and contextual nudges | Done |
 | Signal grid (4 stages × 3 perspectives) with consent gating | Done |
 | Coverage matrix with contributor columns | Done |
@@ -256,13 +258,19 @@ The real competitor is the spreadsheet. Upstream must be easier for daily use wh
 | Meeting prep with snapshot-based change detection | Done |
 | People links, delegation, commitments | Done |
 | Local persistence (localStorage) | Done |
-| Discontinue / reactivate | Done |
-| Briefing view (board-wide news feed) | Planned |
-| Pipeline zoom (single-stage detail) | Planned |
-| Card aging (time-in-stage visual decay) | Planned |
-| Full exit states (kill / park / merge) | Planned |
-| Import / export (CSV, JSON) | Planned |
-| P2P sharing and contributor workflow | Planned |
+| Card aging (time-in-stage visual decay) | Done |
+| Full exit states (kill / park / merge) with reason capture | Done |
+| Origin types (demand / supply / incident / debt) | Done |
+| Import / export (JSON + CSV, merge import) | Done |
+| WIP limits per stage (funnel coloring, badges, nudges) | Done |
+| 20-level undo (Ctrl+Z) | Done |
+| Keyboard navigation + quick-add dialog | Done |
+| P2P sharing (Nostr relay, encrypted rooms) | Done |
+| Contributor scoring view (remote verdict submission) | Done |
+| Skatting integration | Planned |
+| Token budgets | Planned |
+| Opportunity nesting | Planned |
+| Named scenarios (side-by-side compare) | Planned |
 
 ---
 

@@ -2,20 +2,16 @@
 
 ## Overview
 
-Upstream is a lean planning tool for product owners, covering the workflow *before* the sprint board. It models two entity types — **Opportunities** (value axis: why are we doing this?) and **Deliverables** (work axis: what do we build?) — connected by a many-to-many link graph.
-
-Upstream is a local-first single-page app. All data lives in the PO's browser (localStorage). No accounts, no server, no per-seat pricing. Future versions will add P2P sharing via WebRTC (same architecture as Skatting).
+Upstream is a lean planning tool for product owners, covering the workflow *before* the sprint board. See [PRODUCT-GUIDE.md](PRODUCT-GUIDE.md) for the full product introduction and [PRODUCT.md](PRODUCT.md) for the underlying theory.
 
 ### Roles
 
-The current PoC has a single implicit role: the **PO** (product owner). Future versions will add contributor roles.
-
-| | **PO** | **Contributor** (future) |
+| | **PO** | **Contributor** (via P2P room) |
 |---|---|---|
-| See the full board | Yes | Yes (read-only pipeline) |
-| Add opportunities | Yes | Yes (ideas enter Explore) |
+| See the full board | Read-write | Read-only (Pipeline + Deliverables) |
+| Add opportunities | Yes | — |
 | Move opportunities between stages | Yes | — |
-| Score signal cells | Yes | Only cells they're assigned to |
+| Score signal cells | Yes | Only assigned cells (via remote submission) |
 | Exit / discontinue | Yes | — |
 | Add / manage deliverables | Yes | — |
 | Link deliverables to opportunities | Yes | — |
@@ -568,37 +564,32 @@ A reset option reloads the sample data, replacing the current board. This is des
 
 Features from the product spec that are not yet implemented:
 
-| Feature | Status | Notes |
-|---|---|---|
-| P2P sharing | Not built | Single-user only; architecture exists in Skatting |
-| Kanban board view | Not built | Only smart-sorted list + matrix views |
-| WIP limits per stage | Not built | No visual overload indicators |
-| Skatting integration | Not built | Size/certainty are manual only |
-| Contributor card links (micro-form) | Not built | |
-| Token budgets | Not built | v2 feature |
-| Opportunity nesting | Not built | Flat list only |
-| CSV import | Not built | Only JSON import currently |
-| Merge import | Not built | JSON import replaces entire board |
-| Score semantics help text | Not built | Consent model not explained in UI |
-| Meeting Done undo | Not built | Meeting completion is final |
-| Horizon filter/collapse | Not built | All horizons always visible in roadmap |
-| Board-level changelog | Not built | Only per-person change tracking in Meetings view |
-| Filtering on list view | Not built | No filter by bucket, perspective, or origin |
-| Lightweight mode | Not built | Full signal grid always shown |
+| Feature | Notes |
+|---|---|
+| Kanban board view | Only smart-sorted list + matrix views |
+| Skatting integration | Size/certainty are manual only |
+| Token budgets | v2 feature |
+| Opportunity nesting | Flat list only |
+| Named scenarios | Snapshot-based side-by-side compare |
+| Horizon filter/collapse | All horizons always visible |
+| Filtering on list view | No filter by bucket, perspective, or origin |
 
 Features that have been built beyond the original spec:
 
 | Feature | Description |
 |---|---|
+| Briefing view | Board-wide news feed with 5 importance tiers |
+| Pipeline view | Stage/horizon grouping with funnel + zoom |
 | Card aging | Visual badges (fresh/aging/stale) based on days in current stage |
 | Origin types | Request/Idea/Incident/Debt classification per opportunity |
-| Exit states | Kill/Park/Incubate/Merge with inline reason capture |
+| Full exit states | Kill/Park/Merge with inline reason capture |
+| WIP limits | Funnel coloring, stage badges, triage nudges |
 | Interactive funnel | Hover a stage segment to highlight matching list items |
 | Keyboard navigation | Full vim-style nav (j/k), view switching (1-4), quick-add (n), advance (a), exit (x) |
 | 20-level undo | Ctrl+Z with semantic state restoration |
-| JSON/CSV export | Full board backup and spreadsheet-friendly opportunity list |
-| JSON import | Restore a board from a backup file |
+| JSON/CSV import + export | Full board backup, merge import, CSV round-trip |
 | Quick-add dialog | Press n from any view to create opportunity or deliverable |
-| Roadmap risk flags | Visual risk indicators per row (objections, aging, unscored, missing deliverables, maturity mismatch) |
-| Pipeline warnings | Mismatch and missing-deliverable flags visible in the pipeline view |
-| Horizon labels | "now" and "next" computed labels in the pipeline view based on horizon ordering |
+| Roadmap risk flags | Visual risk indicators per row |
+| P2P sharing | Nostr relay rooms with encrypted board publishing |
+| Contributor scoring | Remote verdict submission for assigned cells |
+| Auto-poll for scores | PO gets badge notification when submissions arrive |
