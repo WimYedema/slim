@@ -3,7 +3,6 @@ import {
 	type CellSignal,
 	type Commitment,
 	type ConsentStatus,
-	type Deliverable,
 	type HorizonPressure,
 	type Opportunity,
 	type OpportunityDeliverableLink,

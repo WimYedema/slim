@@ -32,7 +32,6 @@ import {
 	stageIndex,
 	stageLabel,
 	ternaryPosition,
-	WIP_THRESHOLDS,
 	wipLevel,
 	wipNudge,
 } from './types'
@@ -294,8 +293,8 @@ describe('commitmentUrgency', () => {
 		})
 		const result = commitmentUrgency(opp)
 		expect(result).toBeDefined()
-		expect(result!.commitment.to).toBe('Bob')
-		expect(result!.daysLeft).toBe(3)
+		expect(result?.commitment.to).toBe('Bob')
+		expect(result?.daysLeft).toBe(3)
 	})
 
 	it('ignores already-met commitments', () => {
@@ -314,7 +313,7 @@ describe('commitmentUrgency', () => {
 		})
 		const result = commitmentUrgency(opp)
 		expect(result).toBeDefined()
-		expect(result!.daysLeft).toBeLessThan(0)
+		expect(result?.daysLeft).toBeLessThan(0)
 	})
 })
 

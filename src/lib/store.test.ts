@@ -32,9 +32,9 @@ describe('saveBoard / loadBoard', () => {
 		saveBoard(data)
 		const loaded = loadBoard()
 		expect(loaded).not.toBeNull()
-		expect(loaded!.opportunities).toHaveLength(1)
-		expect(loaded!.opportunities[0].title).toBe('Test')
-		expect(loaded!.deliverables).toHaveLength(1)
+		expect(loaded?.opportunities).toHaveLength(1)
+		expect(loaded?.opportunities[0].title).toBe('Test')
+		expect(loaded?.deliverables).toHaveLength(1)
 	})
 
 	it('returns null when nothing is saved', () => {
@@ -59,8 +59,8 @@ describe('saveBoard / loadBoard', () => {
 		localStorage.setItem('slim-board', JSON.stringify(raw))
 
 		const loaded = loadBoard()
-		expect(loaded!.opportunities[0].horizon).toBeTruthy()
-		expect(loaded!.opportunities[0].horizon).toMatch(/^\d{4}Q[1-4]$/)
+		expect(loaded?.opportunities[0].horizon).toBeTruthy()
+		expect(loaded?.opportunities[0].horizon).toMatch(/^\d{4}Q[1-4]$/)
 	})
 
 	it('backfills missing stageEnteredAt from updatedAt', () => {
@@ -71,14 +71,14 @@ describe('saveBoard / loadBoard', () => {
 		localStorage.setItem('slim-board', JSON.stringify(raw))
 
 		const loaded = loadBoard()
-		expect(loaded!.opportunities[0].stageEnteredAt).toBe(1700000000000)
+		expect(loaded?.opportunities[0].stageEnteredAt).toBe(1700000000000)
 	})
 
 	it('preserves customHorizons', () => {
 		const data: BoardData = { ...makeBoardData(), customHorizons: ['2027Q1', '2027Q2'] }
 		saveBoard(data)
 		const loaded = loadBoard()
-		expect(loaded!.customHorizons).toEqual(['2027Q1', '2027Q2'])
+		expect(loaded?.customHorizons).toEqual(['2027Q1', '2027Q2'])
 	})
 })
 
@@ -103,7 +103,7 @@ describe('saveMeetingData / loadMeetingData', () => {
 		}
 		saveMeetingData(data)
 		const loaded = loadMeetingData()
-		expect(loaded.lastDiscussed['Alice']).toBeDefined()
+		expect(loaded.lastDiscussed.Alice).toBeDefined()
 		expect(loaded.records).toHaveLength(1)
 	})
 

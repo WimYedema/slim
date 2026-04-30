@@ -61,8 +61,8 @@ describe('briefing', () => {
 
 			const overdue = items.find((i) => i.verb === 'commitment-overdue')
 			expect(overdue).toBeDefined()
-			expect(overdue!.targetTitle).toBe('Overdue thing')
-			expect(overdue!.tier).toBe(1)
+			expect(overdue?.targetTitle).toBe('Overdue thing')
+			expect(overdue?.tier).toBe(1)
 		})
 
 		it('returns stale warnings', () => {
@@ -73,7 +73,7 @@ describe('briefing', () => {
 
 			const stale = items.find((i) => i.verb === 'stale')
 			expect(stale).toBeDefined()
-			expect(stale!.tier).toBe(1)
+			expect(stale?.tier).toBe(1)
 		})
 
 		it('returns revisit-due for parked opps with current parkUntil', () => {
@@ -86,8 +86,8 @@ describe('briefing', () => {
 
 			const revisit = items.find((i) => i.verb === 'revisit-due')
 			expect(revisit).toBeDefined()
-			expect(revisit!.tier).toBe(1)
-			expect(revisit!.targetTitle).toBe('Parked revisit')
+			expect(revisit?.tier).toBe(1)
+			expect(revisit?.targetTitle).toBe('Parked revisit')
 		})
 
 		it('does not return revisit-due for parked opps with future parkUntil', () => {
@@ -122,8 +122,8 @@ describe('briefing', () => {
 
 			const added = items.find((i) => i.verb === 'added')
 			expect(added).toBeDefined()
-			expect(added!.targetTitle).toBe('Brand new')
-			expect(added!.tier).toBe(2)
+			expect(added?.targetTitle).toBe('Brand new')
+			expect(added?.tier).toBe(2)
 		})
 
 		it('detects removed opportunities', () => {
@@ -134,8 +134,8 @@ describe('briefing', () => {
 
 			const removed = items.find((i) => i.verb === 'removed')
 			expect(removed).toBeDefined()
-			expect(removed!.targetTitle).toBe('Gone')
-			expect(removed!.tier).toBe(3)
+			expect(removed?.targetTitle).toBe('Gone')
+			expect(removed?.tier).toBe(3)
 		})
 
 		it('detects stage changes', () => {
@@ -150,9 +150,9 @@ describe('briefing', () => {
 
 			const stageChange = items.find((i) => i.verb === 'stage-changed')
 			expect(stageChange).toBeDefined()
-			expect(stageChange!.description).toContain('Advanced to Sketch')
-			expect(stageChange!.detail).toMatch(/Explore.*Sketch/)
-			expect(stageChange!.tier).toBe(2)
+			expect(stageChange?.description).toContain('Advanced to Sketch')
+			expect(stageChange?.detail).toMatch(/Explore.*Sketch/)
+			expect(stageChange?.tier).toBe(2)
 		})
 
 		it('detects objection added', () => {
@@ -165,8 +165,8 @@ describe('briefing', () => {
 
 			const objection = items.find((i) => i.verb === 'objection-added')
 			expect(objection).toBeDefined()
-			expect(objection!.tier).toBe(1)
-			expect(objection!.description).toContain('Technical')
+			expect(objection?.tier).toBe(1)
+			expect(objection?.description).toContain('Technical')
 		})
 
 		it('detects objection resolved', () => {
@@ -180,7 +180,7 @@ describe('briefing', () => {
 
 			const resolved = items.find((i) => i.verb === 'objection-resolved')
 			expect(resolved).toBeDefined()
-			expect(resolved!.tier).toBe(2)
+			expect(resolved?.tier).toBe(2)
 		})
 
 		it('detects signal changes', () => {
@@ -193,7 +193,7 @@ describe('briefing', () => {
 
 			const signalChange = items.find((i) => i.verb === 'signal-changed')
 			expect(signalChange).toBeDefined()
-			expect(signalChange!.tier).toBe(2)
+			expect(signalChange?.tier).toBe(2)
 		})
 
 		it('detects exit', () => {
@@ -207,7 +207,7 @@ describe('briefing', () => {
 
 			const exited = items.find((i) => i.verb === 'exited')
 			expect(exited).toBeDefined()
-			expect(exited!.tier).toBe(1)
+			expect(exited?.tier).toBe(1)
 		})
 
 		it('detects reactivation', () => {
@@ -221,7 +221,7 @@ describe('briefing', () => {
 
 			const reactivated = items.find((i) => i.verb === 'reactivated')
 			expect(reactivated).toBeDefined()
-			expect(reactivated!.tier).toBe(2)
+			expect(reactivated?.tier).toBe(2)
 		})
 
 		it('detects new deliverables', () => {
@@ -231,8 +231,8 @@ describe('briefing', () => {
 
 			const added = items.find((i) => i.verb === 'deliverable-added')
 			expect(added).toBeDefined()
-			expect(added!.targetTitle).toBe('New work')
-			expect(added!.tier).toBe(2)
+			expect(added?.targetTitle).toBe('New work')
+			expect(added?.tier).toBe(2)
 		})
 
 		it('detects removed deliverables', () => {
@@ -243,7 +243,7 @@ describe('briefing', () => {
 
 			const removed = items.find((i) => i.verb === 'deliverable-removed')
 			expect(removed).toBeDefined()
-			expect(removed!.tier).toBe(3)
+			expect(removed?.tier).toBe(3)
 		})
 
 		it('detects link additions', () => {
@@ -258,7 +258,7 @@ describe('briefing', () => {
 
 			const linkAdded = items.find((i) => i.verb === 'link-added')
 			expect(linkAdded).toBeDefined()
-			expect(linkAdded!.tier).toBe(3)
+			expect(linkAdded?.tier).toBe(3)
 		})
 
 		it('sorts by tier then timestamp', () => {
@@ -360,10 +360,10 @@ describe('briefing', () => {
 
 			const unscored = items.find((i) => i.verb === 'unscored-assignment')
 			expect(unscored).toBeDefined()
-			expect(unscored!.tier).toBe(1)
-			expect(unscored!.description).toContain('Sarah')
-			expect(unscored!.description).toContain('Technical')
-			expect(unscored!.description).toContain('Validate')
+			expect(unscored?.tier).toBe(1)
+			expect(unscored?.description).toContain('Sarah')
+			expect(unscored?.description).toContain('Technical')
+			expect(unscored?.description).toContain('Validate')
 		})
 
 		it('does not flag scored assignments', () => {
@@ -430,9 +430,9 @@ describe('briefing', () => {
 
 			const overdue = items.find((i) => i.verb === 'meeting-overdue')
 			expect(overdue).toBeDefined()
-			expect(overdue!.tier).toBe(2)
-			expect(overdue!.targetTitle).toBe('Carol')
-			expect(overdue!.description).toContain('12d ago')
+			expect(overdue?.tier).toBe(2)
+			expect(overdue?.targetTitle).toBe('Carol')
+			expect(overdue?.description).toContain('12d ago')
 		})
 
 		it('does not flag recently met people', () => {
@@ -514,8 +514,8 @@ describe('briefing', () => {
 
 			const changed = items.find((i) => i.verb === 'deliverable-changed')
 			expect(changed).toBeDefined()
-			expect(changed!.description).toContain('size')
-			expect(changed!.description).toContain('L')
+			expect(changed?.description).toContain('size')
+			expect(changed?.description).toContain('L')
 		})
 
 		it('detects certainty changes', () => {
@@ -529,8 +529,8 @@ describe('briefing', () => {
 
 			const changed = items.find((i) => i.verb === 'deliverable-changed')
 			expect(changed).toBeDefined()
-			expect(changed!.description).toContain('certainty')
-			expect(changed!.description).toContain('4')
+			expect(changed?.description).toContain('certainty')
+			expect(changed?.description).toContain('4')
 		})
 
 		it('detects contributor additions', () => {
@@ -544,7 +544,7 @@ describe('briefing', () => {
 
 			const changed = items.find((i) => i.verb === 'deliverable-changed')
 			expect(changed).toBeDefined()
-			expect(changed!.description).toContain('+Bob')
+			expect(changed?.description).toContain('+Bob')
 		})
 
 		it('detects external dependency changes', () => {
@@ -557,7 +557,7 @@ describe('briefing', () => {
 
 			const changed = items.find((i) => i.verb === 'deliverable-changed')
 			expect(changed).toBeDefined()
-			expect(changed!.description).toContain('external dependency')
+			expect(changed?.description).toContain('external dependency')
 		})
 
 		it('ignores unchanged deliverables', () => {
@@ -754,9 +754,9 @@ describe('WIP warnings in diffBoard', () => {
 
 			const signalItem = items.find((i) => i.verb === 'signal-changed')
 			expect(signalItem).toBeDefined()
-			expect(signalItem!.description).toContain('Marcus')
-			expect(signalItem!.description).toContain('verdict in')
-			expect(signalItem!.tier).toBe(2)
+			expect(signalItem?.description).toContain('Marcus')
+			expect(signalItem?.description).toContain('verdict in')
+			expect(signalItem?.tier).toBe(2)
 		})
 
 		it('shows objection-added with owner name when score goes to negative', () => {
@@ -777,8 +777,8 @@ describe('WIP warnings in diffBoard', () => {
 
 			const objection = items.find((i) => i.verb === 'objection-added')
 			expect(objection).toBeDefined()
-			expect(objection!.description).toContain('Marcus')
-			expect(objection!.tier).toBe(1)
+			expect(objection?.description).toContain('Marcus')
+			expect(objection?.tier).toBe(1)
 		})
 
 		it('suppresses stale warning when opportunity has fresh signal activity', () => {

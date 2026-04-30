@@ -82,9 +82,9 @@ export function csvToOpportunities(text: string): CsvImportResult {
 	const stageIdx = headerFields.indexOf('stage')
 	const originIdx = headerFields.indexOf('origin')
 	const horizonIdx = headerFields.indexOf('horizon')
-	const desIdx = headerFields.indexOf('desirability')
-	const feasIdx = headerFields.indexOf('feasibility')
-	const viaIdx = headerFields.indexOf('viability')
+	const _desIdx = headerFields.indexOf('desirability')
+	const _feasIdx = headerFields.indexOf('feasibility')
+	const _viaIdx = headerFields.indexOf('viability')
 
 	const imported: Opportunity[] = []
 	const skipped: string[] = []

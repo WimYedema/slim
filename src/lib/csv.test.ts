@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { csvEscape, csvToOpportunities, opportunitiesToCsv, parseCsvRow } from './csv'
-import type { Opportunity, Score } from './types'
+import type { Opportunity } from './types'
 import { createOpportunity } from './types'
 
 describe('csvEscape', () => {

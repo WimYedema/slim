@@ -4,7 +4,6 @@ import type { Deliverable, Opportunity, OpportunityDeliverableLink } from './typ
 import {
 	agingLevel,
 	commitmentUrgency,
-	daysInStage,
 	type HorizonPressure,
 	isFutureHorizon,
 	PERSPECTIVE_LABELS,
