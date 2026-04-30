@@ -1,4 +1,4 @@
-# Upstream — Product Guide
+# Slim — Product Guide
 
 > A planning tool for product owners, covering the work *before* the sprint board.
 
@@ -32,7 +32,7 @@ Conventional agile tools pretend there's a single chain: Epic → Story → Task
 
 A user story sits at the pivot between these two trees — it's the last value-level entity and the first work-level entity. Tools like Jira hide this pivot by treating everything as the same ticket type with different labels.
 
-Upstream makes the pivot explicit:
+Slim makes the pivot explicit:
 
 - **Above the pivot** — value decomposition, owned by the PO: *Why are we doing this? Is it worth it? What's the smallest valuable slice?*
 - **Below the pivot** — work decomposition, owned by the dev team: *How do we build it? What are the tasks?*
@@ -54,7 +54,7 @@ Enterprise architecture frameworks like ArchiMate model similar relationships be
 
 ## A pipeline with thinking modes
 
-Upstream defines four stages with an opinionated flow. Each stage enforces a dominant way of thinking — a principle drawn from Edward de Bono's work on separating creative and critical thought. When both happen simultaneously, criticism wins and ideas die before they're fully formed.
+Slim defines four stages with an opinionated flow. Each stage enforces a dominant way of thinking — a principle drawn from Edward de Bono's work on separating creative and critical thought. When both happen simultaneously, criticism wins and ideas die before they're fully formed.
 
 | Stage | Thinking mode | What happens here |
 |---|---|---|
@@ -67,7 +67,7 @@ Contributors opening a card can tell what kind of thinking is invited by the sta
 
 ### Three perspectives, not one checklist
 
-Upstream borrows the three lenses from IDEO's human-centered design framework and applies them across every stage — not just at the validation gate:
+Slim borrows the three lenses from IDEO's human-centered design framework and applies them across every stage — not just at the validation gate:
 
 - **Desirability** — does someone want this?
 - **Feasibility** — can we build it?
@@ -85,7 +85,7 @@ KTH's Innovation Readiness Level framework independently arrived at the same thr
 
 ### Consent, not consensus
 
-Upstream's scoring system draws on Sociocracy 3.0's consent-based decision-making. Each perspective at each stage receives one of four scores:
+Slim's scoring system draws on Sociocracy 3.0's consent-based decision-making. Each perspective at each stage receives one of four scores:
 
 | Score | What it means | Effect |
 |---|---|---|
@@ -100,7 +100,7 @@ The key shift is in the PO's question. Instead of "is this good enough?" (a judg
 
 ### The funnel should narrow
 
-Many ideas enter. Few should survive. A healthy pipeline looks like 47 → 12 → 5 → 3. A pipeline reading 47 → 45 → 44 → 43 means nobody is saying no. Upstream makes the funnel shape visible at a glance, so the PO can feel the pressure without configuring dashboards or generating reports.
+Many ideas enter. Few should survive. A healthy pipeline looks like 47 → 12 → 5 → 3. A pipeline reading 47 → 45 → 44 → 43 means nobody is saying no. Slim makes the funnel shape visible at a glance, so the PO can feel the pressure without configuring dashboards or generating reports.
 
 ---
 
@@ -135,15 +135,15 @@ These are different things that live in different places:
 
 - **Bugs** live in the sprint tool. They're about restoring expected value, triaged by probability × impact. A single bug gets a hotfix.
 - **Debt** is what accumulates when concerns are noted but not resolved — technical shortcuts, UX workarounds, compliance gaps. Individual debt items are standing evidence, not opportunities.
-- **Opportunities** arise when the evidence reaches a tipping point. Five bugs pointing to the same root cause? That pattern enters Upstream as a debt-driven opportunity, carrying the bug reports as built-in context.
+- **Opportunities** arise when the evidence reaches a tipping point. Five bugs pointing to the same root cause? That pattern enters Slim as a debt-driven opportunity, carrying the bug reports as built-in context.
 
-Upstream doesn't manage bugs or individual debt items. It makes the accumulation visible and gives the PO structured evidence when the pattern justifies systemic action.
+Slim doesn't manage bugs or individual debt items. It makes the accumulation visible and gives the PO structured evidence when the pattern justifies systemic action.
 
 ---
 
 ## When ideas don't move forward
 
-Not every opportunity advances. Some are rejected, some are shelved, some are absorbed into other opportunities. These exits are decisions with rationales — not failures. Like architectural decision records for technical choices, Upstream preserves product decisions so they can be referenced later rather than relitigated.
+Not every opportunity advances. Some are rejected, some are shelved, some are absorbed into other opportunities. These exits are decisions with rationales — not failures. Like architectural decision records for technical choices, Slim preserves product decisions so they can be referenced later rather than relitigated.
 
 | Exit state | What it means |
 |---|---|
@@ -219,9 +219,9 @@ Everything runs in the browser. No dependencies, no per-seat pricing, no data le
 
 ### The typical product owner
 
-Product owners don't follow a single career path. They arrive from business analysis, QA, domain expertise, project management, or development. Most learn the role on the job, possibly with a weekend certification course. Upstream can't assume lean or design thinking vocabulary — it teaches through structure, not labels.
+Product owners don't follow a single career path. They arrive from business analysis, QA, domain expertise, project management, or development. Most learn the role on the job, possibly with a weekend certification course. Slim can't assume lean or design thinking vocabulary — it teaches through structure, not labels.
 
-The "Product Owner" title also masks different scopes. Roman Pichler's taxonomy identifies at least six: full-product PO, feature owner, component owner, SAFe tactical PO, platform owner, portfolio owner. Most POs in practice are feature owners managing 10–30 opportunities, not strategic leaders steering an entire product. Upstream is designed for that reality.
+The "Product Owner" title also masks different scopes. Roman Pichler's taxonomy identifies at least six: full-product PO, feature owner, component owner, SAFe tactical PO, platform owner, portfolio owner. Most POs in practice are feature owners managing 10–30 opportunities, not strategic leaders steering an entire product. Slim is designed for that reality.
 
 ### Two personas
 
@@ -241,7 +241,7 @@ The "Product Owner" title also masks different scopes. Roman Pichler's taxonomy 
 | Spreadsheets | *The actual incumbent* | Free and flexible, but zero flow visibility |
 | Miro / Confluence / Notion | Ad-hoc tooling | No structured pipeline |
 
-The real competitor is the spreadsheet. Upstream must be easier for daily use while showing what the spreadsheet can't: where ideas are stuck, who's blocking what, whether the funnel is narrowing, and what to say in tomorrow's 1:1.
+The real competitor is the spreadsheet. Slim must be easier for daily use while showing what the spreadsheet can't: where ideas are stuck, who's blocking what, whether the funnel is narrowing, and what to say in tomorrow's 1:1.
 
 ---
 
@@ -298,7 +298,7 @@ Each horizon builds on the same data model — no architectural rewrites, just r
 
 ## Future: token-based prioritization
 
-When Upstream grows beyond single-PO use, stakeholders and dev teams can express priorities through fixed token budgets. Scarcity forces honesty: when everything is P1, tokens reveal what's *actually* P1.
+When Slim grows beyond single-PO use, stakeholders and dev teams can express priorities through fixed token budgets. Scarcity forces honesty: when everything is P1, tokens reveal what's *actually* P1.
 
 Stakeholders allocate tokens across opportunities. The dev team allocates tokens representing capacity. Two independent allocation decisions produce a natural prioritization matrix:
 
@@ -311,7 +311,7 @@ Dev tokens also make technical investment visible and legitimate: infrastructure
 
 ---
 
-## What Upstream deliberately is not
+## What Slim deliberately is not
 
 - Not a sprint board. Use Jira or Linear for that.
 - Not a documentation tool. Link to Confluence or Notion.
@@ -327,7 +327,7 @@ Dev tokens also make technical investment visible and legitimate: infrastructure
 
 Of the three perspectives, viability is currently the vaguest. Desirability has concrete hooks (user testing, personas, "do they want this?"). Feasibility is grounded in technical spikes and sizing. But viability is just "does the business case hold?" — no structure underneath.
 
-Osterwalder and Pigneur's Business Model Canvas offers useful vocabulary here. Its nine building blocks don't map one-to-one onto Upstream — they scatter across the three perspectives — but several of them sharpen the viability question:
+Osterwalder and Pigneur's Business Model Canvas offers useful vocabulary here. Its nine building blocks don't map one-to-one onto Slim — they scatter across the three perspectives — but several of them sharpen the viability question:
 
 | Business model block | What it asks |
 |---|---|
@@ -354,4 +354,4 @@ Only if it takes less effort while showing something the spreadsheet can't: wher
 
 ---
 
-*Upstream draws on ideas from design thinking (IDEO), lateral thinking (De Bono), consent-based governance (Sociocracy 3.0), innovation readiness assessment (KTH IRL), enterprise architecture (ArchiMate / TOGAF), inventive problem solving (TRIZ), creative problem-solving (Osborn-Parnes), business model design (Osterwalder & Pigneur), and product ownership research (Pichler). These influences shape the tool's structure — the pipeline stages, the three-perspective grid, the consent-based scoring, and the graph-based decomposition model.*
+*Slim draws on ideas from design thinking (IDEO), lateral thinking (De Bono), consent-based governance (Sociocracy 3.0), innovation readiness assessment (KTH IRL), enterprise architecture (ArchiMate / TOGAF), inventive problem solving (TRIZ), creative problem-solving (Osborn-Parnes), business model design (Osterwalder & Pigneur), and product ownership research (Pichler). These influences shape the tool's structure — the pipeline stages, the three-perspective grid, the consent-based scoring, and the graph-based decomposition model.*

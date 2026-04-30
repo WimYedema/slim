@@ -436,7 +436,7 @@
 			selectedId = opp.id
 		}
 		// Dispatch a custom event that DetailPane can listen to
-		window.dispatchEvent(new CustomEvent('upstream:open-exit-menu'))
+		window.dispatchEvent(new CustomEvent('slim:open-exit-menu'))
 	}
 
 	const VIEW_KEYS: Record<string, ViewMode> = { '1': 'briefing', '2': 'pipeline', '3': 'deliverables', '4': 'meetings' }
@@ -667,7 +667,7 @@
 		const url = URL.createObjectURL(blob)
 		const a = document.createElement('a')
 		a.href = url
-		a.download = `upstream-${new Date().toISOString().slice(0, 10)}.json`
+		a.download = `slim-${new Date().toISOString().slice(0, 10)}.json`
 		a.click()
 		URL.revokeObjectURL(url)
 	}
@@ -678,7 +678,7 @@
 		const url = URL.createObjectURL(blob)
 		const a = document.createElement('a')
 		a.href = url
-		a.download = `upstream-${new Date().toISOString().slice(0, 10)}.csv`
+		a.download = `slim-${new Date().toISOString().slice(0, 10)}.csv`
 		a.click()
 		URL.revokeObjectURL(url)
 	}
@@ -695,7 +695,7 @@
 				try {
 					const data = JSON.parse(reader.result as string) as BoardData
 					if (!Array.isArray(data.opportunities) || !Array.isArray(data.deliverables) || !Array.isArray(data.links)) {
-						alert('Invalid file format — expected Upstream JSON export.')
+						alert('Invalid file format — expected Slim JSON export.')
 						return
 					}
 					pushUndo(mode === 'merge' ? 'Merge import' : 'Replace import')
@@ -794,7 +794,7 @@
 
 <main class="app">
 	<header class="app-header">
-		<h1>Upstream</h1>
+		<h1>Slim</h1>
 		{#if !contributorInfo}
 		<nav class="view-tabs">
 			<button class="view-tab" class:active={view === 'briefing'} onclick={() => switchView('briefing')}>Briefing</button>

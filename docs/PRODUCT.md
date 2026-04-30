@@ -1,4 +1,4 @@
-# Upstream — Product Concept
+# Slim — Product Concept
 
 > A lean planning tool for product owners, covering the workflow *before* the sprint board.
 
@@ -28,9 +28,9 @@ Conventional agile tools pretend there's a single decomposition hierarchy: Epic 
 1. **Value axis (WHY):** Theme → Opportunity → Sub-opportunity
 2. **Work axis (HOW):** System → Feature → Task
 
-A user story sits at the **pivot point** between these two trees. Jira hides this pivot by treating everything as the same ticket type with different labels. Upstream makes it explicit:
+A user story sits at the **pivot point** between these two trees. Jira hides this pivot by treating everything as the same ticket type with different labels. Slim makes it explicit:
 
-- **Above the pivot** (value decomposition) lives in Upstream, owned by the PO
+- **Above the pivot** (value decomposition) lives in Slim, owned by the PO
 - **Below the pivot** (work decomposition) lives in the sprint tool, owned by the dev team
 - **The Decompose stage is the pivot itself** — where value-framed opportunities get *translated* into deliverables
 
@@ -113,7 +113,7 @@ Debt is what accumulates when concerns are noted but not resolved. It comes in t
 | Desirability | **User debt** — UX workarounds, accessibility gaps |
 | Viability | **Business debt** — manual processes, compliance gaps |
 
-**Bugs are a fundamentally different entity.** They don't fit the opportunity model — they're about restoring expected value, triaged by probability × impact. Bugs live in the sprint tool. But the **bug → debt → opportunity loop** is Upstream's concern: five bugs revealing the same root cause enter Upstream as a debt-driven opportunity with the bug reports as evidence.
+**Bugs are a fundamentally different entity.** They don't fit the opportunity model — they're about restoring expected value, triaged by probability × impact. Bugs live in the sprint tool. But the **bug → debt → opportunity loop** is Slim's concern: five bugs revealing the same root cause enter Slim as a debt-driven opportunity with the bug reports as evidence.
 
 ### People links and delegation
 
@@ -123,7 +123,7 @@ Filtering by person is **bidirectional**: the PO sees "ask Sarah for the unblock
 
 ### Decision records
 
-Exits (kill/park/merge) are **decisions with rationales**, not failures. Like ADRs for technical choices, Upstream preserves product decisions so they can be referenced, not relitigated. The card's pipeline journey provides the evidence; the exit stamps a reason and freezes the state.
+Exits (kill/park/merge) are **decisions with rationales**, not failures. Like ADRs for technical choices, Slim preserves product decisions so they can be referenced, not relitigated. The card's pipeline journey provides the evidence; the exit stamps a reason and freezes the state.
 
 ## Structured Estimation via Skatting
 
@@ -168,7 +168,7 @@ The PO creates a room and shares a code. Contributors join, see the board (read-
 
 ## Future: Token Budgets (v2+)
 
-When Upstream grows beyond single-PO use, stakeholders and dev teams express priorities through **token allocation** — a fixed budget that forces honest prioritization.
+When Slim grows beyond single-PO use, stakeholders and dev teams express priorities through **token allocation** — a fixed budget that forces honest prioritization.
 
 ### The emergent 2×2
 
@@ -187,7 +187,7 @@ Each horizon targets a broader PO audience by lowering a specific barrier:
 
 | Horizon | Target | Value prop | Barrier lowered |
 |---|---|---|---|
-| **H1** (current) | Solo PO | Monday triage, quarterly roadmap, 1:1 prep — one page | Spreadsheet → Upstream |
+| **H1** (current) | Solo PO | Monday triage, quarterly roadmap, 1:1 prep — one page | Spreadsheet → Slim |
 | **H2** (current) | Team PO | Share a link, they fill in their column | PO fills everything → contributors self-serve |
 | **H3** (future) | Stakeholder-facing PO | Two scenarios, one screen, data talks | Verbal arguments → data-backed scenarios |
 | **H4** (future) | Scaling PO | Cross-team portfolio visibility | Per-team silos → portfolio visibility |

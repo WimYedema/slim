@@ -1,4 +1,4 @@
-# Upstream — Copilot Instructions
+# Slim — Copilot Instructions
 
 ## Project Overview
 
@@ -71,7 +71,7 @@ One runtime dependency: `nostr-tools` (P2P relay communication). No server, no d
 - Entry point: `index.html` → `src/main.ts` → `App.svelte`
 - All state lives as `$state` in `App.svelte` — no external state library, no context API, no stores
 - Components receive state via props and emit changes via callback props or by mutating bound props
-- Persistence: localStorage (`upstream-board`, `upstream-meetings`, `upstream-sync`), auto-saved in `$effect`
+- Persistence: localStorage (`slim-board`, `slim-meetings`, `slim-sync`), auto-saved in `$effect`
 
 ### Module responsibilities
 

@@ -1,4 +1,4 @@
-# Upstream — Design Principles
+# Slim — Design Principles
 
 Governing principles for all design and interaction decisions.
 Derived from the product model (consent-based pipeline, two-axis planning),

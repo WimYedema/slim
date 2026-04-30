@@ -1,4 +1,4 @@
-# Upstream — Architecture
+# Slim — Architecture
 
 For module responsibilities, component tables, code style, and conventions, see [copilot-instructions.md](../.github/copilot-instructions.md) — that file is the single source of truth for development.
 
@@ -27,9 +27,9 @@ App.svelte ($state)
 ### Persistence
 
 Three localStorage keys:
-- `upstream-board` — `BoardData` (opportunities, deliverables, links, customHorizons, briefingSnapshot)
-- `upstream-meetings` — `MeetingData` (lastDiscussed, records, snapshots)
-- `upstream-sync` — `SyncState` (roomCode, keys, role, contributorName)
+- `slim-board` — `BoardData` (opportunities, deliverables, links, customHorizons, briefingSnapshot)
+- `slim-meetings` — `MeetingData` (lastDiscussed, records, snapshots)
+- `slim-sync` — `SyncState` (roomCode, keys, role, contributorName)
 
 Auto-saved on every state change via `$effect` in `App.svelte`. Loaded on mount with backfill for schema migrations.
 

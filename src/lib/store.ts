@@ -3,8 +3,8 @@ import type { MeetingData } from './meeting'
 import type { Deliverable, Opportunity, OpportunityDeliverableLink } from './types'
 import { defaultHorizon } from './types'
 
-const STORAGE_KEY = 'upstream-board'
-const MEETING_KEY = 'upstream-meetings'
+const STORAGE_KEY = 'slim-board'
+const MEETING_KEY = 'slim-meetings'
 
 export interface BoardData {
 	opportunities: Opportunity[]

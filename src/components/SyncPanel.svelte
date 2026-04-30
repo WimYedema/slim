@@ -30,7 +30,7 @@
 	let { opportunities, deliverables, links, onApplyScores, onContributorChange }: Props = $props()
 
 	// --- Persistent sync state (stored in localStorage) ---
-	const SYNC_KEY = 'upstream-sync'
+	const SYNC_KEY = 'slim-sync'
 
 	interface SyncState {
 		roomCode: string

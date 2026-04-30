@@ -1,8 +1,8 @@
-# Upstream — User Journeys
+# Slim — User Journeys
 
 ## Overview
 
-Upstream is a lean planning tool for product owners, covering the workflow *before* the sprint board. See [PRODUCT-GUIDE.md](PRODUCT-GUIDE.md) for the full product introduction and [PRODUCT.md](PRODUCT.md) for the underlying theory.
+Slim is a lean planning tool for product owners, covering the workflow *before* the sprint board. See [PRODUCT-GUIDE.md](PRODUCT-GUIDE.md) for the full product introduction and [PRODUCT.md](PRODUCT.md) for the underlying theory.
 
 ### Roles
 

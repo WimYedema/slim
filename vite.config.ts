@@ -7,6 +7,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 const commitHash = execSync('git rev-parse --short HEAD').toString().trim()
 
 export default defineConfig({
+	base: '/slim/',
 	plugins: [svelte(), viteSingleFile()],
 	define: {
 		'process.env': {},

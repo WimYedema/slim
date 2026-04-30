@@ -1,5 +1,6 @@
 {
-  "name": "upstream",
+  "name": "slim",
+  "homepage": "https://wimyedema.github.io/slim/",
   "version": "0.1.0",
   "type": "module",
   "description": "Lean PO planning tool — visual triage for pre-sprint opportunities",

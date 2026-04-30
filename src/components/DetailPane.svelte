@@ -285,8 +285,8 @@
 	// Listen for keyboard-triggered exit menu
 	$effect(() => {
 		function onOpenExit() { if (!opportunity.discontinuedAt) showExitMenu = true }
-		window.addEventListener('upstream:open-exit-menu', onOpenExit)
-		return () => window.removeEventListener('upstream:open-exit-menu', onOpenExit)
+		window.addEventListener('slim:open-exit-menu', onOpenExit)
+		return () => window.removeEventListener('slim:open-exit-menu', onOpenExit)
 	})
 </script>
 

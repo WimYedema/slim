@@ -1,8 +1,8 @@
-# Upstream — Sample Data Scenario
+# Slim — Sample Data Scenario
 
 ## The Product Owner
 
-**Alex Torres**, 4 years as PO at **Relay**, a B2B SaaS platform that helps mid-size companies manage partner integrations. Alex manages ~20 active opportunities across two development teams ("Platform" and "Growth"). He used to track everything in a Jira epic hierarchy plus a Google Sheet called "Product Radar." The sheet was the real decision-making tool — Jira was for developers. He switched to Upstream three weeks ago and hasn't opened the sheet since.
+**Alex Torres**, 4 years as PO at **Relay**, a B2B SaaS platform that helps mid-size companies manage partner integrations. Alex manages ~20 active opportunities across two development teams ("Platform" and "Growth"). He used to track everything in a Jira epic hierarchy plus a Google Sheet called "Product Radar." The sheet was the real decision-making tool — Jira was for developers. He switched to Slim three weeks ago and hasn't opened the sheet since.
 
 Alex's management style: consent-driven, evidence-based, slightly over-communicative. He'd rather have an awkward conversation with engineering now than discover a showstopper in sprint planning. His Monday mornings start with the Briefing view — coffee, scan for red, click into what needs him.
 
@@ -105,8 +105,8 @@ Carol wears two hats: designer for the partner dashboard and technical writer fo
 
 Summary: 2 deliverables reviewed, 1 external dependency discussed, 1 risk escalated.
 
-**Sarah — never met before in Upstream**
-Sarah was just assigned 3 days ago for the SSO validation. Her first meeting with Alex (via Upstream) hasn't happened yet. When Alex opens her meeting card, he'll see: 1 unscored cell (feasibility@validate), 1 commitment nearby (CEO deadline), 0 change history (first meeting).
+**Sarah — never met before in Slim**
+Sarah was just assigned 3 days ago for the SSO validation. Her first meeting with Alex (via Slim) hasn't happened yet. When Alex opens her meeting card, he'll see: 1 unscored cell (feasibility@validate), 1 commitment nearby (CEO deadline), 0 change history (first meeting).
 
 **DACH partner — never met**
 The DACH partner is only a commitment target, not an assigned person. They won't show up in the meetings view as a person to meet with — but their overdue commitment (multi-language sketch, 3 days late) will surface on any meeting where multi-language support comes up.

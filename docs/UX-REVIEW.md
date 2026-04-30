@@ -1,4 +1,4 @@
-# Upstream — UX Review
+# Slim — UX Review
 
 A critical review of the current PoC from multiple perspectives. Each reviewer walks through the tool with fresh eyes, noting what works, what confuses, and what's missing. Based on the actual PoC: four tabs (Briefing, Pipeline, Deliverables, Meetings), localStorage persistence, full keyboard navigation, JSON/CSV import & export, 20-level undo, newspaper-style briefing with importance tiering, interactive funnel, stage/horizon grouping, signal grid with consent-based gating, meeting prep with snapshot-based change detection, and a rich detail pane with commitments, people assignments, and exit states.
 

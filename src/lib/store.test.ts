@@ -42,12 +42,12 @@ describe('saveBoard / loadBoard', () => {
 	})
 
 	it('returns null for corrupted data', () => {
-		localStorage.setItem('upstream-board', 'not json')
+		localStorage.setItem('slim-board', 'not json')
 		expect(loadBoard()).toBeNull()
 	})
 
 	it('returns null for data missing required arrays', () => {
-		localStorage.setItem('upstream-board', JSON.stringify({ opportunities: 'not array' }))
+		localStorage.setItem('slim-board', JSON.stringify({ opportunities: 'not array' }))
 		expect(loadBoard()).toBeNull()
 	})
 
@@ -56,7 +56,7 @@ describe('saveBoard / loadBoard', () => {
 		// Simulate old data without horizon
 		const raw = JSON.parse(JSON.stringify(data))
 		delete raw.opportunities[0].horizon
-		localStorage.setItem('upstream-board', JSON.stringify(raw))
+		localStorage.setItem('slim-board', JSON.stringify(raw))
 
 		const loaded = loadBoard()
 		expect(loaded!.opportunities[0].horizon).toBeTruthy()
@@ -68,7 +68,7 @@ describe('saveBoard / loadBoard', () => {
 		const raw = JSON.parse(JSON.stringify(data))
 		delete raw.opportunities[0].stageEnteredAt
 		raw.opportunities[0].updatedAt = 1700000000000
-		localStorage.setItem('upstream-board', JSON.stringify(raw))
+		localStorage.setItem('slim-board', JSON.stringify(raw))
 
 		const loaded = loadBoard()
 		expect(loaded!.opportunities[0].stageEnteredAt).toBe(1700000000000)
@@ -115,14 +115,14 @@ describe('saveMeetingData / loadMeetingData', () => {
 	})
 
 	it('returns empty data for corrupted storage', () => {
-		localStorage.setItem('upstream-meetings', '{bad json')
+		localStorage.setItem('slim-meetings', '{bad json')
 		const loaded = loadMeetingData()
 		expect(loaded.records).toEqual([])
 	})
 
 	it('backfills missing snapshots field', () => {
 		const raw = { lastDiscussed: {}, records: [] }
-		localStorage.setItem('upstream-meetings', JSON.stringify(raw))
+		localStorage.setItem('slim-meetings', JSON.stringify(raw))
 		const loaded = loadMeetingData()
 		expect(loaded.snapshots).toEqual({})
 	})

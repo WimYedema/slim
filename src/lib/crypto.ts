@@ -1,11 +1,11 @@
 /**
  * Room-level cryptography: HKDF key derivation + AES-256-GCM encrypt/decrypt.
  * Uses Web Crypto API only — no extra dependencies.
- * Adapted from Skatting (estimate) crypto.ts with Upstream-specific salts.
+ * Adapted from Skatting (estimate) crypto.ts with Slim-specific salts.
  */
 
-const HKDF_SALT = 'upstream-planning-tool'
-const HKDF_INFO = 'upstream-room-v1'
+const HKDF_SALT = 'slim-planning-tool'
+const HKDF_INFO = 'slim-room-v1'
 
 /** Derive a 256-bit AES-GCM key from a room code using HKDF-SHA256. */
 export async function deriveRoomKey(roomCode: string): Promise<CryptoKey> {
