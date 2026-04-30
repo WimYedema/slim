@@ -1,8 +1,8 @@
-# Slim — Copilot Instructions
+# Slim -- Copilot Instructions
 
 ## Project Overview
 
-Lean planning tool for product owners, covering the workflow *before* the sprint board. Models two entity types — **Opportunities** (value axis) and **Deliverables** (work axis) — connected by a many-to-many link graph. Fully local — all data in localStorage, deployed as a single static HTML file.
+Lean planning tool for product owners, covering the workflow *before* the sprint board. Models two entity types -- **Opportunities** (value axis) and **Deliverables** (work axis) -- connected by a many-to-many link graph. Fully local -- all data in localStorage, deployed as a single static HTML file.
 
 See [PRODUCT.md](PRODUCT.md) for product concept and rationale, [ARCHITECTURE.md](ARCHITECTURE.md) for architecture decisions, [USER-JOURNEYS.md](USER-JOURNEYS.md) for feature walkthrough, [PRODUCT-GUIDE.md](PRODUCT-GUIDE.md) for non-technical intro, [UX-REVIEW.md](UX-REVIEW.md) for persona-based review, [UX-PRINCIPLES.md](UX-PRINCIPLES.md) for design governance, [SAMPLE-SCENARIO.md](SAMPLE-SCENARIO.md) for demo data.
 
@@ -56,20 +56,20 @@ One runtime dependency: `nostr-tools` (P2P relay communication). No server, no d
 
 ## Code Style
 
-- Svelte 5 runes only — no legacy `$:` reactive statements, no `writable()`/`readable()` stores
+- Svelte 5 runes only -- no legacy `$:` reactive statements, no `writable()`/`readable()` stores
 - Prefer `$state`, `$derived`, `$effect` for all reactivity
-- Use TypeScript strict mode — no `any`, no `@ts-ignore`
+- Use TypeScript strict mode -- no `any`, no `@ts-ignore`
 - Prefer `interface` over `type` for object shapes
 - Use named exports, no default exports (exception: Svelte components)
 - File naming: `kebab-case.ts` for lib files, `PascalCase.svelte` for components
 
 ## Architecture
 
-- `src/App.svelte` — Root component, all state (`$state`), undo stack, persistence, keyboard handling
-- `src/components/` — Svelte components (UI layer)
-- `src/lib/` — Pure TypeScript modules (types, storage, meeting logic, queries)
-- Entry point: `index.html` → `src/main.ts` → `App.svelte`
-- All state lives as `$state` in `App.svelte` — no external state library, no context API, no stores
+- `src/App.svelte` -- Root component, all state (`$state`), undo stack, persistence, keyboard handling
+- `src/components/` -- Svelte components (UI layer)
+- `src/lib/` -- Pure TypeScript modules (types, storage, meeting logic, queries)
+- Entry point: `index.html` -> `src/main.ts` -> `App.svelte`
+- All state lives as `$state` in `App.svelte` -- no external state library, no context API, no stores
 - Components receive state via props and emit changes via callback props or by mutating bound props
 - Persistence: localStorage (`slim-board`, `slim-meetings`, `slim-sync`), auto-saved in `$effect`
 
@@ -82,7 +82,7 @@ One runtime dependency: `nostr-tools` (P2P relay communication). No server, no d
 | `store.ts` | localStorage wrappers with schema backfill | `saveBoard`, `loadBoard`, `clearBoard`, `saveMeetingData`, `loadMeetingData`, `BoardData` |
 | `meeting.ts` | Meeting agenda computation, person aggregation, snapshot-based change detection | `collectPeople`, `buildMeetingAgenda`, `personUrgency`, `completeMeeting`, `MeetingAgenda`, `MeetingData` |
 | `briefing.ts` | Board-wide change detection, importance tier classification, grouping | `snapshotBoard`, `diffBoard`, `deduplicateItems`, `groupItems`, `BoardSnapshot`, `BriefingItem` |
-| `crypto.ts` | Room-level encryption using Web Crypto API (HKDF-SHA256 → AES-256-GCM) | `deriveRoomKey`, `computeDTag`, `encrypt`, `decrypt` |
+| `crypto.ts` | Room-level encryption using Web Crypto API (HKDF-SHA256 -> AES-256-GCM) | `deriveRoomKey`, `computeDTag`, `encrypt`, `decrypt` |
 | `sync.ts` | Nostr relay pub/sub for P2P board sharing and score submission | `generateSyncKeys`, `publishBoard`, `queryBoard`, `publishScores`, `queryScores`, `applyScores` |
 | `merge.ts` | ID-based board merge with `updatedAt` conflict resolution | `mergeBoards`, `formatMergeStats`, `MergeResult` |
 | `csv.ts` | CSV import/export for opportunities | `opportunitiesToCsv`, `csvToOpportunities` |
@@ -110,14 +110,14 @@ One runtime dependency: `nostr-tools` (P2P relay communication). No server, no d
 ### State management
 
 - All shared state lives in `App.svelte` as `$state` fields
-- No external state library — state flows down via props, changes flow up via callbacks
+- No external state library -- state flows down via props, changes flow up via callbacks
 - Undo: snapshot-based, 20 levels, `Ctrl+Z`. Push `BoardData` onto stack before mutations, pop to restore.
 - Auto-save: `$effect` in `App.svelte` calls `saveBoard()` on every reactive change
 - Meeting data is persisted separately from board data
 
 ### Reactivity rules
 
-- Read all reactive values synchronously in `$effect` — Svelte only tracks synchronous reads
+- Read all reactive values synchronously in `$effect` -- Svelte only tracks synchronous reads
 - Use `$derived` for computed values, not manual caching
 - External callbacks (setTimeout, event handlers outside Svelte context) must clone-and-reassign arrays/maps if mutating reactive state
 
@@ -144,11 +144,11 @@ Scrollable views use a **full-width container / constrained content** pattern to
 }
 .container > * {
   width: 100%;
-  max-width: 56rem;       /* ~896px — adjust per view */
+  max-width: 56rem;       /* ~896px -- adjust per view */
 }
 ```
 
-Never put `max-width` on the scrollable container itself — that pulls the scrollbar inward and leaves dead gutter space. Each view picks its own content width (e.g. Briefing 720px, Pipeline 56rem).
+Never put `max-width` on the scrollable container itself -- that pulls the scrollbar inward and leaves dead gutter space. Each view picks its own content width (e.g. Briefing 720px, Pipeline 56rem).
 
 ### Accessibility & input
 
@@ -158,16 +158,16 @@ Never put `max-width` on the scrollable container itself — that pulls the scro
 
 ## Key Invariants
 
-1. **Consent gates advancement** — `stageConsent()` must return `ready` before an opportunity can advance. All three perspectives at the current stage must be scored with no objections.
-2. **Aging resets on stage change** — `stageEnteredAt` is set to `Date.now()` whenever `stage` changes.
-3. **Exit preserves history** — discontinuing sets `exitState`, `exitReason`, `discontinuedAt` but does not delete signals, verdicts, or commitments. Reactivation clears exit fields and restores the opportunity.
-4. **Meeting snapshots are per-person** — each person has an independent snapshot. "Done" stamps only that person's snapshot, not a global one.
-5. **Undo captures full board state** — the undo stack stores complete `BoardData` snapshots, not individual mutations.
-6. **Origins are metadata, not workflow** — origin type (Request/Idea/Incident/Debt) affects display and triage hints but does not change pipeline behavior.
-7. **Horizons are freeform** — no enforced format. Defaults to next quarter (e.g. "2026Q3"). Custom horizons can be any string.
-8. **Coverage is binary choice** — full or partial, no numeric percentages.
-9. **Deliverables are orphans until linked** — a new deliverable has no links and shows an "orphan" badge.
-10. **No runtime dependencies beyond nostr-tools** — the app runs on browser APIs (localStorage, crypto.randomUUID, DOM) plus nostr-tools for P2P relay communication.
+1. **Consent gates advancement** -- `stageConsent()` must return `ready` before an opportunity can advance. All three perspectives at the current stage must be scored with no objections.
+2. **Aging resets on stage change** -- `stageEnteredAt` is set to `Date.now()` whenever `stage` changes.
+3. **Exit preserves history** -- discontinuing sets `exitState`, `exitReason`, `discontinuedAt` but does not delete signals, verdicts, or commitments. Reactivation clears exit fields and restores the opportunity.
+4. **Meeting snapshots are per-person** -- each person has an independent snapshot. "Done" stamps only that person's snapshot, not a global one.
+5. **Undo captures full board state** -- the undo stack stores complete `BoardData` snapshots, not individual mutations.
+6. **Origins are metadata, not workflow** -- origin type (Request/Idea/Incident/Debt) affects display and triage hints but does not change pipeline behavior.
+7. **Horizons are freeform** -- no enforced format. Defaults to next quarter (e.g. "2026Q3"). Custom horizons can be any string.
+8. **Coverage is binary choice** -- full or partial, no numeric percentages.
+9. **Deliverables are orphans until linked** -- a new deliverable has no links and shows an "orphan" badge.
+10. **No runtime dependencies beyond nostr-tools** -- the app runs on browser APIs (localStorage, crypto.randomUUID, DOM) plus nostr-tools for P2P relay communication.
 
 ## Design Hygiene
 
@@ -179,7 +179,7 @@ Never put `max-width` on the scrollable container itself — that pulls the scro
 - **Components > ~300 lines of template** likely need extraction into child components or Svelte 5 `{#snippet}`s.
 - Test files can be larger.
 
-### Don't duplicate — extract immediately
+### Don't duplicate -- extract immediately
 - Same 3+ lines appearing twice? Extract a named helper.
 - Same template block in two `{#if}` branches? Use a `{#snippet}`.
 - Same CSS block in 3+ components? Promote to a utility class.

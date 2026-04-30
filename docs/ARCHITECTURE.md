@@ -1,6 +1,6 @@
-# Slim — Architecture
+# Slim -- Architecture
 
-For module responsibilities, component tables, code style, and conventions, see [copilot-instructions.md](../.github/copilot-instructions.md) — that file is the single source of truth for development.
+For module responsibilities, component tables, code style, and conventions, see [copilot-instructions.md](../.github/copilot-instructions.md) -- that file is the single source of truth for development.
 
 ## State Architecture
 
@@ -8,34 +8,34 @@ All application state lives as `$state` fields in `App.svelte`. No external stat
 
 ```
 App.svelte ($state)
-├── opportunities: Opportunity[]
-├── deliverables: Deliverable[]
-├── links: OpportunityDeliverableLink[]
-├── customHorizons: string[]
-├── meetingData: MeetingData
-├── briefingSnapshot: BoardSnapshot | null
-├── selectedId / selectedDeliverableId
-├── view: ViewMode ('briefing' | 'pipeline' | 'deliverables' | 'meetings')
-├── contributorInfo: ContributorInfo | null   # P2P contributor state
-├── pipelineGrouping: 'stage' | 'horizon'
-├── undoStack: BoardData[] (max 20)
-└── $derived values
-    ├── allHorizons, selectedOpp, selectedDeliverable
-    └── contributor briefing stats (when in contributor mode)
+|--- opportunities: Opportunity[]
+|--- deliverables: Deliverable[]
+|--- links: OpportunityDeliverableLink[]
+|--- customHorizons: string[]
+|--- meetingData: MeetingData
+|--- briefingSnapshot: BoardSnapshot | null
+|--- selectedId / selectedDeliverableId
+|--- view: ViewMode ('briefing' | 'pipeline' | 'deliverables' | 'meetings')
+|--- contributorInfo: ContributorInfo | null   # P2P contributor state
+|--- pipelineGrouping: 'stage' | 'horizon'
+|--- undoStack: BoardData[] (max 20)
+`--- $derived values
+    |--- allHorizons, selectedOpp, selectedDeliverable
+    `--- contributor briefing stats (when in contributor mode)
 ```
 
 ### Persistence
 
 Three localStorage keys:
-- `slim-board` — `BoardData` (opportunities, deliverables, links, customHorizons, briefingSnapshot)
-- `slim-meetings` — `MeetingData` (lastDiscussed, records, snapshots)
-- `slim-sync` — `SyncState` (roomCode, keys, role, contributorName)
+- `slim-board` -- `BoardData` (opportunities, deliverables, links, customHorizons, briefingSnapshot)
+- `slim-meetings` -- `MeetingData` (lastDiscussed, records, snapshots)
+- `slim-sync` -- `SyncState` (roomCode, keys, role, contributorName)
 
 Auto-saved on every state change via `$effect` in `App.svelte`. Loaded on mount with backfill for schema migrations.
 
 ### Undo
 
-Snapshot-based. Before each mutation, `BoardData` is pushed onto an array (max 20). `Ctrl+Z` pops and restores. Semantic undo — restores full board state, not individual fields.
+Snapshot-based. Before each mutation, `BoardData` is pushed onto an array (max 20). `Ctrl+Z` pops and restores. Semantic undo -- restores full board state, not individual fields.
 
 ## CSS Architecture
 
@@ -43,18 +43,18 @@ Snapshot-based. Before each mutation, `BoardData` is pushed onto an array (max 2
 
 All visual values are CSS custom properties in `:root` in `index.html`:
 
-- `--c-*` — colors (OKLCH color space, `color-mix()` for derived tints)
-- `--fs-*` — font sizes
-- `--sp-*` — spacing
-- `--radius-*` — border radii
-- `--shadow-*` — box shadows
-- `--tr-*` — transitions (respect `prefers-reduced-motion`)
+- `--c-*` -- colors (OKLCH color space, `color-mix()` for derived tints)
+- `--fs-*` -- font sizes
+- `--sp-*` -- spacing
+- `--radius-*` -- border radii
+- `--shadow-*` -- box shadows
+- `--tr-*` -- transitions (respect `prefers-reduced-motion`)
 
 ### Font
 
-- **Lora** (serif) — primary font, headings and user content
-- **Caveat** (cursive) — sketchy aesthetic accents
-- Sans-serif system font — UI chrome (labels, buttons)
+- **Lora** (serif) -- primary font, headings and user content
+- **Caveat** (cursive) -- sketchy aesthetic accents
+- Sans-serif system font -- UI chrome (labels, buttons)
 
 ### Component CSS
 
@@ -78,17 +78,17 @@ Data volume is small (tens of opportunities). localStorage is synchronous, simpl
 
 ### Why consent-based, not scoring?
 
-Numeric scoring (WSJF, RICE) creates false precision and is easily gamed. Consent asks: "Has everyone been heard, and does anyone object?" — more honest and actionable.
+Numeric scoring (WSJF, RICE) creates false precision and is easily gamed. Consent asks: "Has everyone been heard, and does anyone object?" -- more honest and actionable.
 
 ## Unused Components
 
 These exist in the codebase but are not wired into the UI:
 
-- `ListView.svelte` — original triage list (replaced by PipelineView)
-- `RoadmapView.svelte` — original horizon-grouped table (folded into PipelineView)
-- `CardDetail.svelte` — earlier card detail experiment
-- `CubeView.svelte` — 3D portfolio cube visualization
-- `LanesView.svelte` — Kanban-style lane layout
-- `PipelineBoard.svelte` — earlier pipeline board experiment
-- `ScatterView.svelte` — scatter plot visualization
-- `TernaryView.svelte` — ternary triangle visualization
+- `ListView.svelte` -- original triage list (replaced by PipelineView)
+- `RoadmapView.svelte` -- original horizon-grouped table (folded into PipelineView)
+- `CardDetail.svelte` -- earlier card detail experiment
+- `CubeView.svelte` -- 3D portfolio cube visualization
+- `LanesView.svelte` -- Kanban-style lane layout
+- `PipelineBoard.svelte` -- earlier pipeline board experiment
+- `ScatterView.svelte` -- scatter plot visualization
+- `TernaryView.svelte` -- ternary triangle visualization
