@@ -19,6 +19,14 @@
 	let error = $state('')
 	let lastFetched = $state<number | null>(null)
 	let rotatingRoom = $state(false)
+	let newMemberName = $state('')
+
+	async function addNewMember() {
+		const name = newMemberName.trim()
+		if (!name || !roomInfo.addMember) return
+		const ok = await roomInfo.addMember(name)
+		if (ok) newMemberName = ''
+	}
 
 	// Group submissions by contributor name
 	let grouped = $derived(groupByContributor(submissions))
@@ -91,8 +99,17 @@
 
 	let copyStatus = $state('')
 
+	function inviteText(): string {
+		if (location.protocol.startsWith('http')) {
+			const url = new URL(location.href)
+			url.searchParams.set('room', roomInfo.roomCode)
+			return url.toString()
+		}
+		return roomInfo.roomCode
+	}
+
 	function copyRoomCode() {
-		navigator.clipboard.writeText(roomInfo.roomCode)
+		navigator.clipboard.writeText(inviteText())
 		copyStatus = 'Copied!'
 		setTimeout(() => { copyStatus = '' }, 2000)
 	}
@@ -207,7 +224,7 @@
 				<span class="rp-label">Code</span>
 				<div class="rp-code-row">
 					<code class="rp-code">{roomInfo.roomCode}</code>
-					<button class="rp-copy-btn" onclick={copyRoomCode} title="Copy room code">
+					<button class="rp-copy-btn" onclick={copyRoomCode} title="Copy invite link">
 						{copyStatus || '📋'}
 					</button>
 				</div>
@@ -333,6 +350,18 @@
 						</li>
 					{/each}
 				</ul>
+				{#if roomInfo.addMember}
+					<div class="rp-add-member">
+						<input
+							class="rp-add-input"
+							type="text"
+							placeholder="Add member…"
+							bind:value={newMemberName}
+							onkeydown={(e) => { if (e.key === 'Enter') addNewMember() }}
+						/>
+						<button class="rp-btn" onclick={addNewMember} disabled={!newMemberName.trim()}>Add</button>
+					</div>
+				{/if}
 			</section>
 		{/if}
 
@@ -715,5 +744,21 @@
 	.rp-btn-warn {
 		color: var(--c-yellow, oklch(0.7 0.15 85));
 		border-color: var(--c-yellow-border, var(--c-border));
+	}
+
+	.rp-add-member {
+		display: flex;
+		gap: var(--sp-xs);
+		margin-top: var(--sp-sm);
+	}
+
+	.rp-add-input {
+		flex: 1;
+		padding: var(--sp-2xs) var(--sp-sm);
+		border: 1px solid var(--c-border);
+		border-radius: var(--radius-sm);
+		background: var(--c-bg);
+		color: var(--c-text);
+		font-size: var(--fs-sm);
 	}
 </style>

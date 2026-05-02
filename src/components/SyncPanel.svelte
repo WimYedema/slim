@@ -28,6 +28,8 @@
 		rotateRoom?: (reason: string) => Promise<boolean>
 		/** Remove a member and rotate the room code (owner only). Returns true on success. */
 		revokeMember?: (memberId: string) => Promise<boolean>
+		/** Add a member to the roster (owner only). Returns true on success. */
+		addMember?: (name: string) => Promise<boolean>
 		/** Cached roster for display */
 		roster?: TeamSpace
 	}
@@ -36,7 +38,7 @@
 <script lang="ts">
 	import type { Opportunity, Deliverable, OpportunityDeliverableLink } from '../lib/types'
 	import { publishBoard, queryBoard, publishScores, queryScores, applyScores, generateSyncKeys, generateRoomCode, publishMigration, isMigrationNotice, type SyncKeys, type MigrationNotice } from '../lib/sync'
-	import { createTeamSpace, findMemberByName as findRosterMember, removeMember as rosterRemoveMember } from '../lib/samen/roster'
+	import { createTeamSpace, findMemberByName as findRosterMember, removeMember as rosterRemoveMember, addMember as rosterAddMember } from '../lib/samen/roster'
 	import { publishRoster, queryRoster } from '../lib/samen/roster-sync'
 	import type { TeamSpace, SamenIdentity } from '../lib/samen/types'
 
@@ -159,6 +161,19 @@
 		return [...roster, ...boardOnly]
 	}
 
+	// Annotations for board-only names in the join picker
+	let joinPickerAnnotations = $derived.by(() => {
+		if (rosterNames.length === 0) return undefined
+		const rosterLower = new Set(rosterNames.map(n => n.toLowerCase()))
+		const map = new Map<string, string>()
+		for (const name of previewNames) {
+			if (!rosterLower.has(name.toLowerCase())) {
+				map.set(name.toLowerCase(), 'not in team')
+			}
+		}
+		return map.size > 0 ? map : undefined
+	})
+
 	// Roster-based pubkey filtering for trusted event verification
 	let allRosterPubkeys = $derived(cachedRoster
 		? cachedRoster.members.flatMap(m => m.publicKeys)
@@ -206,6 +221,7 @@
 				ownerPubkeys,
 				rotateRoom: isOwner ? rotateRoom : undefined,
 				revokeMember: isOwner ? revokeMember : undefined,
+				addMember: isOwner ? addMemberToRoster : undefined,
 				roster: cachedRoster ?? undefined,
 			})
 		} else {
@@ -555,6 +571,23 @@
 		return rotateRoom('Member removed')
 	}
 
+	// --- Add member to roster ---
+
+	async function addMemberToRoster(name: string): Promise<boolean> {
+		if (!syncState || syncState.role !== 'owner' || !cachedRoster) return false
+		busy = true
+		try {
+			cachedRoster = rosterAddMember(cachedRoster, name.trim(), '')
+			saveCachedRoster(cachedRoster)
+			await publishRoster(syncState.roomCode, syncState.keys, cachedRoster)
+			return true
+		} catch {
+			return false
+		} finally {
+			busy = false
+		}
+	}
+
 	function copyRoomCode() {
 		if (!syncState) return
 		navigator.clipboard.writeText(syncState.roomCode)
@@ -630,6 +663,7 @@
 					{#if previewBoard}
 						<MemberPicker
 							knownNames={joinPickerNames}
+							annotations={joinPickerAnnotations}
 							placeholder="Your name…"
 							inputClass="sync-input"
 							onPick={joinOrReclaim}

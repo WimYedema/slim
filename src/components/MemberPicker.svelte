@@ -2,6 +2,8 @@
 	interface Props {
 		/** All known names from the board (pre-sorted, pre-deduped) */
 		knownNames: string[]
+		/** Optional badge text per name (e.g. "not in team") — keyed by lowercase name */
+		annotations?: Map<string, string>
 		/** Placeholder text for the input */
 		placeholder?: string
 		/** CSS class applied to the input element */
@@ -10,7 +12,7 @@
 		onPick: (name: string) => void
 	}
 
-	let { knownNames, placeholder = 'Add someone…', inputClass = '', onPick }: Props = $props()
+	let { knownNames, annotations, placeholder = 'Add someone…', inputClass = '', onPick }: Props = $props()
 
 	let value = $state('')
 	let focused = $state(false)
@@ -80,6 +82,9 @@
 					onpointerdown={(e) => { e.preventDefault(); commit(name) }}
 				>
 					{name}
+					{#if annotations?.get(name.toLowerCase())}
+						<span class="mp-badge">{annotations.get(name.toLowerCase())}</span>
+					{/if}
 				</li>
 			{/each}
 		</ul>
@@ -119,5 +124,11 @@
 	.mp-selected {
 		background: var(--c-accent-bg);
 		color: var(--c-accent-text);
+	}
+
+	.mp-badge {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+		margin-left: var(--sp-xs);
 	}
 </style>
