@@ -146,6 +146,30 @@
 	let rosterNames = $state<string[]>([])
 	let busy = $state(false)
 	let showPanel = $state(false)
+
+	// Auto-join: if ?room= is in the URL, pre-fill and trigger lookup
+	let autoJoinPending = $state(false)
+	{
+		const params = new URLSearchParams(location.search)
+		const roomParam = params.get('room')
+		if (roomParam && !syncState) {
+			joinCode = roomParam
+			showPanel = true
+			autoJoinPending = true
+			// Clean the URL so it doesn't re-trigger on refresh
+			params.delete('room')
+			const clean = params.toString()
+			const url = location.pathname + (clean ? `?${clean}` : '') + location.hash
+			history.replaceState(null, '', url)
+		}
+	}
+
+	$effect(() => {
+		if (autoJoinPending) {
+			autoJoinPending = false
+			lookupRoom()
+		}
+	})
 	let contributorScores = $state<ScoreEntry[]>([])
 	let submittedScores = $state<ScoreEntry[]>([])
 	let remoteBoard = $state<BoardData | null>(null)
