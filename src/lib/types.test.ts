@@ -633,3 +633,45 @@ describe('wipNudge', () => {
 		expect(msg).toContain('sprints')
 	})
 })
+
+// ── Board names registry ──
+
+import { boardNames } from './queries'
+
+describe('boardNames', () => {
+	it('collects names from people, commitments, signals, and deliverables', () => {
+		const opp = createOpportunity('Test')
+		opp.people = [
+			{ id: '1', name: 'Alice', role: 'expert', perspectives: [] },
+			{ id: '2', name: 'Bob', role: 'stakeholder', perspectives: [] },
+		]
+		opp.commitments = [{ id: 'c1', to: 'Carol', milestone: 'sketch', by: Date.now() }]
+		opp.signals.explore.desirability = { score: 'positive', source: 'manual', verdict: '', evidence: '', owner: 'Dave' }
+		const del = createDeliverable('Task')
+		del.extraContributors = ['Eve']
+		del.extraConsumers = ['Frank']
+		const names = boardNames([opp], [del])
+		expect(names).toEqual(['Alice', 'Bob', 'Carol', 'Dave', 'Eve', 'Frank'])
+	})
+
+	it('deduplicates case-insensitively, keeping first-seen casing', () => {
+		const opp = createOpportunity('Test')
+		opp.people = [
+			{ id: '1', name: 'Alice', role: 'expert', perspectives: [] },
+			{ id: '2', name: 'alice', role: 'stakeholder', perspectives: [] },
+		]
+		const names = boardNames([opp], [])
+		expect(names).toEqual(['Alice'])
+	})
+
+	it('trims whitespace', () => {
+		const opp = createOpportunity('Test')
+		opp.people = [{ id: '1', name: '  Alice  ', role: 'expert', perspectives: [] }]
+		const names = boardNames([opp], [])
+		expect(names).toEqual(['Alice'])
+	})
+
+	it('returns empty for empty board', () => {
+		expect(boardNames([], [])).toEqual([])
+	})
+})

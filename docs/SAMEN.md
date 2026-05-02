@@ -353,6 +353,127 @@ These keys use the `samen-` prefix to avoid collision with each tool's own local
 | New: `src/lib/samen/` | Shared module copy — types, roster CRUD, Nostr sync, crypto. |
 | New: team section in sidebar | Member list, manage team inline. |
 
+## Security & Confidentiality
+
+Users will put confidential product strategy and competitive insights into this system. The security model must be credible for that use case, not just for casual collaboration.
+
+### Current strengths
+
+| Property | Mechanism |
+|---|---|
+| **Encryption at rest** | AES-256-GCM with HKDF-SHA256 key derivation. Relay operators see only ciphertext. |
+| **No cloud, no accounts** | No vendor holds your data. No breach surface beyond relays (which hold only ciphertext). |
+| **Room code entropy** | UUID v4 = 122 bits. Brute force infeasible. |
+| **Auditability** | Single HTML file, open source, no hidden network calls. |
+
+### Threat model
+
+The primary threats for a team planning tool are:
+
+1. **Accidental exposure** — room code shared in Slack, email, screenshot
+2. **Former team member** — still has room code after leaving the team
+3. **Device compromise** — lost laptop, browser extension with localStorage access
+4. **Relay persistence** — encrypted events live indefinitely, retroactive decryption if key leaks
+5. **Impersonation** — throwaway keypairs mean anyone with the room code can publish as anyone
+
+Adversarial Nostr clients crafting malicious events are a secondary concern — this is a team tool where participants have a trust relationship.
+
+### Security measures (by phase)
+
+#### Phase 1 — Persistent identity (Samen core)
+
+Samen replaces throwaway per-session keypairs with **persistent identity**:
+
+- Each member has a stable UUID and one or more Nostr pubkeys (one per device)
+- Every event is signed by a known pubkey, attributable to a roster member
+- `queryBoard` and `queryScores` filter events by roster pubkeys — ignore unknown signers
+- Owner pubkey is pinned in the roster — only the owner can publish board state
+
+This closes: **impersonation**, **unauthorized board overwrites**.
+
+#### Phase 2 — Key lifecycle
+
+| Gap | Measure | Mechanism |
+|---|---|---|
+| Key leakage = total exposure | **Room code rotation** | Owner generates a new room code, republishes roster + board, notifies members via the old room (migration event). Old events become unreadable to new code holders. |
+| No forward secrecy | **Epoch-based encryption** | Derive a new AES key per epoch (day or session). Each event carries an epoch counter. Compromise of one epoch key does not expose other epochs. |
+| Relay persistence | **NIP-40 expiration tags** | Published events carry an `expiration` tag. Compliant relays auto-delete after TTL. Non-compliant relays still hold ciphertext only. |
+| No revocation | **Roster-based filtering** | Removed members' pubkeys are purged from the roster. All clients ignore events from unknown pubkeys. Owner rotates room code after removing a member for full revocation. |
+
+#### Phase 3 — Local storage protection
+
+| Gap | Measure | Mechanism |
+|---|---|---|
+| localStorage plaintext on disk | **Passkey (PRF) or passphrase encryption** | Preferred: WebAuthn PRF extension — user touches biometric (fingerprint / Face ID / YubiKey), passkey produces a deterministic secret used as AES key to encrypt localStorage. No password to remember or leak. Fallback: user sets a passphrase, PBKDF2-derived key encrypts localStorage. Both are optional — unset = plaintext (current behavior). |
+| Same-origin XSS | **Content Security Policy** | Single-file HTML sets strict CSP: `script-src 'self'`, no inline scripts (Vite inlines into a single file, so CSP applies to the whole bundle). |
+| Self-hosted alternative | **file:// deployment** | For maximum isolation, serve the single HTML file from `file://` or a dedicated subdomain with no other content. |
+
+##### Passkey + PRF details
+
+The [PRF extension](https://w3c.github.io/webauthn/#prf-extension) (formerly `hmac-secret`) derives a deterministic secret from a passkey credential without exposing the private key:
+
+```
+Register:   navigator.credentials.create({ publicKey: { extensions: { prf: {} } } })
+Decrypt:    navigator.credentials.get({ publicKey: { extensions: { prf: { eval: { first: salt } } } } })
+            → prf.results.first  (32 bytes — use as AES-256 key)
+```
+
+Flow:
+1. First visit: "Protect your data with a passkey?" → user registers a credential
+2. Every subsequent visit: browser prompts for biometric → PRF output decrypts all `samen-*` and `slim-*` localStorage values
+3. No password to remember, key material in secure hardware (TPM / Secure Enclave)
+
+Limitations:
+- **Not for Nostr signing.** Passkeys use ECDSA P-256; Nostr uses secp256k1. Different curves — passkeys cannot sign Nostr events.
+- **Cross-device PRF outputs may differ.** Synced passkeys (Apple/Google/Microsoft) sync the credential but PRF output depends on the authenticator. A passkey created on iPhone may produce a different PRF output on Mac. Mitigation: encrypt the AES key itself with PRF output, store the wrapped key — re-wrap on new device.
+- **Browser support.** Chrome/Edge (solid), Safari 17.4+ (supported), Firefox (limited as of mid-2026). Feature-detect `PublicKeyCredential` and PRF support; fall back to passphrase.
+
+| | Passkey + PRF | Passphrase |
+|---|---|---|
+| UX | Touch biometric | Type password |
+| Key strength | Hardware-backed, 256-bit | As strong as the password |
+| Phishing risk | None (bound to origin) | Shoulder-surfing, reuse |
+| Browser support | Broad but not universal | Universal |
+| Cross-device | Needs key wrapping | Works everywhere |
+
+TOTP authenticator apps (Google Authenticator, Authy) are **not applicable** — TOTP is a server-verified time-based code. Without a server there is nothing to check it against.
+
+### Trust model
+
+```
+Trust boundary          What it proves                    Enforced by
+──────────────          ──────────────                    ───────────
+Room code (HKDF seed)   "I belong to this team"           Crypto (AES-256-GCM)
+Nostr pubkey (signing)  "This event is from me"           Crypto (secp256k1)
+Roster membership       "I am authorized"                 Client-side filtering
+Owner role              "I can manage the team"           Client-side convention
+Passphrase / Passkey    "I can unlock local data"         Crypto (PBKDF2 / PRF + AES)
+```
+
+**Key insight:** enforcement is cooperative, not adversarial. Clients enforce the roster — a modified client could ignore it. This is acceptable because:
+
+1. Participants are teammates with a trust relationship
+2. The room code is the real access control — knowing it requires being invited
+3. Relay data is encrypted — even with a modified client, you need the room code
+4. For higher assurance, use auth-capable relays (NIP-42) that reject events from non-roster pubkeys
+
+### What this does NOT protect against
+
+- A determined attacker who obtains the room code and builds a custom Nostr client (mitigated by room code rotation)
+- A compromised device where the attacker captures the passphrase (standard endpoint security applies)
+- Relay operators colluding to correlate metadata (event timing, pubkey relationships) — mitigated by expiration tags and ephemeral relay connections
+
+### Confidentiality checklist for deployment
+
+For teams handling sensitive data:
+
+- [ ] Use a passkey (PRF) or passphrase to encrypt localStorage
+- [ ] Self-host on a dedicated subdomain (no shared origin with untrusted content)
+- [ ] Enable NIP-40 expiration tags (default TTL: 30 days)
+- [ ] Rotate room code when a team member leaves
+- [ ] Use relays that support NIP-42 auth for write-side access control
+- [ ] Review CSP headers if deploying behind a reverse proxy
+
 ## Open Questions
 
 1. **Roster write authority.** Who can publish roster updates?

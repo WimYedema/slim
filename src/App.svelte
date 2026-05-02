@@ -9,7 +9,8 @@
 	import QuickAdd from './components/QuickAdd.svelte'
 	import SyncPanel from './components/SyncPanel.svelte'
 	import ContributorView from './components/ContributorView.svelte'
-	import type { ContributorInfo } from './components/SyncPanel.svelte'
+	import RoomPanel from './components/RoomPanel.svelte'
+	import type { ContributorInfo, RoomInfo } from './components/SyncPanel.svelte'
 	import {
 		type Opportunity,
 		type Deliverable,
@@ -26,6 +27,7 @@
 	import { snapshotBoard, type BoardSnapshot } from './lib/briefing'
 	import { opportunitiesToCsv, csvToOpportunities } from './lib/csv'
 	import { mergeBoards, formatMergeStats } from './lib/merge'
+	import { boardNames } from './lib/queries'
 
 	type ViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'meetings'
 	type ContributorViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'assignments'
@@ -298,6 +300,8 @@
 	let showQuickAdd = $state(false)
 	let showDataMenu = $state(false)
 	let contributorInfo = $state(null as ContributorInfo | null)
+	let roomInfo = $state(null as RoomInfo | null)
+	let showRoomPanel = $state(false)
 	let contributorView: ContributorViewMode = $state('assignments')
 
 	// Contributor briefing derived data
@@ -572,6 +576,8 @@
 		selectedDeliverableId ? deliverables.find((d) => d.id === selectedDeliverableId) ?? null : null,
 	)
 
+	const knownNames = $derived(boardNames(opportunities, deliverables))
+
 	function addOpportunity(title: string) {
 		opportunities = [...opportunities, createOpportunity(title)]
 	}
@@ -761,13 +767,27 @@
 </script>
 
 {#snippet detailSidebar()}
-	{#if selectedOpportunity}
+	{#if showRoomPanel && roomInfo}
+		<div class="split-detail">
+			<RoomPanel
+				{roomInfo}
+				{opportunities}
+				onApplyScores={(updatedOpps, message) => {
+					pushUndo('Review scores')
+					opportunities = updatedOpps
+				}}
+				onClose={() => (showRoomPanel = false)}
+				onLeaveRoom={() => { roomInfo.leaveRoom(); showRoomPanel = false }}
+			/>
+		</div>
+	{:else if selectedOpportunity}
 		<div class="split-detail">
 			<DetailPane
 				opportunity={selectedOpportunity}
 				{deliverables}
 				{links}
 				allHorizons={allHorizons()}
+				{knownNames}
 				onUpdate={updateOpportunity}
 				onClose={() => (selectedId = null)}
 				onAddDeliverable={addDeliverable}
@@ -783,6 +803,7 @@
 				deliverable={selectedDeliverable}
 				{links}
 				{opportunities}
+				{knownNames}
 				onUpdate={updateDeliverable}
 				onRemove={removeDeliverable}
 				onLink={linkDeliverable}
@@ -814,12 +835,14 @@
 		</nav>
 		{/if}
 		<div class="header-actions">
-		<SyncPanel {opportunities} {deliverables} {links}
+		<SyncPanel {opportunities} {deliverables} {links} {knownNames}
 				onApplyScores={(updatedOpps, message) => {
 					pushUndo('Sync scores')
 					opportunities = updatedOpps
 				}}
 				onContributorChange={(info) => { contributorInfo = info }}
+				onRoomInfoChange={(info) => { roomInfo = info; if (!info) showRoomPanel = false }}
+				onOpenRoomPanel={() => { selectedId = null; selectedDeliverableId = null; showRoomPanel = true }}
 			/>
 			{#if !contributorInfo}
 			<div class="data-menu-container">

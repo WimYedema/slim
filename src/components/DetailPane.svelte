@@ -33,12 +33,14 @@
 		formatDaysLeft,
 	} from '../lib/types'
 	import ScoreToggle from './ScoreToggle.svelte'
+	import MemberPicker from './MemberPicker.svelte'
 
 	interface Props {
 		opportunity: Opportunity
 		deliverables: Deliverable[]
 		links: OpportunityDeliverableLink[]
 		allHorizons?: string[]
+		knownNames?: string[]
 		onUpdate: (opportunity: Opportunity) => void
 		onClose: () => void
 		onAddDeliverable: (title: string) => Deliverable
@@ -48,7 +50,7 @@
 		onUpdateLinkCoverage: (opportunityId: string, deliverableId: string, coverage: 'full' | 'partial') => void
 	}
 
-	let { opportunity, deliverables, links, allHorizons = [], onUpdate, onClose, onAddDeliverable, onUpdateDeliverable, onLinkDeliverable, onUnlinkDeliverable, onUpdateLinkCoverage }: Props = $props()
+	let { opportunity, deliverables, links, allHorizons = [], knownNames = [], onUpdate, onClose, onAddDeliverable, onUpdateDeliverable, onLinkDeliverable, onUnlinkDeliverable, onUpdateLinkCoverage }: Props = $props()
 
 	function updateSignalField(stage: Stage, perspective: Perspective, field: keyof CellSignal, value: string | Score) {
 		onUpdate({
@@ -171,7 +173,6 @@
 	}
 
 	let addingFor: { perspective: Perspective; stage: Stage } | null = $state(null)
-	let newPersonName = $state('')
 	let expandedCells: Set<string> = $state(new Set())
 	let collapsedPerspectives: Set<Perspective> = $state(new Set())
 
@@ -484,7 +485,7 @@
 												<select class="assign-select" onchange={(e) => {
 													const val = (e.target as HTMLSelectElement).value
 													if (val === '__new__') {
-														newPersonName = ''
+														// MemberPicker handles new name entry
 													} else if (val) {
 														assignPerspective(val, p, stage.key)
 														addingFor = null
@@ -498,22 +499,17 @@
 												</select>
 											{/if}
 											{#if opportunity.people.length === 0 || isAdding}
-												<input
-													type="text"
-													class="assign-name-input"
+												<MemberPicker
+													{knownNames}
 													placeholder="Name…"
-													bind:value={newPersonName}
-													onkeydown={(e) => {
-														if (e.key === 'Enter' && newPersonName.trim()) {
-															addPersonAndAssign(newPersonName.trim(), p, stage.key)
-															addingFor = null
-															newPersonName = ''
-														}
-														if (e.key === 'Escape') { addingFor = null; newPersonName = '' }
+													inputClass="assign-name-input"
+													onPick={(name) => {
+														addPersonAndAssign(name, p, stage.key)
+														addingFor = null
 													}}
 												/>
 											{/if}
-											<button class="assign-cancel" onclick={() => { addingFor = null; newPersonName = '' }}>×</button>
+											<button class="assign-cancel" onclick={() => { addingFor = null }}>×</button>
 										</span>
 									{:else}
 										<button class="assign-btn" onclick={() => addingFor = { perspective: p, stage: stage.key }}>+ ask</button>
@@ -568,8 +564,13 @@
 			</div>
 		{/each}
 		{#if showAddCommitment}
-			<div class="commitment-add-form">
-				<input type="text" class="commitment-input" placeholder="Promised to…" bind:value={commitTo} />
+		<div class="commitment-add-form">
+				<input type="text" class="commitment-input" placeholder="Promised to…" bind:value={commitTo} list="known-names-list" />
+				<datalist id="known-names-list">
+					{#each knownNames as name}
+						<option value={name} />
+					{/each}
+				</datalist>
 				<select class="commitment-select" bind:value={commitMilestone}>
 					{#each STAGES as stage}
 						<option value={stage.key}>{stage.label}</option>

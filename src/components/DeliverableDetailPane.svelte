@@ -11,11 +11,13 @@
 		TSHIRT_SIZES,
 		inheritedPeople as inheritedPeopleForDeliverable,
 	} from '../lib/types'
+	import MemberPicker from './MemberPicker.svelte'
 
 	interface Props {
 		deliverable: Deliverable
 		links: OpportunityDeliverableLink[]
 		opportunities: Opportunity[]
+		knownNames?: string[]
 		onUpdate: (deliverable: Deliverable) => void
 		onRemove: (id: string) => void
 		onLink: (opportunityId: string, deliverableId: string, coverage: 'full' | 'partial') => void
@@ -25,12 +27,11 @@
 		onSelectOpportunity: (id: string) => void
 	}
 
-	let { deliverable, links, opportunities, onUpdate, onRemove, onLink, onUnlink, onUpdateCoverage, onClose, onSelectOpportunity }: Props = $props()
+	let { deliverable, links, opportunities, knownNames = [], onUpdate, onRemove, onLink, onUnlink, onUpdateCoverage, onClose, onSelectOpportunity }: Props = $props()
 
 	let linkingOpportunity = $state(false)
 	let addingContributor = $state(false)
 	let addingConsumer = $state(false)
-	let newPersonName = $state('')
 	let showExternalFields = $state(false)
 	let confirmDelete = $state(false)
 	let showDropReason = $state(false)
@@ -82,15 +83,12 @@
 		onUpdate({ ...deliverable, status: 'active', completedAt: undefined, dropReason: undefined })
 	}
 
-	function addPerson(group: 'contributors' | 'consumers') {
-		const name = newPersonName.trim()
-		if (!name) return
+	function addPerson(name: string, group: 'contributors' | 'consumers') {
+		const trimmed = name.trim()
+		if (!trimmed) return
 		const field = group === 'contributors' ? 'extraContributors' : 'extraConsumers'
-		if (deliverable[field].includes(name)) return
-		onUpdate({ ...deliverable, [field]: [...deliverable[field], name] })
-		newPersonName = ''
-		if (group === 'contributors') addingContributor = false
-		else addingConsumer = false
+		if (deliverable[field].includes(trimmed)) return
+		onUpdate({ ...deliverable, [field]: [...deliverable[field], trimmed] })
 	}
 
 	function removePerson(name: string, group: 'contributors' | 'consumers') {
@@ -234,12 +232,11 @@
 					</span>
 				{/each}
 				{#if adding}
-					<input
-						type="text"
-						class="ddp-chip-input"
+					<MemberPicker
+						{knownNames}
 						placeholder="Name…"
-						bind:value={newPersonName}
-						onkeydown={(e) => { if (e.key === 'Enter') addPerson(group); if (e.key === 'Escape') { setAdding(false); newPersonName = '' } }}
+						inputClass="ddp-chip-input"
+						onPick={(name) => { addPerson(name, group); setAdding(false) }}
 					/>
 				{:else}
 					<button class="ddp-chip-add" onclick={() => setAdding(true)}>+</button>

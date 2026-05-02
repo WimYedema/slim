@@ -13,21 +13,34 @@
 		submitScores: () => void
 		refreshBoard: () => void
 	}
+
+	export interface RoomInfo {
+		roomCode: string
+		ownerName: string
+		role: 'owner' | 'contributor'
+		leaveRoom: () => void
+	}
 </script>
 
 <script lang="ts">
 	import type { Opportunity, Deliverable, OpportunityDeliverableLink } from '../lib/types'
 	import { publishBoard, queryBoard, publishScores, queryScores, applyScores, generateSyncKeys, generateRoomCode, type SyncKeys } from '../lib/sync'
 
+	import MemberPicker from './MemberPicker.svelte'
+	import { boardNames } from '../lib/queries'
+
 	interface Props {
 		opportunities: Opportunity[]
 		deliverables: Deliverable[]
 		links: OpportunityDeliverableLink[]
+		knownNames?: string[]
 		onApplyScores: (updatedOpportunities: Opportunity[], message: string) => void
 		onContributorChange?: (info: ContributorInfo | null) => void
+		onRoomInfoChange?: (info: RoomInfo | null) => void
+		onOpenRoomPanel?: () => void
 	}
 
-	let { opportunities, deliverables, links, onApplyScores, onContributorChange }: Props = $props()
+	let { opportunities, deliverables, links, knownNames = [], onApplyScores, onContributorChange, onRoomInfoChange, onOpenRoomPanel }: Props = $props()
 
 	// --- Persistent sync state (stored in localStorage) ---
 	const SYNC_KEY = 'slim-sync'
@@ -51,15 +64,33 @@
 		else localStorage.removeItem(SYNC_KEY)
 	}
 
+	interface LastOwner { roomCode: string; name: string }
+	const LAST_OWNER_KEY = 'slim-sync-owner'
+
+	function loadLastOwner(): LastOwner | null {
+		try {
+			const raw = localStorage.getItem(LAST_OWNER_KEY)
+			return raw ? JSON.parse(raw) : null
+		} catch { return null }
+	}
+
+	function saveLastOwner(owner: LastOwner | null) {
+		if (owner) localStorage.setItem(LAST_OWNER_KEY, JSON.stringify(owner))
+		else localStorage.removeItem(LAST_OWNER_KEY)
+	}
+
 	let syncState: SyncState | null = $state(loadSyncState())
 	let joinCode = $state('')
-	let contributorName = $state('')
+	let ownerName = $state('')
 	let status = $state('')
 	let busy = $state(false)
 	let showPanel = $state(false)
 	let contributorScores = $state<ScoreEntry[]>([])
 	let submittedScores = $state<ScoreEntry[]>([])
 	let remoteBoard = $state<BoardData | null>(null)
+	let previewBoard = $state<BoardData | null>(null)
+	let previewNames = $derived(previewBoard ? boardNames(previewBoard.opportunities, previewBoard.deliverables) : [])
+	let previewOwnerName = $derived(previewBoard?.ownerName ?? null)
 
 	// Notify parent of contributor state changes (called by $effect below)
 	// Also used for imperative leaveRoom notification
@@ -83,6 +114,20 @@
 			})
 		} else if (!syncState) {
 			onContributorChange?.(null)
+		}
+	})
+
+	// Notify parent of room info changes
+	$effect(() => {
+		if (syncState) {
+			onRoomInfoChange?.({
+				roomCode: syncState.roomCode,
+				ownerName: syncState.contributorName ?? '',
+				role: syncState.role,
+				leaveRoom,
+			})
+		} else {
+			onRoomInfoChange?.(null)
 		}
 	})
 
@@ -125,16 +170,23 @@
 	// --- Owner actions ---
 
 	async function createRoom() {
+		if (!ownerName.trim()) {
+			status = 'Enter your name first.'
+			return
+		}
 		busy = true
 		status = 'Creating room…'
 		try {
 			const roomCode = generateRoomCode()
 			const keys = generateSyncKeys()
-			const board: BoardData = { opportunities, deliverables, links }
+			const name = ownerName.trim()
+			const board: BoardData = { opportunities, deliverables, links, ownerName: name }
 			await publishBoard(roomCode, keys, board)
-			const state: SyncState = { roomCode, keys, role: 'owner' }
+			const state: SyncState = { roomCode, keys, role: 'owner', contributorName: name }
 			syncState = state
 			saveSyncState(state)
+			saveLastOwner({ roomCode, name })
+			ownerName = ''
 			status = 'Room created. Share the code with contributors.'
 		} catch (e) {
 			status = `Failed to create room: ${e instanceof Error ? e.message : 'unknown error'}`
@@ -147,9 +199,10 @@
 		busy = true
 		status = 'Publishing board…'
 		try {
-			const board: BoardData = { opportunities, deliverables, links }
+			const board: BoardData = { opportunities, deliverables, links, ownerName: syncState.contributorName }
 			await publishBoard(syncState.roomCode, syncState.keys, board)
 			status = 'Board published.'
+			showPanel = false
 		} catch (e) {
 			status = `Publish failed: ${e instanceof Error ? e.message : 'unknown error'}`
 		}
@@ -172,6 +225,7 @@
 					onApplyScores(clonedOpps, `Applied ${count} score${count === 1 ? '' : 's'} from ${submissions.length} submission${submissions.length === 1 ? '' : 's'}.`)
 					status = `Applied ${count} score${count === 1 ? '' : 's'} from ${submissions.length} submission${submissions.length === 1 ? '' : 's'}.`
 					pendingSubmissionCount = 0
+					showPanel = false
 				} else {
 					status = 'Submissions found but no new scores to apply.'
 				}
@@ -184,10 +238,10 @@
 
 	// --- Contributor actions ---
 
-	async function joinRoom() {
-		if (!joinCode.trim() || !contributorName.trim()) return
+	async function lookupRoom() {
+		if (!joinCode.trim()) return
 		busy = true
-		status = 'Joining room…'
+		status = 'Looking up room…'
 		try {
 			const board = await queryBoard(joinCode.trim())
 			if (!board) {
@@ -195,15 +249,60 @@
 				busy = false
 				return
 			}
+			const last = loadLastOwner()
+			if (last && last.roomCode === joinCode.trim()) {
+				// Auto-reclaim as owner
+				await reclaimAsOwner(last.name)
+				return
+			}
+			previewBoard = board
+			status = `Found board with ${board.opportunities.length} opportunities. Pick your name to join.`
+		} catch (e) {
+			status = `Lookup failed: ${e instanceof Error ? e.message : 'unknown error'}`
+		}
+		busy = false
+	}
+
+	function joinOrReclaim(name: string) {
+		if (previewOwnerName && name.trim().toLowerCase() === previewOwnerName.toLowerCase()) {
+			reclaimAsOwner(name)
+		} else {
+			joinAsContributor(name)
+		}
+	}
+
+	function joinAsContributor(name: string) {
+		if (!previewBoard || !joinCode.trim() || !name.trim()) return
+		const keys = generateSyncKeys()
+		const state: SyncState = { roomCode: joinCode.trim(), keys, role: 'contributor', contributorName: name.trim() }
+		syncState = state
+		saveSyncState(state)
+		contributorScores = []
+		remoteBoard = previewBoard
+		previewBoard = null
+		status = `Joined as ${name.trim()}. Board has ${remoteBoard.opportunities.length} opportunities.`
+		showPanel = false
+	}
+
+	async function reclaimAsOwner(name: string) {
+		if (!name.trim() || !joinCode.trim()) return
+		busy = true
+		status = 'Reclaiming room…'
+		try {
+			const roomCode = joinCode.trim()
 			const keys = generateSyncKeys()
-			const state: SyncState = { roomCode: joinCode.trim(), keys, role: 'contributor', contributorName: contributorName.trim() }
+			const board: BoardData = { opportunities, deliverables, links, ownerName: name.trim() }
+			await publishBoard(roomCode, keys, board)
+			const state: SyncState = { roomCode, keys, role: 'owner', contributorName: name.trim() }
 			syncState = state
 			saveSyncState(state)
-			contributorScores = []
-			remoteBoard = board
-			status = `Joined room. Board has ${board.opportunities.length} opportunities.`
+			saveLastOwner({ roomCode, name: name.trim() })
+			previewBoard = null
+			ownerName = ''
+			status = `Rejoined room as ${name.trim()}.`
+			showPanel = false
 		} catch (e) {
-			status = `Join failed: ${e instanceof Error ? e.message : 'unknown error'}`
+			status = `Reclaim failed: ${e instanceof Error ? e.message : 'unknown error'}`
 		}
 		busy = false
 	}
@@ -221,6 +320,7 @@
 			status = `Submitted ${contributorScores.length} score${contributorScores.length === 1 ? '' : 's'}. Your input has been sent to the PO.`
 			submittedScores = [...submittedScores, ...contributorScores]
 			contributorScores = []
+			showPanel = false
 		} catch (e) {
 			status = `Submit failed: ${e instanceof Error ? e.message : 'unknown error'}`
 		}
@@ -237,6 +337,7 @@
 				remoteBoard = board
 				submittedScores = []
 				status = `Board refreshed — ${board.opportunities.length} opportunities.`
+				showPanel = false
 			} else {
 				status = 'Could not fetch board.'
 			}
@@ -247,12 +348,14 @@
 	}
 
 	function leaveRoom() {
+		const previousCode = syncState?.roomCode ?? ''
 		syncState = null
 		saveSyncState(null)
 		contributorScores = []
 		submittedScores = []
 		remoteBoard = null
-		status = ''
+		joinCode = previousCode
+		status = 'Left room. Use the pre-filled code to rejoin.'
 		onContributorChange?.(null)
 	}
 
@@ -275,19 +378,44 @@
 			contributorScores = [...contributorScores, entry]
 		}
 	}
+
+	let containerEl: HTMLDivElement | undefined = $state()
+
+	$effect(() => {
+		if (!showPanel) return
+		function handleClick(e: PointerEvent) {
+			if (containerEl && !containerEl.contains(e.target as Node)) {
+				showPanel = false
+			}
+		}
+		document.addEventListener('pointerdown', handleClick)
+		return () => document.removeEventListener('pointerdown', handleClick)
+	})
 </script>
 
-<div class="sync-container">
+<div class="sync-container" bind:this={containerEl}>
+	{#if syncState?.role === 'owner'}
+		<!-- Owner: direct buttons, no dropdown -->
+		<div class="sync-owner-bar">
+			<button class="sync-btn primary" onclick={publishUpdate} disabled={busy}>
+				{busy ? 'Publishing…' : 'Publish'}
+			</button>
+			<button class="sync-toggle" onclick={() => onOpenRoomPanel?.()} title="Open room panel">
+				🔗 Room
+				{#if pendingSubmissionCount > 0}
+					<span class="sync-badge">{pendingSubmissionCount}</span>
+				{/if}
+			</button>
+		</div>
+	{:else}
 	<button class="sync-toggle" onclick={() => showPanel = !showPanel} title="Share & sync board via encrypted relay">
 		{#if syncState}
-			🔗 {syncState.role === 'owner' ? 'Room' : 'Contributor'}
-			{#if pendingSubmissionCount > 0}
-				<span class="sync-badge">{pendingSubmissionCount}</span>
-			{/if}
+			🔗 Contributor
 		{:else}
 			Share
 		{/if}
 	</button>
+	{/if}
 
 	{#if showPanel}
 		<div class="sync-panel">
@@ -296,34 +424,26 @@
 				<div class="sync-section">
 					<h3>Create a room</h3>
 					<p class="sync-hint">Publish your board so contributors can score cells.</p>
-					<button class="sync-btn primary" onclick={createRoom} disabled={busy}>Create Room</button>
+					<input class="sync-input" type="text" placeholder="Your name" bind:value={ownerName} />
+					<button class="sync-btn primary" onclick={createRoom} disabled={busy || !ownerName.trim()}>Create Room</button>
 				</div>
 				<div class="sync-divider">or</div>
 				<div class="sync-section">
 					<h3>Join a room</h3>
 					<input class="sync-input" type="text" placeholder="Room code" bind:value={joinCode} />
-					<input class="sync-input" type="text" placeholder="Your name" bind:value={contributorName} />
-					<button class="sync-btn" onclick={joinRoom} disabled={busy || !joinCode.trim() || !contributorName.trim()}>Join</button>
+					{#if previewBoard}
+						<MemberPicker
+							knownNames={previewNames}
+							placeholder="Your name…"
+							inputClass="sync-input"
+							onPick={joinOrReclaim}
+						/>
+					{:else}
+						<button class="sync-btn" onclick={lookupRoom} disabled={busy || !joinCode.trim()}>Look up</button>
+					{/if}
 				</div>
 
-			{:else if syncState.role === 'owner'}
-				<!-- Owner panel -->
-				<div class="sync-section">
-					<h3>Room active</h3>
-					<div class="room-code-display">
-						<code class="room-code">{syncState.roomCode}</code>
-						<button class="copy-btn" onclick={copyRoomCode} title="Copy room code">📋</button>
-					</div>
-					<div class="sync-actions">
-						<button class="sync-btn primary" onclick={publishUpdate} disabled={busy}>Publish Board</button>
-						<button class="sync-btn{pendingSubmissionCount > 0 ? ' primary' : ''}" onclick={pullScores} disabled={busy}>
-							Pull Scores{#if pendingSubmissionCount > 0} ({pendingSubmissionCount}){/if}
-						</button>
-						<button class="sync-btn danger" onclick={leaveRoom}>Leave Room</button>
-					</div>
-				</div>
-
-			{:else}
+			{:else if syncState.role === 'contributor'}
 				<!-- Contributor panel -->
 				<div class="sync-section">
 					<h3>Contributing as {syncState.contributorName}</h3>
@@ -350,6 +470,12 @@
 <style>
 	.sync-container {
 		position: relative;
+	}
+
+	.sync-owner-bar {
+		display: flex;
+		gap: var(--sp-xs);
+		align-items: center;
 	}
 
 	.sync-toggle {

@@ -14,6 +14,8 @@ export interface BoardData {
 	customHorizons?: string[]
 	/** Last-seen snapshot for the briefing diff engine */
 	briefingSnapshot?: BoardSnapshot
+	/** Name of the room owner (included in published board for rejoin detection) */
+	ownerName?: string
 }
 
 export function saveBoard(data: BoardData): void {

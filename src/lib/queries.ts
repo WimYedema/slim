@@ -3,6 +3,7 @@ import {
 	type CellSignal,
 	type Commitment,
 	type ConsentStatus,
+	type Deliverable,
 	type HorizonPressure,
 	type Opportunity,
 	type OpportunityDeliverableLink,
@@ -284,6 +285,37 @@ export function inheritedPeople(
 		}
 	}
 	return [...names].sort()
+}
+
+// ── People registry ──
+
+/** Collect all unique person names from the board, sorted alphabetically.
+ *  Deduplicates case-insensitively, keeping the first-seen casing. */
+export function boardNames(opportunities: Opportunity[], deliverables: Deliverable[]): string[] {
+	const seen = new Map<string, string>() // lowercased → first-seen casing
+	function add(name: string) {
+		const key = name.trim()
+		if (!key) return
+		const lower = key.toLowerCase()
+		if (!seen.has(lower)) seen.set(lower, key)
+	}
+	for (const opp of opportunities) {
+		for (const p of opp.people) add(p.name)
+		for (const c of opp.commitments) add(c.to)
+		for (const stageKey of Object.keys(opp.signals)) {
+			const stage = opp.signals[stageKey as Stage]
+			if (!stage) continue
+			for (const persKey of Object.keys(stage)) {
+				const sig = stage[persKey as Perspective]
+				if (sig?.owner) add(sig.owner)
+			}
+		}
+	}
+	for (const d of deliverables) {
+		for (const n of d.extraContributors) add(n)
+		for (const n of d.extraConsumers) add(n)
+	}
+	return [...seen.values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
 }
 
 // ── Visualization ──
