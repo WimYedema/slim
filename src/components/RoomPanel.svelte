@@ -18,6 +18,7 @@
 	let loading = $state(false)
 	let error = $state('')
 	let lastFetched = $state<number | null>(null)
+	let rotatingRoom = $state(false)
 
 	// Group submissions by contributor name
 	let grouped = $derived(groupByContributor(submissions))
@@ -307,6 +308,43 @@
 					Apply {acceptedCount} score{acceptedCount === 1 ? '' : 's'}
 				</button>
 			</div>
+		{/if}
+
+		<!-- Team roster -->
+		{#if roomInfo.roster}
+			<section class="rp-section">
+				<h3 class="rp-section-title">Team members</h3>
+				<ul class="rp-member-list">
+					{#each roomInfo.roster.members as member}
+						<li class="rp-member">
+							<span>
+								{member.displayName}
+								{#if member.role === 'owner'}
+									<span class="rp-role-badge">owner</span>
+								{/if}
+							</span>
+							{#if member.role !== 'owner' && roomInfo.revokeMember}
+								<button
+									class="rp-action-btn rp-action-reject"
+									onclick={() => roomInfo.revokeMember?.(member.id)}
+									title="Remove {member.displayName} and rotate room code"
+								>✗</button>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
+
+		<!-- Security actions -->
+		{#if roomInfo.rotateRoom}
+			<section class="rp-section">
+				<h3 class="rp-section-title">Security</h3>
+				<p class="rp-hint">Rotate the room code to revoke access for anyone not currently connected. Contributors will auto-migrate.</p>
+				<button class="rp-btn rp-btn-warn" onclick={() => roomInfo.rotateRoom?.('Manual rotation')} disabled={rotatingRoom}>
+					{rotatingRoom ? 'Rotating…' : 'Rotate Room Code'}
+				</button>
+			</section>
 		{/if}
 
 		<!-- Leave room -->
@@ -662,5 +700,20 @@
 		padding: var(--sp-md) 0;
 		background: var(--c-surface);
 		border-top: 1px solid var(--c-border-soft);
+	}
+
+	.rp-role-badge {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+		background: var(--c-bg);
+		padding: 1px var(--sp-2xs);
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--c-border-soft);
+		margin-left: var(--sp-2xs);
+	}
+
+	.rp-btn-warn {
+		color: var(--c-yellow, oklch(0.7 0.15 85));
+		border-color: var(--c-yellow-border, var(--c-border));
 	}
 </style>

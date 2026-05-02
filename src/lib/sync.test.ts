@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BoardData } from './store'
-import { applyScores, type ScoreSubmission } from './sync'
+import { applyScores, isMigrationNotice, type ScoreSubmission } from './sync'
 import { createOpportunity } from './types'
 
 function board(opps = [createOpportunity('Test')]): BoardData {
@@ -158,5 +158,37 @@ describe('applyScores', () => {
 	it('returns 0 for empty submissions', () => {
 		const b = board()
 		expect(applyScores(b, [])).toBe(0)
+	})
+})
+
+describe('isMigrationNotice', () => {
+	it('returns true for a valid migration notice', () => {
+		expect(isMigrationNotice({
+			migrated: true,
+			newRoomCode: 'new-code-123',
+			reason: 'Member removed',
+			timestamp: Date.now(),
+		})).toBe(true)
+	})
+
+	it('returns false for board data', () => {
+		expect(isMigrationNotice({
+			opportunities: [],
+			deliverables: [],
+			links: [],
+		})).toBe(false)
+	})
+
+	it('returns false for null/undefined', () => {
+		expect(isMigrationNotice(null)).toBe(false)
+		expect(isMigrationNotice(undefined)).toBe(false)
+	})
+
+	it('returns false when migrated is not true', () => {
+		expect(isMigrationNotice({ migrated: false, newRoomCode: 'x' })).toBe(false)
+	})
+
+	it('returns false when newRoomCode is missing', () => {
+		expect(isMigrationNotice({ migrated: true })).toBe(false)
 	})
 })

@@ -24,13 +24,19 @@
 		trustedPubkeys?: string[]
 		/** Owner's pubkey only — used for board state filtering */
 		ownerPubkeys?: string[]
+		/** Rotate the room code (owner only). Returns true on success. */
+		rotateRoom?: (reason: string) => Promise<boolean>
+		/** Remove a member and rotate the room code (owner only). Returns true on success. */
+		revokeMember?: (memberId: string) => Promise<boolean>
+		/** Cached roster for display */
+		roster?: TeamSpace
 	}
 </script>
 
 <script lang="ts">
 	import type { Opportunity, Deliverable, OpportunityDeliverableLink } from '../lib/types'
-	import { publishBoard, queryBoard, publishScores, queryScores, applyScores, generateSyncKeys, generateRoomCode, type SyncKeys } from '../lib/sync'
-	import { createTeamSpace, findMemberByName as findRosterMember } from '../lib/samen/roster'
+	import { publishBoard, queryBoard, publishScores, queryScores, applyScores, generateSyncKeys, generateRoomCode, publishMigration, isMigrationNotice, type SyncKeys, type MigrationNotice } from '../lib/sync'
+	import { createTeamSpace, findMemberByName as findRosterMember, removeMember as rosterRemoveMember } from '../lib/samen/roster'
 	import { publishRoster, queryRoster } from '../lib/samen/roster-sync'
 	import type { TeamSpace, SamenIdentity } from '../lib/samen/types'
 
@@ -189,6 +195,7 @@
 	// Notify parent of room info changes
 	$effect(() => {
 		if (syncState) {
+			const isOwner = syncState.role === 'owner'
 			onRoomInfoChange?.({
 				roomCode: syncState.roomCode,
 				ownerName: syncState.contributorName ?? '',
@@ -197,6 +204,9 @@
 				teamName: cachedRoster?.name,
 				trustedPubkeys: allRosterPubkeys,
 				ownerPubkeys,
+				rotateRoom: isOwner ? rotateRoom : undefined,
+				revokeMember: isOwner ? revokeMember : undefined,
+				roster: cachedRoster ?? undefined,
 			})
 		} else {
 			onRoomInfoChange?.(null)
@@ -205,9 +215,11 @@
 
 	// Load remote board on init if we're a contributor
 	if (syncState?.role === 'contributor') {
-		queryBoard(syncState.roomCode, ownerPubkeys).then((board) => {
-			if (board) {
-				remoteBoard = board
+		queryBoard(syncState.roomCode, ownerPubkeys).then((result) => {
+			if (result && isMigrationNotice(result)) {
+				handleMigration(result)
+			} else if (result) {
+				remoteBoard = result
 			}
 		})
 	}
@@ -325,12 +337,19 @@
 		status = 'Looking up room…'
 		try {
 			const code = joinCode.trim()
-			const [board, roster] = await Promise.all([
+			const [result, roster] = await Promise.all([
 				queryBoard(code),
 				queryRoster(code),
 			])
-			if (!board) {
+			if (!result) {
 				status = 'Room not found — check the code and try again.'
+				busy = false
+				return
+			}
+			if (isMigrationNotice(result)) {
+				// Room has been rotated — follow the migration
+				joinCode = result.newRoomCode
+				status = `Room moved: ${result.reason}. Code updated — tap Look up again.`
 				busy = false
 				return
 			}
@@ -345,9 +364,9 @@
 				await reclaimAsOwner(last.name)
 				return
 			}
-			previewBoard = board
+			previewBoard = result
 			const nameSource = rosterNames.length > 0 ? 'team' : 'board'
-			status = `Found ${nameSource} with ${board.opportunities.length} opportunities. Pick your name to join.`
+			status = `Found ${nameSource} with ${result.opportunities.length} opportunities. Pick your name to join.`
 		} catch (e) {
 			status = `Lookup failed: ${e instanceof Error ? e.message : 'unknown error'}`
 		}
@@ -436,11 +455,13 @@
 		busy = true
 		status = 'Refreshing board…'
 		try {
-			const board = await queryBoard(syncState.roomCode, ownerPubkeys)
-			if (board) {
-				remoteBoard = board
+			const result = await queryBoard(syncState.roomCode, ownerPubkeys)
+			if (result && isMigrationNotice(result)) {
+				handleMigration(result)
+			} else if (result) {
+				remoteBoard = result
 				submittedScores = []
-				status = `Board refreshed — ${board.opportunities.length} opportunities.`
+				status = `Board refreshed — ${result.opportunities.length} opportunities.`
 				showPanel = false
 			} else {
 				status = 'Could not fetch board.'
@@ -464,6 +485,74 @@
 		joinCode = previousCode
 		status = 'Left room. Use the pre-filled code to rejoin.'
 		onContributorChange?.(null)
+	}
+
+	// --- Migration handling (contributor side) ---
+
+	function handleMigration(notice: MigrationNotice) {
+		if (!syncState) return
+		// Auto-follow: update the room code and re-query
+		const oldCode = syncState.roomCode
+		clearCachedRoster(oldCode)
+		const newState: SyncState = { ...syncState, roomCode: notice.newRoomCode }
+		syncState = newState
+		saveSyncState(newState)
+		status = `Room rotated: ${notice.reason}. Reconnecting…`
+		// Re-fetch board under new code
+		refreshBoard()
+	}
+
+	// --- Room code rotation (owner side) ---
+
+	async function rotateRoom(reason: string): Promise<boolean> {
+		if (!syncState || syncState.role !== 'owner') return false
+		busy = true
+		status = 'Rotating room code…'
+		try {
+			const oldCode = syncState.roomCode
+			const newCode = generateRoomCode()
+			const keys = syncState.keys
+			const name = syncState.contributorName ?? ''
+
+			// 1. Publish board + roster under new code
+			const board: BoardData = { opportunities, deliverables, links, ownerName: name }
+			await publishBoard(newCode, keys, board)
+			if (cachedRoster) {
+				const updatedRoster: TeamSpace = { ...cachedRoster, roomCode: newCode, updatedAt: Date.now() }
+				await publishRoster(newCode, keys, updatedRoster)
+				clearCachedRoster(oldCode)
+				cachedRoster = updatedRoster
+				saveCachedRoster(updatedRoster)
+			}
+
+			// 2. Publish migration notice on old room
+			await publishMigration(oldCode, keys, newCode, reason)
+
+			// 3. Update local state
+			const newState: SyncState = { ...syncState, roomCode: newCode }
+			syncState = newState
+			saveSyncState(newState)
+			saveLastOwner({ roomCode: newCode, name })
+
+			status = 'Room code rotated. Contributors will auto-migrate.'
+			return true
+		} catch (e) {
+			status = `Rotation failed: ${e instanceof Error ? e.message : 'unknown error'}`
+			return false
+		} finally {
+			busy = false
+		}
+	}
+
+	// --- Revocation: remove member + rotate ---
+
+	async function revokeMember(memberId: string): Promise<boolean> {
+		if (!syncState || syncState.role !== 'owner' || !cachedRoster) return false
+		// Remove from roster
+		cachedRoster = rosterRemoveMember(cachedRoster, memberId)
+		saveCachedRoster(cachedRoster)
+		// Rotate room code so the removed member can't read new events
+		return rotateRoom('Member removed')
 	}
 
 	function copyRoomCode() {

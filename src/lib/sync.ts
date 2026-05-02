@@ -23,6 +23,15 @@ const RELAY_URLS = ['wss://nos.lol', 'wss://relay.primal.net']
 const KIND_BOARD_STATE = 30078
 const KIND_SCORE_SUBMISSION = 30079
 
+/** NIP-40 expiration: 30 days from now (in seconds). Board and roster events
+ *  are republished on every update, so 30 days is generous. Compliant relays
+ *  auto-delete after this; non-compliant ones still hold only ciphertext. */
+const EXPIRATION_TTL_SECONDS = 30 * 24 * 60 * 60
+
+function expirationTag(): [string, string] {
+	return ['expiration', String(Math.floor(Date.now() / 1000) + EXPIRATION_TTL_SECONDS)]
+}
+
 // --- Types ---
 
 /** A score submission from a contributor */
@@ -45,6 +54,18 @@ export interface ScoreEntry {
 export interface SyncKeys {
 	secretKeyHex: string
 	publicKeyHex: string
+}
+
+/** Migration notice — published on the old room to redirect contributors */
+export interface MigrationNotice {
+	/** Signals this is a migration, not board data */
+	migrated: true
+	/** The new room code to join */
+	newRoomCode: string
+	/** Human-readable reason */
+	reason: string
+	/** When the migration happened */
+	timestamp: number
 }
 
 // --- Key management ---
@@ -80,7 +101,7 @@ export async function publishBoard(
 		{
 			kind: KIND_BOARD_STATE,
 			created_at: Math.floor(Date.now() / 1000),
-			tags: [['d', dTag]],
+			tags: [['d', dTag], expirationTag()],
 			content: ciphertext,
 		},
 		sk,
@@ -96,8 +117,9 @@ export async function publishBoard(
 
 /** Query the latest board state from Nostr relays.
  *  When trustedPubkeys is provided, only events signed by those keys are accepted.
+ *  Returns a MigrationNotice if the room has been rotated.
  */
-export async function queryBoard(roomCode: string, trustedPubkeys?: string[]): Promise<BoardData | null> {
+export async function queryBoard(roomCode: string, trustedPubkeys?: string[]): Promise<BoardData | MigrationNotice | null> {
 	const [roomKey, dTag] = await Promise.all([deriveRoomKey(roomCode), computeDTag(roomCode)])
 
 	const pool = new SimplePool()
@@ -114,10 +136,50 @@ export async function queryBoard(roomCode: string, trustedPubkeys?: string[]): P
 
 		const plaintext = await decrypt(roomKey, event.content)
 		const data: unknown = JSON.parse(plaintext)
+		if (isMigrationNotice(data)) return data as MigrationNotice
 		if (!isBoardData(data)) return null
 		return data as BoardData
 	} catch {
 		return null
+	} finally {
+		pool.close(RELAY_URLS)
+	}
+}
+
+// --- Room code rotation ---
+
+/** Publish a migration notice on the old room, replacing the board state event.
+ *  Contributors querying the old room will receive this instead of board data.
+ */
+export async function publishMigration(
+	oldRoomCode: string,
+	keys: SyncKeys,
+	newRoomCode: string,
+	reason: string,
+): Promise<void> {
+	const [roomKey, dTag] = await Promise.all([deriveRoomKey(oldRoomCode), computeDTag(oldRoomCode)])
+	const notice: MigrationNotice = {
+		migrated: true,
+		newRoomCode,
+		reason,
+		timestamp: Date.now(),
+	}
+	const ciphertext = await encrypt(roomKey, JSON.stringify(notice))
+	const sk = hexToBytes(keys.secretKeyHex)
+
+	const event = finalizeEvent(
+		{
+			kind: KIND_BOARD_STATE,
+			created_at: Math.floor(Date.now() / 1000),
+			tags: [['d', dTag], expirationTag()],
+			content: ciphertext,
+		},
+		sk,
+	)
+
+	const pool = new SimplePool()
+	try {
+		await Promise.any(pool.publish(RELAY_URLS, event))
 	} finally {
 		pool.close(RELAY_URLS)
 	}
@@ -144,6 +206,7 @@ export async function publishScores(
 			tags: [
 				['d', dTag],
 				['r', roomDTag],
+				expirationTag(),
 			],
 			content: ciphertext,
 		},
@@ -296,4 +359,10 @@ function isScoreSubmission(v: unknown): v is ScoreSubmission {
 	return (
 		typeof obj.name === 'string' && Array.isArray(obj.scores) && typeof obj.timestamp === 'number'
 	)
+}
+
+export function isMigrationNotice(v: unknown): v is MigrationNotice {
+	if (typeof v !== 'object' || v === null) return false
+	const obj = v as Record<string, unknown>
+	return obj.migrated === true && typeof obj.newRoomCode === 'string'
 }

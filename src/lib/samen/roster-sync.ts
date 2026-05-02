@@ -16,6 +16,13 @@ import type { SyncKeys } from '../sync'
 const RELAY_URLS = ['wss://nos.lol', 'wss://relay.primal.net']
 const KIND_ROSTER = 30078
 
+/** NIP-40: 30-day TTL — roster is republished on every mutation */
+const EXPIRATION_TTL_SECONDS = 30 * 24 * 60 * 60
+
+function expirationTag(): [string, string] {
+	return ['expiration', String(Math.floor(Date.now() / 1000) + EXPIRATION_TTL_SECONDS)]
+}
+
 /** Roster payload stored in Nostr event content (encrypted). */
 interface RosterPayload {
 	name: string
@@ -49,7 +56,7 @@ export async function publishRoster(
 		{
 			kind: KIND_ROSTER,
 			created_at: Math.floor(Date.now() / 1000),
-			tags: [['d', dTag]],
+			tags: [['d', dTag], expirationTag()],
 			content: ciphertext,
 		},
 		sk,
