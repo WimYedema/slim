@@ -365,13 +365,13 @@
 			</section>
 		{/if}
 
-		<!-- Security actions -->
+		<!-- Access concern -->
 		{#if roomInfo.rotateRoom}
 			<section class="rp-section">
-				<h3 class="rp-section-title">Security</h3>
-				<p class="rp-hint">Rotate the room code to revoke access for anyone not currently connected. Contributors will auto-migrate.</p>
+				<h3 class="rp-section-title">Suspect unauthorized access?</h3>
+				<p class="rp-hint">This generates a new room code. Team members will reconnect automatically.</p>
 				<button class="rp-btn rp-btn-warn" onclick={() => roomInfo.rotateRoom?.('Manual rotation')} disabled={rotatingRoom}>
-					{rotatingRoom ? 'Rotating…' : 'Rotate Room Code'}
+					{rotatingRoom ? 'Resetting…' : 'Reset access'}
 				</button>
 			</section>
 		{/if}
