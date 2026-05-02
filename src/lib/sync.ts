@@ -94,16 +94,22 @@ export async function publishBoard(
 	}
 }
 
-/** Query the latest board state from Nostr relays. */
-export async function queryBoard(roomCode: string): Promise<BoardData | null> {
+/** Query the latest board state from Nostr relays.
+ *  When trustedPubkeys is provided, only events signed by those keys are accepted.
+ */
+export async function queryBoard(roomCode: string, trustedPubkeys?: string[]): Promise<BoardData | null> {
 	const [roomKey, dTag] = await Promise.all([deriveRoomKey(roomCode), computeDTag(roomCode)])
 
 	const pool = new SimplePool()
 	try {
-		const event = await pool.get(RELAY_URLS, {
+		const filter: Record<string, unknown> = {
 			kinds: [KIND_BOARD_STATE],
 			'#d': [dTag],
-		})
+		}
+		if (trustedPubkeys?.length) {
+			filter.authors = trustedPubkeys
+		}
+		const event = await pool.get(RELAY_URLS, filter as Parameters<SimplePool['get']>[1])
 		if (!event) return null
 
 		const plaintext = await decrypt(roomKey, event.content)
@@ -152,16 +158,22 @@ export async function publishScores(
 	}
 }
 
-/** Query all score submissions for a room. */
-export async function queryScores(roomCode: string): Promise<ScoreSubmission[]> {
+/** Query all score submissions for a room.
+ *  When trustedPubkeys is provided, events from unknown signers are silently dropped.
+ */
+export async function queryScores(roomCode: string, trustedPubkeys?: string[]): Promise<ScoreSubmission[]> {
 	const [roomKey, roomDTag] = await Promise.all([deriveRoomKey(roomCode), computeDTag(roomCode)])
 
 	const pool = new SimplePool()
 	try {
-		const events = await pool.querySync(RELAY_URLS, {
+		const filter: Record<string, unknown> = {
 			kinds: [KIND_SCORE_SUBMISSION],
 			'#r': [roomDTag],
-		})
+		}
+		if (trustedPubkeys?.length) {
+			filter.authors = trustedPubkeys
+		}
+		const events = await pool.querySync(RELAY_URLS, filter as Parameters<SimplePool['querySync']>[1])
 
 		const submissions: ScoreSubmission[] = []
 		for (const event of events) {
@@ -216,15 +228,20 @@ export function applyScores(board: BoardData, submissions: ScoreSubmission[]): n
 
 // --- Live subscription (optional real-time score updates) ---
 
-/** Subscribe to new score submissions for a room. Returns a closer function. */
+/** Subscribe to new score submissions for a room. Returns a closer function.
+ *  When trustedPubkeys is provided, events from unknown signers are silently dropped.
+ */
 export async function subscribeScores(
 	roomCode: string,
 	onScore: (submission: ScoreSubmission) => void,
+	trustedPubkeys?: string[],
 ): Promise<{ close: () => void }> {
 	const [roomKey, roomDTag] = await Promise.all([deriveRoomKey(roomCode), computeDTag(roomCode)])
 
 	const pool = new SimplePool()
 	let sub: SubCloser | undefined
+
+	const trusted = trustedPubkeys?.length ? new Set(trustedPubkeys) : null
 
 	try {
 		sub = pool.subscribeMany(
@@ -236,6 +253,7 @@ export async function subscribeScores(
 			},
 			{
 				onevent(event) {
+					if (trusted && !trusted.has(event.pubkey)) return
 					decrypt(roomKey, event.content)
 						.then((plaintext) => {
 							const data: unknown = JSON.parse(plaintext)

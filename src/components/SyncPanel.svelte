@@ -19,12 +19,20 @@
 		ownerName: string
 		role: 'owner' | 'contributor'
 		leaveRoom: () => void
+		teamName?: string
+		/** All roster member pubkeys — used for trusted event filtering */
+		trustedPubkeys?: string[]
+		/** Owner's pubkey only — used for board state filtering */
+		ownerPubkeys?: string[]
 	}
 </script>
 
 <script lang="ts">
 	import type { Opportunity, Deliverable, OpportunityDeliverableLink } from '../lib/types'
 	import { publishBoard, queryBoard, publishScores, queryScores, applyScores, generateSyncKeys, generateRoomCode, type SyncKeys } from '../lib/sync'
+	import { createTeamSpace, findMemberByName as findRosterMember } from '../lib/samen/roster'
+	import { publishRoster, queryRoster } from '../lib/samen/roster-sync'
+	import type { TeamSpace, SamenIdentity } from '../lib/samen/types'
 
 	import MemberPicker from './MemberPicker.svelte'
 	import { boardNames } from '../lib/queries'
@@ -50,6 +58,7 @@
 		keys: SyncKeys
 		role: 'owner' | 'contributor'
 		contributorName?: string
+		hasTeam?: boolean
 	}
 
 	function loadSyncState(): SyncState | null {
@@ -79,10 +88,54 @@
 		else localStorage.removeItem(LAST_OWNER_KEY)
 	}
 
+	// --- Roster cache (localStorage per-room) ---
+
+	function rosterCacheKey(roomCode: string): string {
+		return `samen-roster-${roomCode.slice(0, 16)}`
+	}
+
+	function loadCachedRoster(roomCode: string): TeamSpace | null {
+		try {
+			const raw = localStorage.getItem(rosterCacheKey(roomCode))
+			return raw ? JSON.parse(raw) : null
+		} catch { return null }
+	}
+
+	function saveCachedRoster(roster: TeamSpace | null) {
+		if (roster) localStorage.setItem(rosterCacheKey(roster.roomCode), JSON.stringify(roster))
+	}
+
+	function clearCachedRoster(roomCode: string) {
+		localStorage.removeItem(rosterCacheKey(roomCode))
+	}
+
+	// --- Identity cache (cross-session, cross-tool) ---
+
+	const IDENTITY_KEY = 'samen-identity'
+
+	function loadIdentity(): SamenIdentity | null {
+		try {
+			const raw = localStorage.getItem(IDENTITY_KEY)
+			return raw ? JSON.parse(raw) : null
+		} catch { return null }
+	}
+
+	function saveIdentity(identity: SamenIdentity) {
+		localStorage.setItem(IDENTITY_KEY, JSON.stringify(identity))
+	}
+
+	let cachedRoster = $state<TeamSpace | null>(null)
 	let syncState: SyncState | null = $state(loadSyncState())
+
+	// Initialize cached roster from localStorage after syncState is set
+	if (syncState) {
+		cachedRoster = loadCachedRoster(syncState.roomCode)
+	}
+
 	let joinCode = $state('')
 	let ownerName = $state('')
 	let status = $state('')
+	let rosterNames = $state<string[]>([])
 	let busy = $state(false)
 	let showPanel = $state(false)
 	let contributorScores = $state<ScoreEntry[]>([])
@@ -91,6 +144,22 @@
 	let previewBoard = $state<BoardData | null>(null)
 	let previewNames = $derived(previewBoard ? boardNames(previewBoard.opportunities, previewBoard.deliverables) : [])
 	let previewOwnerName = $derived(previewBoard?.ownerName ?? null)
+	// Merge roster + board names for the join picker: roster members first, board-only names after
+	let joinPickerNames = $derived(mergeNames(rosterNames, previewNames))
+
+	function mergeNames(roster: string[], board: string[]): string[] {
+		const seen = new Set(roster.map(n => n.toLowerCase()))
+		const boardOnly = board.filter(n => !seen.has(n.toLowerCase()))
+		return [...roster, ...boardOnly]
+	}
+
+	// Roster-based pubkey filtering for trusted event verification
+	let allRosterPubkeys = $derived(cachedRoster
+		? cachedRoster.members.flatMap(m => m.publicKeys)
+		: undefined)
+	let ownerPubkeys = $derived(cachedRoster
+		? cachedRoster.members.filter(m => m.role === 'owner').flatMap(m => m.publicKeys)
+		: undefined)
 
 	// Notify parent of contributor state changes (called by $effect below)
 	// Also used for imperative leaveRoom notification
@@ -125,6 +194,9 @@
 				ownerName: syncState.contributorName ?? '',
 				role: syncState.role,
 				leaveRoom,
+				teamName: cachedRoster?.name,
+				trustedPubkeys: allRosterPubkeys,
+				ownerPubkeys,
 			})
 		} else {
 			onRoomInfoChange?.(null)
@@ -133,7 +205,7 @@
 
 	// Load remote board on init if we're a contributor
 	if (syncState?.role === 'contributor') {
-		queryBoard(syncState.roomCode).then((board) => {
+		queryBoard(syncState.roomCode, ownerPubkeys).then((board) => {
 			if (board) {
 				remoteBoard = board
 			}
@@ -146,7 +218,7 @@
 	async function checkForSubmissions() {
 		if (!syncState || syncState.role !== 'owner') return
 		try {
-			const submissions = await queryScores(syncState.roomCode)
+			const submissions = await queryScores(syncState.roomCode, allRosterPubkeys)
 			// Count only submissions that would actually apply new scores
 			const cloned: BoardData = JSON.parse(JSON.stringify({ opportunities, deliverables, links }))
 			const wouldApply = applyScores(cloned, submissions)
@@ -182,12 +254,21 @@
 			const name = ownerName.trim()
 			const board: BoardData = { opportunities, deliverables, links, ownerName: name }
 			await publishBoard(roomCode, keys, board)
-			const state: SyncState = { roomCode, keys, role: 'owner', contributorName: name }
+
+			const team = createTeamSpace(roomCode, name, name, keys.publicKeyHex)
+			await publishRoster(roomCode, keys, team)
+			cachedRoster = team
+			saveCachedRoster(team)
+			saveIdentity({ memberId: team.members[0].id, displayName: name, publicKeyHex: keys.publicKeyHex })
+
+			const state: SyncState = { roomCode, keys, role: 'owner', contributorName: name, hasTeam: true }
 			syncState = state
 			saveSyncState(state)
 			saveLastOwner({ roomCode, name })
 			ownerName = ''
-			status = 'Room created. Share the code with contributors.'
+			status = ''
+			showPanel = false
+			onOpenRoomPanel?.()
 		} catch (e) {
 			status = `Failed to create room: ${e instanceof Error ? e.message : 'unknown error'}`
 		}
@@ -214,7 +295,7 @@
 		busy = true
 		status = 'Pulling scores…'
 		try {
-			const submissions = await queryScores(syncState.roomCode)
+			const submissions = await queryScores(syncState.roomCode, allRosterPubkeys)
 			if (submissions.length === 0) {
 				status = 'No score submissions found.'
 			} else {
@@ -243,20 +324,30 @@
 		busy = true
 		status = 'Looking up room…'
 		try {
-			const board = await queryBoard(joinCode.trim())
+			const code = joinCode.trim()
+			const [board, roster] = await Promise.all([
+				queryBoard(code),
+				queryRoster(code),
+			])
 			if (!board) {
 				status = 'Room not found — check the code and try again.'
 				busy = false
 				return
 			}
+			if (roster) {
+				cachedRoster = roster
+				saveCachedRoster(roster)
+				rosterNames = roster.members.map(m => m.displayName)
+			}
 			const last = loadLastOwner()
-			if (last && last.roomCode === joinCode.trim()) {
+			if (last && last.roomCode === code) {
 				// Auto-reclaim as owner
 				await reclaimAsOwner(last.name)
 				return
 			}
 			previewBoard = board
-			status = `Found board with ${board.opportunities.length} opportunities. Pick your name to join.`
+			const nameSource = rosterNames.length > 0 ? 'team' : 'board'
+			status = `Found ${nameSource} with ${board.opportunities.length} opportunities. Pick your name to join.`
 		} catch (e) {
 			status = `Lookup failed: ${e instanceof Error ? e.message : 'unknown error'}`
 		}
@@ -274,12 +365,23 @@
 	function joinAsContributor(name: string) {
 		if (!previewBoard || !joinCode.trim() || !name.trim()) return
 		const keys = generateSyncKeys()
-		const state: SyncState = { roomCode: joinCode.trim(), keys, role: 'contributor', contributorName: name.trim() }
+		const hasTeam = cachedRoster !== null
+		const state: SyncState = { roomCode: joinCode.trim(), keys, role: 'contributor', contributorName: name.trim(), hasTeam }
 		syncState = state
 		saveSyncState(state)
+
+		// If we have a roster, record identity for this member
+		if (cachedRoster) {
+			const member = findRosterMember(cachedRoster, name.trim())
+			if (member) {
+				saveIdentity({ memberId: member.id, displayName: name.trim(), publicKeyHex: keys.publicKeyHex })
+			}
+		}
+
 		contributorScores = []
 		remoteBoard = previewBoard
 		previewBoard = null
+		rosterNames = []
 		status = `Joined as ${name.trim()}. Board has ${remoteBoard.opportunities.length} opportunities.`
 		showPanel = false
 	}
@@ -293,11 +395,13 @@
 			const keys = generateSyncKeys()
 			const board: BoardData = { opportunities, deliverables, links, ownerName: name.trim() }
 			await publishBoard(roomCode, keys, board)
-			const state: SyncState = { roomCode, keys, role: 'owner', contributorName: name.trim() }
+			const hasTeam = cachedRoster !== null
+			const state: SyncState = { roomCode, keys, role: 'owner', contributorName: name.trim(), hasTeam }
 			syncState = state
 			saveSyncState(state)
 			saveLastOwner({ roomCode, name: name.trim() })
 			previewBoard = null
+			rosterNames = []
 			ownerName = ''
 			status = `Rejoined room as ${name.trim()}.`
 			showPanel = false
@@ -332,7 +436,7 @@
 		busy = true
 		status = 'Refreshing board…'
 		try {
-			const board = await queryBoard(syncState.roomCode)
+			const board = await queryBoard(syncState.roomCode, ownerPubkeys)
 			if (board) {
 				remoteBoard = board
 				submittedScores = []
@@ -349,11 +453,14 @@
 
 	function leaveRoom() {
 		const previousCode = syncState?.roomCode ?? ''
+		if (previousCode) clearCachedRoster(previousCode)
 		syncState = null
 		saveSyncState(null)
 		contributorScores = []
 		submittedScores = []
 		remoteBoard = null
+		cachedRoster = null
+		rosterNames = []
 		joinCode = previousCode
 		status = 'Left room. Use the pre-filled code to rejoin.'
 		onContributorChange?.(null)
@@ -433,7 +540,7 @@
 					<input class="sync-input" type="text" placeholder="Room code" bind:value={joinCode} />
 					{#if previewBoard}
 						<MemberPicker
-							knownNames={previewNames}
+							knownNames={joinPickerNames}
 							placeholder="Your name…"
 							inputClass="sync-input"
 							onPick={joinOrReclaim}

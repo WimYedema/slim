@@ -100,7 +100,7 @@
 		loading = true
 		error = ''
 		try {
-			submissions = await queryScores(roomInfo.roomCode)
+			submissions = await queryScores(roomInfo.roomCode, roomInfo.trustedPubkeys)
 			lastFetched = Date.now()
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to fetch'
