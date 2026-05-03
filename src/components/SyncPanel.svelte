@@ -51,13 +51,14 @@
 		deliverables: Deliverable[]
 		links: OpportunityDeliverableLink[]
 		knownNames?: string[]
+		initialOpen?: boolean
 		onApplyScores: (updatedOpportunities: Opportunity[], message: string) => void
 		onContributorChange?: (info: ContributorInfo | null) => void
 		onRoomInfoChange?: (info: RoomInfo | null) => void
 		onOpenRoomPanel?: () => void
 	}
 
-	let { opportunities, deliverables, links, knownNames = [], onApplyScores, onContributorChange, onRoomInfoChange, onOpenRoomPanel }: Props = $props()
+	let { opportunities, deliverables, links, knownNames = [], initialOpen = false, onApplyScores, onContributorChange, onRoomInfoChange, onOpenRoomPanel }: Props = $props()
 
 	// --- Persistent sync state (stored in localStorage) ---
 	const SYNC_KEY = 'slim-sync'
@@ -110,7 +111,7 @@
 	let status = $state('')
 	let rosterNames = $state<string[]>([])
 	let busy = $state(false)
-	let showPanel = $state(false)
+	let showPanel = $state(initialOpen)
 
 	// Auto-join: if ?room= is in the URL, pre-fill and trigger lookup
 	let autoJoinPending = $state(false)

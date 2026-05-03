@@ -386,7 +386,7 @@
 				</button>
 			{/each}
 			{#if peopleWithUrgency.length === 0}
-				<p class="empty-hint">No people linked to opportunities or deliverables yet.</p>
+				<p class="empty-hint">No people to meet with yet. Open an opportunity and add experts, approvers, or stakeholders — they'll appear here with a meeting agenda.</p>
 			{/if}
 		</div>
 		{/if}

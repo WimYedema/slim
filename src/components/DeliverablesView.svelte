@@ -444,7 +444,7 @@
 			<div class="dv-empty">
 				{#if deliverables.length === 0 && opportunities.length === 0}
 					<p class="dv-empty-title">Map opportunities to deliverables</p>
-					<p>This view shows how your work items (deliverables) connect to your goals (opportunities). Start by adding opportunities in the Pipeline, then come back here to plan the work.</p>
+					<p>This view connects work items to goals. Add opportunities in the Pipeline first, then come back here to plan deliverables. Press <kbd>n</kbd> to quick-add from anywhere.</p>
 				{:else if deliverables.length === 0}
 					<p class="dv-empty-title">No deliverables yet</p>
 					<p>Add deliverables below, or use <kbd>n</kbd> then <kbd>Tab</kbd> to quick-add from anywhere.</p>

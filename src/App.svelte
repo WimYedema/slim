@@ -10,6 +10,7 @@
 	import SyncPanel from './components/SyncPanel.svelte'
 	import ContributorView from './components/ContributorView.svelte'
 	import RoomPanel from './components/RoomPanel.svelte'
+	import WelcomePage from './components/WelcomePage.svelte'
 	import type { ContributorInfo, RoomInfo } from './components/SyncPanel.svelte'
 	import {
 		type Opportunity,
@@ -277,20 +278,20 @@
 		}
 	}
 
+	const WELCOMED_KEY = 'slim-welcomed'
 	const saved = loadBoard()
 	const savedMeetings = loadMeetingData()
-	const sampleOpps = createSampleData()
-	const sampleDL = createSampleDeliverables(sampleOpps)
+	// Auto-join link bypasses welcome; existing data means already welcomed
+	const hasRoomParam = new URLSearchParams(location.search).has('room')
+	let showWelcome = $state(!saved && !hasRoomParam && !localStorage.getItem(WELCOMED_KEY))
 
-	let opportunities: Opportunity[] = $state(saved?.opportunities ?? sampleOpps)
-	let deliverables: Deliverable[] = $state(saved?.deliverables ?? sampleDL.deliverables)
-	let links: OpportunityDeliverableLink[] = $state(saved?.links ?? sampleDL.links)
+	let opportunities: Opportunity[] = $state(saved?.opportunities ?? [])
+	let deliverables: Deliverable[] = $state(saved?.deliverables ?? [])
+	let links: OpportunityDeliverableLink[] = $state(saved?.links ?? [])
 	let customHorizons: string[] = $state(saved?.customHorizons ?? [])
-	let meetingData: MeetingData = $state(
-		savedMeetings.records.length > 0 ? savedMeetings : createSampleMeetingData(),
-	)
+	let meetingData: MeetingData = $state(savedMeetings)
 	let briefingSnapshot: BoardSnapshot | null = $state(
-		saved?.briefingSnapshot ?? snapshotBoard({ opportunities, deliverables, links })
+		saved?.briefingSnapshot ?? null
 	)
 	let selectedId: string | null = $state(null)
 	let selectedDeliverableId: string | null = $state(null)
@@ -368,10 +369,12 @@
 	}
 
 	$effect(() => {
+		if (showWelcome) return
 		saveBoard({ opportunities, deliverables, links, customHorizons, briefingSnapshot: briefingSnapshot ?? undefined })
 	})
 
 	$effect(() => {
+		if (showWelcome) return
 		saveMeetingData(meetingData)
 	})
 
@@ -654,6 +657,37 @@
 		selectedDeliverableId = null
 	}
 
+	// ── Welcome page actions ──
+
+	function dismissWelcome() {
+		localStorage.setItem(WELCOMED_KEY, '1')
+		showWelcome = false
+	}
+
+	function loadSampleData() {
+		const sampleOpps = createSampleData()
+		const sampleDL = createSampleDeliverables(sampleOpps)
+		opportunities = sampleOpps
+		deliverables = sampleDL.deliverables
+		links = sampleDL.links
+		meetingData = createSampleMeetingData()
+		briefingSnapshot = snapshotBoard({ opportunities, deliverables, links })
+		dismissWelcome()
+		view = 'pipeline'
+	}
+
+	function startEmptyBoard() {
+		dismissWelcome()
+		view = 'pipeline'
+	}
+
+	function welcomeJoinRoom() {
+		dismissWelcome()
+		showSyncPanelOnMount = true
+	}
+
+	let showSyncPanelOnMount = $state(false)
+
 	function resetBoard() {
 		pushUndo('Reset board')
 		clearBoard()
@@ -819,7 +853,11 @@
 <main class="app">
 	<header class="app-header">
 		<h1>Slim</h1>
-		{#if !contributorInfo}
+		{#if showWelcome}
+		<div class="header-actions">
+			<button class="help-btn" onclick={() => showHelp = true} title="Keyboard shortcuts (?)">?</button>
+		</div>
+		{:else if !contributorInfo}
 		<nav class="view-tabs">
 			<button class="view-tab" class:active={view === 'briefing'} onclick={() => switchView('briefing')}>Briefing</button>
 			<button class="view-tab" class:active={view === 'pipeline'} onclick={() => switchView('pipeline')}>Pipeline</button>
@@ -834,8 +872,10 @@
 			<button class="view-tab" class:active={contributorView === 'assignments'} onclick={() => contributorView = 'assignments'}>Assignments</button>
 		</nav>
 		{/if}
+		{#if !showWelcome}
 		<div class="header-actions">
 		<SyncPanel {opportunities} {deliverables} {links} {knownNames}
+				initialOpen={showSyncPanelOnMount}
 				onApplyScores={(updatedOpps, message) => {
 					pushUndo('Sync scores')
 					opportunities = updatedOpps
@@ -885,8 +925,15 @@
 			{/if}
 			<button class="help-btn" onclick={() => showHelp = true} title="Keyboard shortcuts (?)">?</button>
 		</div>
+		{/if}
 	</header>
-	{#if contributorInfo}
+	{#if showWelcome}
+	<WelcomePage
+		onSampleData={loadSampleData}
+		onEmptyBoard={startEmptyBoard}
+		onJoinRoom={welcomeJoinRoom}
+	/>
+	{:else if contributorInfo}
 	{#if contributorView === 'assignments'}
 	<ContributorView
 		opportunities={contributorInfo.board.opportunities}
