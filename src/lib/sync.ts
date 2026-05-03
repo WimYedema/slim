@@ -16,21 +16,15 @@ import { bytesToHex, hexToBytes } from 'nostr-tools/utils'
 import { computeDTag, decrypt, deriveRoomKey, encrypt } from './crypto'
 import type { BoardData } from './store'
 import type { CellSignal, Perspective, Stage } from './types'
+import { RELAY_URLS, expirationTag, type SyncKeys } from './samen/nostr-config'
+
+// Re-export SyncKeys so existing consumers don't break
+export type { SyncKeys } from './samen/nostr-config'
 
 // --- Config ---
 
-const RELAY_URLS = ['wss://nos.lol', 'wss://relay.primal.net']
 const KIND_BOARD_STATE = 30078
 const KIND_SCORE_SUBMISSION = 30079
-
-/** NIP-40 expiration: 30 days from now (in seconds). Board and roster events
- *  are republished on every update, so 30 days is generous. Compliant relays
- *  auto-delete after this; non-compliant ones still hold only ciphertext. */
-const EXPIRATION_TTL_SECONDS = 30 * 24 * 60 * 60
-
-function expirationTag(): [string, string] {
-	return ['expiration', String(Math.floor(Date.now() / 1000) + EXPIRATION_TTL_SECONDS)]
-}
 
 // --- Types ---
 
@@ -49,11 +43,6 @@ export interface ScoreEntry {
 	stage: Stage
 	perspective: Perspective
 	signal: CellSignal
-}
-
-export interface SyncKeys {
-	secretKeyHex: string
-	publicKeyHex: string
 }
 
 /** Migration notice — published on the old room to redirect contributors */

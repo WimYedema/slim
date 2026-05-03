@@ -40,6 +40,7 @@
 	import { publishBoard, queryBoard, publishScores, queryScores, applyScores, generateSyncKeys, generateRoomCode, publishMigration, isMigrationNotice, type SyncKeys, type MigrationNotice } from '../lib/sync'
 	import { createTeamSpace, findMemberByName as findRosterMember, removeMember as rosterRemoveMember, addMember as rosterAddMember } from '../lib/samen/roster'
 	import { publishRoster, queryRoster } from '../lib/samen/roster-sync'
+	import { loadCachedRoster, saveCachedRoster, clearCachedRoster, loadIdentity, saveIdentity } from '../lib/samen/roster-store'
 	import type { TeamSpace, SamenIdentity } from '../lib/samen/types'
 
 	import MemberPicker from './MemberPicker.svelte'
@@ -94,42 +95,6 @@
 	function saveLastOwner(owner: LastOwner | null) {
 		if (owner) localStorage.setItem(LAST_OWNER_KEY, JSON.stringify(owner))
 		else localStorage.removeItem(LAST_OWNER_KEY)
-	}
-
-	// --- Roster cache (localStorage per-room) ---
-
-	function rosterCacheKey(roomCode: string): string {
-		return `samen-roster-${roomCode.slice(0, 16)}`
-	}
-
-	function loadCachedRoster(roomCode: string): TeamSpace | null {
-		try {
-			const raw = localStorage.getItem(rosterCacheKey(roomCode))
-			return raw ? JSON.parse(raw) : null
-		} catch { return null }
-	}
-
-	function saveCachedRoster(roster: TeamSpace | null) {
-		if (roster) localStorage.setItem(rosterCacheKey(roster.roomCode), JSON.stringify(roster))
-	}
-
-	function clearCachedRoster(roomCode: string) {
-		localStorage.removeItem(rosterCacheKey(roomCode))
-	}
-
-	// --- Identity cache (cross-session, cross-tool) ---
-
-	const IDENTITY_KEY = 'samen-identity'
-
-	function loadIdentity(): SamenIdentity | null {
-		try {
-			const raw = localStorage.getItem(IDENTITY_KEY)
-			return raw ? JSON.parse(raw) : null
-		} catch { return null }
-	}
-
-	function saveIdentity(identity: SamenIdentity) {
-		localStorage.setItem(IDENTITY_KEY, JSON.stringify(identity))
 	}
 
 	let cachedRoster = $state<TeamSpace | null>(null)
@@ -308,6 +273,18 @@
 			await publishBoard(roomCode, keys, board)
 
 			const team = createTeamSpace(roomCode, name, name, keys.publicKeyHex)
+			// Auto-add board contributors (people with perspective assignments) to the roster
+			const ownerLower = name.toLowerCase()
+			const seen = new Set<string>([ownerLower])
+			for (const opp of opportunities) {
+				for (const person of opp.people) {
+					const lower = person.name.toLowerCase()
+					if (person.perspectives.length > 0 && !seen.has(lower)) {
+						seen.add(lower)
+						rosterAddMember(team, person.name, '')
+					}
+				}
+			}
 			await publishRoster(roomCode, keys, team)
 			cachedRoster = team
 			saveCachedRoster(team)

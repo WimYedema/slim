@@ -34,36 +34,41 @@
 	// Submitted contributor names (lowercased for matching)
 	let submittedNamesLower = $derived(new Set(grouped.map(g => g.name.toLowerCase())))
 
-	// Expected contributors: people assigned to perspectives on active opportunities
-	let expectedContributors = $derived(deriveExpectedContributors())
-
-	function deriveExpectedContributors(): { name: string; status: 'submitted' | 'awaiting' }[] {
-		const seen = new Map<string, string>() // lowercase → display name
+	// Assigned contributors: people with perspective assignments on active opportunities
+	let assignedNamesLower = $derived.by(() => {
+		const set = new Set<string>()
 		for (const opp of opportunities) {
 			if (opp.discontinuedAt) continue
 			for (const person of opp.people) {
-				if (person.perspectives.length > 0) {
-					const lower = person.name.toLowerCase()
-					if (!seen.has(lower) && lower !== roomInfo.ownerName.toLowerCase()) {
-						seen.set(lower, person.name)
-					}
-				}
+				if (person.perspectives.length > 0) set.add(person.name.toLowerCase())
 			}
 		}
-		// Also include anyone who submitted but isn't in the board people
-		for (const g of grouped) {
-			const lower = g.name.toLowerCase()
-			if (!seen.has(lower) && lower !== roomInfo.ownerName.toLowerCase()) {
-				seen.set(lower, g.name)
-			}
-		}
-		return [...seen.entries()]
-			.map(([lower, name]) => ({
-				name,
-				status: submittedNamesLower.has(lower) ? 'submitted' as const : 'awaiting' as const,
-			}))
-			.sort((a, b) => a.status === b.status ? a.name.localeCompare(b.name) : a.status === 'awaiting' ? -1 : 1)
+		return set
+	})
+
+	interface TeamRow {
+		id: string
+		name: string
+		role: 'owner' | 'member'
+		assigned: boolean
+		submitted: boolean
 	}
+
+	// Unified team list: roster members annotated with contributor/submission status
+	let teamRows = $derived.by((): TeamRow[] => {
+		const roster = roomInfo.roster
+		if (!roster) return []
+		return roster.members.map(m => {
+			const lower = m.displayName.toLowerCase()
+			return {
+				id: m.id,
+				name: m.displayName,
+				role: m.role,
+				assigned: assignedNamesLower.has(lower),
+				submitted: submittedNamesLower.has(lower),
+			}
+		})
+	})
 
 	// Track which scores the PO has accepted (by a composite key)
 	let accepted = $state<Set<string>>(new Set())
@@ -231,22 +236,54 @@
 			</div>
 		</section>
 
-		<!-- Contributors list -->
-		<section class="rp-section">
-			<h3 class="rp-section-title">Contributors</h3>
-			{#if expectedContributors.length === 0}
-				<p class="rp-hint">No contributors assigned yet. Add people to opportunities to see them here.</p>
-			{:else}
+		<!-- Team -->
+		{#if roomInfo.roster}
+			<section class="rp-section">
+				<h3 class="rp-section-title">Team</h3>
 				<ul class="rp-member-list">
-					{#each expectedContributors as contributor}
-						<li class="rp-member" class:rp-member-submitted={contributor.status === 'submitted'}>
-							<span>{contributor.name}</span>
-							<span class="rp-member-status">{contributor.status === 'submitted' ? '✓ submitted' : '⏳ awaiting'}</span>
+					{#each teamRows as row}
+						<li class="rp-member" class:rp-member-submitted={row.submitted}>
+							<span class="rp-member-name">
+								{row.name}
+								{#if row.role === 'owner'}
+									<span class="rp-role-badge">owner</span>
+								{/if}
+							</span>
+							<span class="rp-member-meta">
+								{#if row.role !== 'owner'}
+									{#if row.submitted}
+										<span class="rp-member-status">✓ submitted</span>
+									{:else if row.assigned}
+										<span class="rp-member-status">⏳ not yet submitted</span>
+									{:else}
+										<span class="rp-member-status rp-status-muted">no assignments</span>
+									{/if}
+								{/if}
+								{#if row.role !== 'owner' && roomInfo.revokeMember}
+									<button
+										class="rp-remove-btn"
+										onclick={() => roomInfo.revokeMember?.(row.id)}
+										title="Remove {row.name}"
+									>✗</button>
+								{/if}
+							</span>
 						</li>
 					{/each}
 				</ul>
-			{/if}
-		</section>
+				{#if roomInfo.addMember}
+					<div class="rp-add-member">
+						<input
+							class="rp-add-input"
+							type="text"
+							placeholder="Add member…"
+							bind:value={newMemberName}
+							onkeydown={(e) => { if (e.key === 'Enter') addNewMember() }}
+						/>
+						<button class="rp-btn" onclick={addNewMember} disabled={!newMemberName.trim()}>Add</button>
+					</div>
+				{/if}
+			</section>
+		{/if}
 
 		<!-- Submissions -->
 		<section class="rp-section">
@@ -325,44 +362,6 @@
 					Apply {acceptedCount} score{acceptedCount === 1 ? '' : 's'}
 				</button>
 			</div>
-		{/if}
-
-		<!-- Team roster -->
-		{#if roomInfo.roster}
-			<section class="rp-section">
-				<h3 class="rp-section-title">Team members</h3>
-				<ul class="rp-member-list">
-					{#each roomInfo.roster.members as member}
-						<li class="rp-member">
-							<span>
-								{member.displayName}
-								{#if member.role === 'owner'}
-									<span class="rp-role-badge">owner</span>
-								{/if}
-							</span>
-							{#if member.role !== 'owner' && roomInfo.revokeMember}
-								<button
-									class="rp-action-btn rp-action-reject"
-									onclick={() => roomInfo.revokeMember?.(member.id)}
-									title="Remove {member.displayName} and rotate room code"
-								>✗</button>
-							{/if}
-						</li>
-					{/each}
-				</ul>
-				{#if roomInfo.addMember}
-					<div class="rp-add-member">
-						<input
-							class="rp-add-input"
-							type="text"
-							placeholder="Add member…"
-							bind:value={newMemberName}
-							onkeydown={(e) => { if (e.key === 'Enter') addNewMember() }}
-						/>
-						<button class="rp-btn" onclick={addNewMember} disabled={!newMemberName.trim()}>Add</button>
-					</div>
-				{/if}
-			</section>
 		{/if}
 
 		<!-- Access concern -->
@@ -516,6 +515,16 @@
 
 	.rp-member-submitted .rp-member-status {
 		color: var(--c-green);
+	}
+
+	.rp-member-meta {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-xs);
+	}
+
+	.rp-status-muted {
+		opacity: 0.5;
 	}
 
 	.rp-leave-section {
@@ -744,6 +753,26 @@
 	.rp-btn-warn {
 		color: var(--c-yellow, oklch(0.7 0.15 85));
 		border-color: var(--c-yellow-border, var(--c-border));
+	}
+
+	.rp-remove-btn {
+		width: 20px;
+		height: 20px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		border-radius: var(--radius-sm);
+		background: transparent;
+		cursor: pointer;
+		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+		padding: 0;
+	}
+
+	.rp-remove-btn:hover {
+		color: var(--c-red, oklch(0.65 0.2 25));
+		background: var(--c-surface-hover);
 	}
 
 	.rp-add-member {

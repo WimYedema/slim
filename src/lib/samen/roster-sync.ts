@@ -9,19 +9,11 @@ import { finalizeEvent, SimplePool } from 'nostr-tools'
 import { hexToBytes } from 'nostr-tools/utils'
 import { computeRosterDTag, decryptRoster, deriveRosterKey, encryptRoster } from './crypto'
 import type { TeamSpace } from './types'
-import type { SyncKeys } from '../sync'
+import { RELAY_URLS, expirationTag, type SyncKeys } from './nostr-config'
 
 // --- Config ---
 
-const RELAY_URLS = ['wss://nos.lol', 'wss://relay.primal.net']
 const KIND_ROSTER = 30078
-
-/** NIP-40: 30-day TTL — roster is republished on every mutation */
-const EXPIRATION_TTL_SECONDS = 30 * 24 * 60 * 60
-
-function expirationTag(): [string, string] {
-	return ['expiration', String(Math.floor(Date.now() / 1000) + EXPIRATION_TTL_SECONDS)]
-}
 
 /** Roster payload stored in Nostr event content (encrypted). */
 interface RosterPayload {
