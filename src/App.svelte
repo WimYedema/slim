@@ -11,6 +11,7 @@
 	import ContributorView from './components/ContributorView.svelte'
 	import RoomPanel from './components/RoomPanel.svelte'
 	import WelcomePage from './components/WelcomePage.svelte'
+	import BrainDump from './components/BrainDump.svelte'
 	import type { ContributorInfo, RoomInfo } from './components/SyncPanel.svelte'
 	import {
 		type Opportunity,
@@ -29,6 +30,7 @@
 	import { opportunitiesToCsv, csvToOpportunities } from './lib/csv'
 	import { mergeBoards, formatMergeStats } from './lib/merge'
 	import { boardNames } from './lib/queries'
+	import { parseImportText, materialize } from './lib/import-parser'
 
 	type ViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'meetings'
 	type ContributorViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'assignments'
@@ -369,12 +371,12 @@
 	}
 
 	$effect(() => {
-		if (showWelcome) return
+		if (showWelcome || showBrainDump) return
 		saveBoard({ opportunities, deliverables, links, customHorizons, briefingSnapshot: briefingSnapshot ?? undefined })
 	})
 
 	$effect(() => {
-		if (showWelcome) return
+		if (showWelcome || showBrainDump) return
 		saveMeetingData(meetingData)
 	})
 
@@ -677,7 +679,26 @@
 	}
 
 	function startEmptyBoard() {
+		showBrainDump = true
+	}
+
+	let showBrainDump = $state(false)
+
+	function applyBrainDump(text: string) {
+		const parsed = parseImportText(text)
+		const board = materialize(parsed)
+		opportunities = board.opportunities
+		deliverables = board.deliverables
+		links = board.links
+		briefingSnapshot = snapshotBoard({ opportunities, deliverables, links })
 		dismissWelcome()
+		showBrainDump = false
+		view = 'pipeline'
+	}
+
+	function skipBrainDump() {
+		dismissWelcome()
+		showBrainDump = false
 		view = 'pipeline'
 	}
 
@@ -853,16 +874,16 @@
 <main class="app">
 	<header class="app-header">
 		<h1>Slim</h1>
-		{#if showWelcome}
+		{#if showWelcome || showBrainDump}
 		<div class="header-actions">
 			<button class="help-btn" onclick={() => showHelp = true} title="Keyboard shortcuts (?)">?</button>
 		</div>
 		{:else if !contributorInfo}
 		<nav class="view-tabs">
-			<button class="view-tab" class:active={view === 'briefing'} onclick={() => switchView('briefing')}>Briefing</button>
-			<button class="view-tab" class:active={view === 'pipeline'} onclick={() => switchView('pipeline')}>Pipeline</button>
-			<button class="view-tab" class:active={view === 'deliverables'} onclick={() => switchView('deliverables')}>Deliverables</button>
-			<button class="view-tab" class:active={view === 'meetings'} onclick={() => switchView('meetings')}>Meetings</button>
+			<button class="view-tab" class:active={view === 'briefing'} onclick={() => switchView('briefing')}>Briefing{#if opportunities.length === 0}<span class="tab-hint">what changed</span>{/if}</button>
+			<button class="view-tab" class:active={view === 'pipeline'} onclick={() => switchView('pipeline')}>Pipeline{#if opportunities.length === 0}<span class="tab-hint">where things stand</span>{/if}</button>
+			<button class="view-tab" class:active={view === 'deliverables'} onclick={() => switchView('deliverables')}>Deliverables{#if opportunities.length === 0}<span class="tab-hint">what to build</span>{/if}</button>
+			<button class="view-tab" class:active={view === 'meetings'} onclick={() => switchView('meetings')}>Meetings{#if opportunities.length === 0}<span class="tab-hint">who to talk to</span>{/if}</button>
 		</nav>
 		{:else}
 		<nav class="view-tabs">
@@ -872,7 +893,7 @@
 			<button class="view-tab" class:active={contributorView === 'assignments'} onclick={() => contributorView = 'assignments'}>Assignments</button>
 		</nav>
 		{/if}
-		{#if !showWelcome}
+		{#if !showWelcome && !showBrainDump}
 		<div class="header-actions">
 		<SyncPanel {opportunities} {deliverables} {links} {knownNames}
 				initialOpen={showSyncPanelOnMount}
@@ -927,11 +948,16 @@
 		</div>
 		{/if}
 	</header>
-	{#if showWelcome}
+	{#if showWelcome && !showBrainDump}
 	<WelcomePage
 		onSampleData={loadSampleData}
 		onEmptyBoard={startEmptyBoard}
 		onJoinRoom={welcomeJoinRoom}
+	/>
+	{:else if showBrainDump}
+	<BrainDump
+		onApply={applyBrainDump}
+		onSkip={skipBrainDump}
 	/>
 	{:else if contributorInfo}
 	{#if contributorView === 'assignments'}
@@ -1196,6 +1222,14 @@
 		color: var(--c-text);
 		font-weight: 600;
 		background: var(--c-hover);
+	}
+
+	.tab-hint {
+		display: block;
+		font-size: var(--fs-2xs);
+		color: var(--c-text-ghost);
+		font-weight: 400;
+		line-height: 1.2;
 	}
 
 	.data-menu-container {
