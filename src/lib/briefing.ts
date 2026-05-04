@@ -24,8 +24,14 @@ export interface BoardSnapshot {
 	deliverables: Deliverable[]
 	links: OpportunityDeliverableLink[]
 	takenAt: number
-	/** Stable keys of individually dismissed items (verb:targetId) */
+	/** @deprecated Use readKeys instead. Kept for backward compatibility. */
 	dismissedKeys?: string[]
+	/** Keys of items the user has marked as read (individual ×) */
+	readKeys?: string[]
+	/** Items from previous "Mark all read" actions, shown in Read band until decay */
+	readItems?: StoredReadItem[]
+	/** Active conditions from last render, used for resolution detection */
+	activeConditions?: Record<string, StoredCondition>
 }
 
 export function snapshotBoard(data: BoardData): BoardSnapshot {
@@ -73,6 +79,7 @@ export type ChangeVerb =
 	| 'revisit-due'
 	| 'wip-over'
 	| 'wip-under'
+	| 'resolved'
 
 export type ImportanceTier = 1 | 2 | 3
 
@@ -128,6 +135,64 @@ const TIER_MAP: Record<ChangeVerb, ImportanceTier> = {
 	'revisit-due': 1,
 	'wip-over': 2,
 	'wip-under': 3,
+	resolved: 3,
+}
+
+// ── Aging model ──
+
+/** Verbs that represent current-state conditions (recomputed fresh every render) */
+export const CONDITION_VERBS: ReadonlySet<ChangeVerb> = new Set([
+	'commitment-overdue',
+	'commitment-due-soon',
+	'stale',
+	'revisit-due',
+	'unscored-assignment',
+	'meeting-overdue',
+	'wip-over',
+	'wip-under',
+])
+
+/** Age band determines visual grouping in the feed */
+export type AgeBand = 'fresh' | 'read' | 'older'
+
+/** Thresholds for age band computation */
+const FRESH_MS = 24 * 60 * 60 * 1000 // < 1 day = fresh
+const OLDER_MS = 3 * 24 * 60 * 60 * 1000 // > 3 days = older
+export const DECAY_MS = 5 * 24 * 60 * 60 * 1000 // > 5 days = removed (events only)
+/** Minimum condition visibility (ms) before a resolution notice is emitted */
+const FLAP_THRESHOLD_MS = 24 * 60 * 60 * 1000
+
+/** Stored metadata for a condition that was active in the previous render */
+export interface StoredCondition {
+	firstSeen: number
+	title: string
+	targetId: string
+	targetType: 'opportunity' | 'deliverable'
+	verb: ChangeVerb
+}
+
+/** A read item stored from a previous "Mark all read" action */
+export interface StoredReadItem {
+	key: string
+	verb: ChangeVerb
+	targetType: 'opportunity' | 'deliverable'
+	targetId: string
+	targetTitle: string
+	description: string
+	detail?: string
+	tier: ImportanceTier
+	timestamp: number
+	readAt: number
+}
+
+/** Human labels for resolution notices */
+const RESOLUTION_LABELS: Partial<Record<ChangeVerb, string>> = {
+	'commitment-overdue': 'Commitment fulfilled',
+	'commitment-due-soon': 'Commitment met',
+	stale: 'No longer stale',
+	'unscored-assignment': 'Input received',
+	'meeting-overdue': 'Meeting held',
+	'revisit-due': 'Revisited',
 }
 
 // ── Diff engine ──
@@ -726,4 +791,305 @@ export function groupItems(items: BriefingItem[]): AnyBriefingItem[] {
 	result.sort((a, b) => a.tier - b.tier || b.timestamp - a.timestamp)
 
 	return result
+}
+
+// ── Return summary ──
+
+/** Minimum absence (in ms) before showing a return summary (4 hours) */
+const RETURN_THRESHOLD_MS = 4 * 60 * 60 * 1000
+
+/** Human-readable labels for verb counts in the return summary */
+const RETURN_VERB_LABELS: Partial<Record<ChangeVerb, [string, string]>> = {
+	'objection-added': ['objection', 'objections'],
+	'commitment-overdue': ['overdue commitment', 'overdue commitments'],
+	stale: ['stale item', 'stale items'],
+	exited: ['exit', 'exits'],
+	'revisit-due': ['revisit due', 'revisits due'],
+	'unscored-assignment': ['awaiting input', 'awaiting input'],
+}
+
+export interface ReturnSummary {
+	/** e.g. "While you were away: 2 objections, 1 overdue commitment" */
+	text: string
+	/** How long the user was away, in hours */
+	hoursAway: number
+}
+
+/**
+ * Build a one-line return summary if the user has been away long enough
+ * and there are tier-1 items worth highlighting.
+ * Returns null if the absence is too short or there's nothing urgent.
+ */
+export function buildReturnSummary(
+	snapshot: BoardSnapshot | null,
+	items: BriefingItem[],
+): ReturnSummary | null {
+	if (!snapshot) return null
+
+	const hoursAway = (Date.now() - snapshot.takenAt) / (60 * 60 * 1000)
+	if (hoursAway * 60 * 60 * 1000 < RETURN_THRESHOLD_MS) return null
+
+	const tier1 = items.filter((i) => i.tier === 1)
+	if (tier1.length === 0) return null
+
+	// Count by verb
+	const counts = new Map<ChangeVerb, number>()
+	for (const item of tier1) {
+		counts.set(item.verb, (counts.get(item.verb) ?? 0) + 1)
+	}
+
+	const parts: string[] = []
+	for (const [verb, count] of counts) {
+		const labels = RETURN_VERB_LABELS[verb]
+		if (labels) {
+			parts.push(`${count} ${count === 1 ? labels[0] : labels[1]}`)
+		}
+	}
+
+	if (parts.length === 0) return null
+
+	const daysAway = Math.floor(hoursAway / 24)
+	const prefix = daysAway >= 1 ? `While you were away (${daysAway}d)` : 'Since your last visit'
+
+	return {
+		text: `${prefix}: ${parts.join(', ')}`,
+		hoursAway,
+	}
+}
+
+// ── Resolution detection ──
+
+/**
+ * Detect conditions that were active in the previous snapshot but are no longer present.
+ * Returns resolution items and updated activeConditions map.
+ * Applies flap protection: conditions visible < 24h don't generate resolutions.
+ * Skips wip-over/wip-under (systemic, no clear "done" moment).
+ */
+export function detectResolutions(
+	currentItems: BriefingItem[],
+	snapshot: BoardSnapshot | null,
+): { resolutions: BriefingItem[]; updatedConditions: Record<string, StoredCondition> } {
+	const now = Date.now()
+	const updatedConditions: Record<string, StoredCondition> = {}
+	const resolutions: BriefingItem[] = []
+
+	// Build current condition keys
+	for (const item of currentItems) {
+		if (CONDITION_VERBS.has(item.verb)) {
+			const key = `${item.verb}:${item.targetId}`
+			updatedConditions[key] = {
+				firstSeen: snapshot?.activeConditions?.[key]?.firstSeen ?? now,
+				title: item.targetTitle,
+				targetId: item.targetId,
+				targetType: item.targetType,
+				verb: item.verb,
+			}
+		}
+	}
+
+	if (!snapshot?.activeConditions) return { resolutions, updatedConditions }
+
+	// Detect resolved conditions
+	const currentConditionKeys = new Set(Object.keys(updatedConditions))
+	for (const [key, stored] of Object.entries(snapshot.activeConditions)) {
+		if (currentConditionKeys.has(key)) continue // still active
+
+		// Flap protection: skip conditions visible < 24h
+		if (now - stored.firstSeen < FLAP_THRESHOLD_MS) continue
+
+		// Skip wip-over/wip-under — systemic, not actionable resolution
+		if (stored.verb === 'wip-over' || stored.verb === 'wip-under') continue
+
+		const label = RESOLUTION_LABELS[stored.verb] ?? 'Resolved'
+		resolutions.push({
+			id: itemId(),
+			targetType: stored.targetType,
+			targetId: stored.targetId,
+			targetTitle: stored.title,
+			verb: 'resolved',
+			description: `${label} — ${stored.title}`,
+			tier: TIER_MAP.resolved,
+			timestamp: now,
+		})
+	}
+
+	return { resolutions, updatedConditions }
+}
+
+// ── Age band computation ──
+
+/** Compute the age band for an item */
+export function computeAgeBand(item: AnyBriefingItem, readKeys: Set<string>, now: number): AgeBand {
+	const key = briefingKey(item)
+	const verb = item.verb
+
+	// Conditions always stay fresh (they represent active problems)
+	if (CONDITION_VERBS.has(verb)) return 'fresh'
+
+	// Manually marked read → read band
+	if (readKeys.has(key)) return 'read'
+
+	// Age-based banding for events
+	const age = now - item.timestamp
+	if (age > OLDER_MS) return 'older'
+	if (age > FRESH_MS) return 'read'
+	return 'fresh'
+}
+
+/** Check if an event item should be filtered out (decayed) */
+export function isDecayed(item: AnyBriefingItem, now: number): boolean {
+	if (CONDITION_VERBS.has(item.verb)) return false // conditions never decay
+	return now - item.timestamp > DECAY_MS
+}
+
+// ── Feed reconciliation ──
+
+/** The complete reconciled feed, split into bands */
+export interface ReconciledFeed {
+	fresh: AnyBriefingItem[]
+	read: AnyBriefingItem[]
+	older: AnyBriefingItem[]
+	/** Updated condition map — persist back to snapshot */
+	activeConditions: Record<string, StoredCondition>
+	/** Total item count across all bands */
+	total: number
+}
+
+/**
+ * Full feed reconciliation: takes raw diff items + snapshot and produces
+ * a three-band feed with resolution notices and natural decay.
+ */
+export function reconcileFeed(
+	rawItems: BriefingItem[],
+	snapshot: BoardSnapshot | null,
+	meetingData?: MeetingData | null,
+): ReconciledFeed {
+	const now = Date.now()
+
+	// 1. Deduplicate
+	const deduped = deduplicateItems(rawItems)
+
+	// 2. Detect resolutions (before grouping, needs individual item keys)
+	const { resolutions, updatedConditions } = detectResolutions(deduped, snapshot)
+
+	// 3. Merge resolutions into item list
+	const withResolutions = [...deduped, ...resolutions]
+
+	// 4. Group
+	const grouped = groupItems(withResolutions)
+
+	// 5. Build read keys set (migrate legacy dismissedKeys)
+	const readKeys = new Set([...(snapshot?.readKeys ?? []), ...(snapshot?.dismissedKeys ?? [])])
+
+	// 6. Load stored read items, prune decayed ones
+	const storedReadItems: AnyBriefingItem[] = (snapshot?.readItems ?? [])
+		.filter((ri) => now - ri.timestamp <= DECAY_MS)
+		.map((ri) => ({
+			id: ri.key,
+			targetType: ri.targetType,
+			targetId: ri.targetId,
+			targetTitle: ri.targetTitle,
+			verb: ri.verb,
+			description: ri.description,
+			detail: ri.detail,
+			tier: ri.tier,
+			timestamp: ri.timestamp,
+		}))
+
+	// 7. Merge: current items + stored read items (dedup by key, prefer current)
+	const currentKeys = new Set(grouped.map(briefingKey))
+	const mergedReadItems = storedReadItems.filter((ri) => !currentKeys.has(briefingKey(ri)))
+	const allItems = [...grouped, ...mergedReadItems]
+
+	// 8. Filter decayed events, assign bands
+	const fresh: AnyBriefingItem[] = []
+	const read: AnyBriefingItem[] = []
+	const older: AnyBriefingItem[] = []
+
+	for (const item of allItems) {
+		if (isDecayed(item, now)) continue
+		const band = computeAgeBand(item, readKeys, now)
+		// Stored read items are always in read band at minimum
+		if (mergedReadItems.includes(item) && band === 'fresh') {
+			read.push(item)
+		} else if (band === 'fresh') {
+			fresh.push(item)
+		} else if (band === 'older') {
+			older.push(item)
+		} else {
+			read.push(item)
+		}
+	}
+
+	// Sort each band: tier first, then newest first
+	const sortFn = (a: AnyBriefingItem, b: AnyBriefingItem) =>
+		a.tier - b.tier || b.timestamp - a.timestamp
+	fresh.sort(sortFn)
+	read.sort(sortFn)
+	older.sort(sortFn)
+
+	return {
+		fresh,
+		read,
+		older,
+		activeConditions: updatedConditions,
+		total: fresh.length + read.length + older.length,
+	}
+}
+
+/**
+ * Build stored read items from current visible items (for "Mark all read").
+ * Only stores events (not conditions, which are always recomputed).
+ */
+export function buildReadItems(
+	items: AnyBriefingItem[],
+	existingReadItems: StoredReadItem[],
+): StoredReadItem[] {
+	const now = Date.now()
+	const newItems: StoredReadItem[] = []
+
+	for (const item of items) {
+		if (CONDITION_VERBS.has(item.verb)) continue // skip conditions
+		if (isGrouped(item)) {
+			// Store each target as a separate read item
+			for (const target of item.targets) {
+				newItems.push({
+					key: `${item.verb}:${target.id}`,
+					verb: item.verb,
+					targetType: target.type,
+					targetId: target.id,
+					targetTitle: target.title,
+					description: item.description,
+					detail: item.detail,
+					tier: item.tier,
+					timestamp: item.timestamp,
+					readAt: now,
+				})
+			}
+		} else {
+			newItems.push({
+				key: briefingKey(item),
+				verb: item.verb,
+				targetType: item.targetType,
+				targetId: item.targetId,
+				targetTitle: item.targetTitle,
+				description: item.description,
+				detail: item.detail,
+				tier: item.tier,
+				timestamp: item.timestamp,
+				readAt: now,
+			})
+		}
+	}
+
+	// Merge with existing, dedup by key (newer wins)
+	const byKey = new Map<string, StoredReadItem>()
+	for (const ri of existingReadItems) {
+		if (now - ri.timestamp <= DECAY_MS) byKey.set(ri.key, ri)
+	}
+	for (const ri of newItems) {
+		byKey.set(ri.key, ri)
+	}
+
+	return [...byKey.values()]
 }

@@ -1,3 +1,4 @@
+import { type BoardPerson, collectPeople } from './meeting'
 import type {
 	Commitment,
 	Deliverable,
@@ -7,8 +8,7 @@ import type {
 	Score,
 	Stage,
 } from './types'
-import { PERSPECTIVES, STAGES, stageIndex, linksForDeliverable, stageLabel } from './types'
-import { collectPeople, type BoardPerson } from './meeting'
+import { linksForDeliverable, PERSPECTIVES, STAGES, stageIndex, stageLabel } from './types'
 
 // ── Types ──
 
@@ -53,7 +53,12 @@ export interface StakeholderProfile {
 	/** Deliverables they consume (directly or inherited) */
 	deliverables: StakeholderDeliverable[]
 	/** Desirability cells where input is needed from them */
-	inputNeeded: { opportunityId: string; opportunityTitle: string; stage: Stage; perspective: Perspective }[]
+	inputNeeded: {
+		opportunityId: string
+		opportunityTitle: string
+		stage: Stage
+		perspective: Perspective
+	}[]
 	/** Timestamp of last discussion (from meeting data) */
 	lastDiscussed: number | null
 	/** Number of opportunities with changes since last discussion */
@@ -123,11 +128,9 @@ export function buildStakeholderProfile(
 		if (opp.discontinuedAt) continue
 
 		const isStakeholder = opp.people.some(
-			p => p.name.toLowerCase() === lowerName && p.role === 'stakeholder',
+			(p) => p.name.toLowerCase() === lowerName && p.role === 'stakeholder',
 		)
-		const isCommitmentTarget = opp.commitments.some(
-			c => c.to.toLowerCase() === lowerName,
-		)
+		const isCommitmentTarget = opp.commitments.some((c) => c.to.toLowerCase() === lowerName)
 
 		if (!isStakeholder && !isCommitmentTarget) continue
 
@@ -169,7 +172,7 @@ export function buildStakeholderProfile(
 
 		// Input needed — desirability cells assigned to them that are unscored
 		if (isStakeholder) {
-			const person = opp.people.find(p => p.name.toLowerCase() === lowerName)
+			const person = opp.people.find((p) => p.name.toLowerCase() === lowerName)
 			if (person) {
 				for (const a of person.perspectives) {
 					if (!a.stage) continue
@@ -195,15 +198,21 @@ export function buildStakeholderProfile(
 	// Deliverables they consume
 	for (const d of deliverables) {
 		if (d.status !== 'active') continue
-		const isDirectConsumer = d.extraConsumers.some(n => n.toLowerCase() === lowerName)
+		const isDirectConsumer = d.extraConsumers.some((n) => n.toLowerCase() === lowerName)
 
 		// Inherited consumer: stakeholder on a linked opportunity
 		const dLinks = linksForDeliverable(links, d.id)
 		let inheritedConsumer = false
 		for (const link of dLinks) {
-			const opp = opportunities.find(o => o.id === link.opportunityId)
+			const opp = opportunities.find((o) => o.id === link.opportunityId)
 			if (!opp) continue
-			if (opp.people.some(p => p.name.toLowerCase() === lowerName && (p.role === 'stakeholder' || p.role === 'approver'))) {
+			if (
+				opp.people.some(
+					(p) =>
+						p.name.toLowerCase() === lowerName &&
+						(p.role === 'stakeholder' || p.role === 'approver'),
+				)
+			) {
 				inheritedConsumer = true
 				break
 			}
@@ -212,11 +221,11 @@ export function buildStakeholderProfile(
 		if (!isDirectConsumer && !inheritedConsumer) continue
 
 		const linkedOppTitles = dLinks
-			.map(l => opportunities.find(o => o.id === l.opportunityId)?.title)
+			.map((l) => opportunities.find((o) => o.id === l.opportunityId)?.title)
 			.filter((t): t is string => !!t)
 
 		const linkedHorizons = dLinks
-			.map(l => opportunities.find(o => o.id === l.opportunityId)?.horizon)
+			.map((l) => opportunities.find((o) => o.id === l.opportunityId)?.horizon)
 			.filter((h): h is string => !!h)
 			.sort()
 
@@ -251,12 +260,13 @@ export function buildStakeholderSummaries(
 		const lastDiscussed = lastDiscussedMap[name] ?? null
 		const profile = buildStakeholderProfile(name, opportunities, deliverables, links, lastDiscussed)
 
-		const overdueCount = profile.commitments.filter(c => c.overdue).length
+		const overdueCount = profile.commitments.filter((c) => c.overdue).length
 		const inputNeededCount = profile.inputNeeded.length
 		const daysSinceContact = lastDiscussed ? Math.floor((now - lastDiscussed) / 86_400_000) : null
 		const staleContact = daysSinceContact === null || daysSinceContact > 14
 
-		const attention = overdueCount > 0 || inputNeededCount > 0 || (staleContact && profile.opportunities.length > 0)
+		const attention =
+			overdueCount > 0 || inputNeededCount > 0 || (staleContact && profile.opportunities.length > 0)
 
 		// Urgency: overdue > input needed > stale contact > no issues
 		let urgencyScore = 0
@@ -290,26 +300,32 @@ export function buildTalkingPoints(profile: StakeholderProfile): string[] {
 	// Overdue commitments first
 	for (const c of profile.commitments) {
 		if (c.overdue) {
-			points.push(`⚠ Commitment overdue: ${c.opportunityTitle} — ${stageLabel(c.commitment.milestone)} by ${new Date(c.commitment.by).toLocaleDateString()} (${Math.abs(c.daysLeft)}d overdue)`)
+			points.push(
+				`⚠ Commitment overdue: ${c.opportunityTitle} — ${stageLabel(c.commitment.milestone)} by ${new Date(c.commitment.by).toLocaleDateString()} (${Math.abs(c.daysLeft)}d overdue)`,
+			)
 		}
 	}
 
 	// Upcoming commitments
 	for (const c of profile.commitments) {
 		if (!c.met && !c.overdue) {
-			points.push(`📅 Commitment: ${c.opportunityTitle} — ${stageLabel(c.commitment.milestone)} in ${c.daysLeft}d`)
+			points.push(
+				`📅 Commitment: ${c.opportunityTitle} — ${stageLabel(c.commitment.milestone)} in ${c.daysLeft}d`,
+			)
 		}
 	}
 
 	// Input needed
 	if (profile.inputNeeded.length > 0) {
-		const opps = [...new Set(profile.inputNeeded.map(i => i.opportunityTitle))]
+		const opps = [...new Set(profile.inputNeeded.map((i) => i.opportunityTitle))]
 		points.push(`💬 Input needed on: ${opps.join(', ')}`)
 	}
 
 	// Changes since last talk
 	if (profile.changesSinceLastTalk > 0) {
-		points.push(`📋 ${profile.changesSinceLastTalk} opportunit${profile.changesSinceLastTalk === 1 ? 'y' : 'ies'} changed since last conversation`)
+		points.push(
+			`📋 ${profile.changesSinceLastTalk} opportunit${profile.changesSinceLastTalk === 1 ? 'y' : 'ies'} changed since last conversation`,
+		)
 	}
 
 	// Opportunity status overview

@@ -163,20 +163,24 @@ describe('applyScores', () => {
 
 describe('isMigrationNotice', () => {
 	it('returns true for a valid migration notice', () => {
-		expect(isMigrationNotice({
-			migrated: true,
-			newRoomCode: 'new-code-123',
-			reason: 'Member removed',
-			timestamp: Date.now(),
-		})).toBe(true)
+		expect(
+			isMigrationNotice({
+				migrated: true,
+				newRoomCode: 'new-code-123',
+				reason: 'Member removed',
+				timestamp: Date.now(),
+			}),
+		).toBe(true)
 	})
 
 	it('returns false for board data', () => {
-		expect(isMigrationNotice({
-			opportunities: [],
-			deliverables: [],
-			links: [],
-		})).toBe(false)
+		expect(
+			isMigrationNotice({
+				opportunities: [],
+				deliverables: [],
+				links: [],
+			}),
+		).toBe(false)
 	})
 
 	it('returns false for null/undefined', () => {

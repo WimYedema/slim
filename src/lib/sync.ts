@@ -14,9 +14,9 @@ import { finalizeEvent, generateSecretKey, getPublicKey, SimplePool } from 'nost
 import type { SubCloser } from 'nostr-tools/abstract-pool'
 import { bytesToHex, hexToBytes } from 'nostr-tools/utils'
 import { computeDTag, decrypt, deriveRoomKey, encrypt } from './crypto'
+import { expirationTag, RELAY_URLS, type SyncKeys } from './samen/nostr-config'
 import type { BoardData } from './store'
 import type { CellSignal, Perspective, Stage } from './types'
-import { RELAY_URLS, expirationTag, type SyncKeys } from './samen/nostr-config'
 
 // Re-export SyncKeys so existing consumers don't break
 export type { SyncKeys } from './samen/nostr-config'
@@ -108,7 +108,10 @@ export async function publishBoard(
  *  When trustedPubkeys is provided, only events signed by those keys are accepted.
  *  Returns a MigrationNotice if the room has been rotated.
  */
-export async function queryBoard(roomCode: string, trustedPubkeys?: string[]): Promise<BoardData | MigrationNotice | null> {
+export async function queryBoard(
+	roomCode: string,
+	trustedPubkeys?: string[],
+): Promise<BoardData | MigrationNotice | null> {
 	const [roomKey, dTag] = await Promise.all([deriveRoomKey(roomCode), computeDTag(roomCode)])
 
 	const pool = new SimplePool()
@@ -192,11 +195,7 @@ export async function publishScores(
 		{
 			kind: KIND_SCORE_SUBMISSION,
 			created_at: Math.floor(Date.now() / 1000),
-			tags: [
-				['d', dTag],
-				['r', roomDTag],
-				expirationTag(),
-			],
+			tags: [['d', dTag], ['r', roomDTag], expirationTag()],
 			content: ciphertext,
 		},
 		sk,
@@ -213,7 +212,10 @@ export async function publishScores(
 /** Query all score submissions for a room.
  *  When trustedPubkeys is provided, events from unknown signers are silently dropped.
  */
-export async function queryScores(roomCode: string, trustedPubkeys?: string[]): Promise<ScoreSubmission[]> {
+export async function queryScores(
+	roomCode: string,
+	trustedPubkeys?: string[],
+): Promise<ScoreSubmission[]> {
 	const [roomKey, roomDTag] = await Promise.all([deriveRoomKey(roomCode), computeDTag(roomCode)])
 
 	const pool = new SimplePool()
@@ -225,7 +227,10 @@ export async function queryScores(roomCode: string, trustedPubkeys?: string[]): 
 		if (trustedPubkeys?.length) {
 			filter.authors = trustedPubkeys
 		}
-		const events = await pool.querySync(RELAY_URLS, filter as Parameters<SimplePool['querySync']>[1])
+		const events = await pool.querySync(
+			RELAY_URLS,
+			filter as Parameters<SimplePool['querySync']>[1],
+		)
 
 		const submissions: ScoreSubmission[] = []
 		for (const event of events) {

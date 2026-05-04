@@ -646,7 +646,13 @@ describe('boardNames', () => {
 			{ id: '2', name: 'Bob', role: 'stakeholder', perspectives: [] },
 		]
 		opp.commitments = [{ id: 'c1', to: 'Carol', milestone: 'sketch', by: Date.now() }]
-		opp.signals.explore.desirability = { score: 'positive', source: 'manual', verdict: '', evidence: '', owner: 'Dave' }
+		opp.signals.explore.desirability = {
+			score: 'positive',
+			source: 'manual',
+			verdict: '',
+			evidence: '',
+			owner: 'Dave',
+		}
 		const del = createDeliverable('Task')
 		del.extraContributors = ['Eve']
 		del.extraConsumers = ['Frank']

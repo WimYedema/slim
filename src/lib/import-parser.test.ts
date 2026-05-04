@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { parseImportText, toPreview, materialize, IMPORT_TEMPLATE } from './import-parser'
+import { describe, expect, it } from 'vitest'
+import { IMPORT_TEMPLATE, materialize, parseImportText, toPreview } from './import-parser'
 
 describe('parseImportText', () => {
 	it('parses headings as opportunities', () => {

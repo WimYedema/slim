@@ -3,7 +3,7 @@
  * Pure functions with no Svelte dependencies, reusable across tools.
  */
 
-import type { TeamSpace, SamenIdentity } from './types'
+import type { SamenIdentity, TeamSpace } from './types'
 
 // --- Roster cache (localStorage per-room) ---
 
@@ -15,7 +15,9 @@ export function loadCachedRoster(roomCode: string): TeamSpace | null {
 	try {
 		const raw = localStorage.getItem(rosterCacheKey(roomCode))
 		return raw ? JSON.parse(raw) : null
-	} catch { return null }
+	} catch {
+		return null
+	}
 }
 
 export function saveCachedRoster(roster: TeamSpace): void {
@@ -34,7 +36,9 @@ export function loadIdentity(): SamenIdentity | null {
 	try {
 		const raw = localStorage.getItem(IDENTITY_KEY)
 		return raw ? JSON.parse(raw) : null
-	} catch { return null }
+	} catch {
+		return null
+	}
 }
 
 export function saveIdentity(identity: SamenIdentity): void {

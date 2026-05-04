@@ -2,10 +2,19 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
 	type BoardSnapshot,
 	type BriefingItem,
+	buildReadItems,
+	buildReturnSummary,
+	CONDITION_VERBS,
+	computeAgeBand,
+	DECAY_MS,
 	deduplicateItems,
+	detectResolutions,
 	diffBoard,
 	groupItems,
+	isDecayed,
 	isGrouped,
+	reconcileFeed,
+	type StoredCondition,
 	snapshotBoard,
 } from './briefing'
 import type { MeetingData } from './meeting'
@@ -850,6 +859,486 @@ describe('WIP warnings in diffBoard', () => {
 			const deduped = deduplicateItems(rawItems)
 			const dedupedSignals = deduped.filter((i) => i.verb === 'signal-changed')
 			expect(dedupedSignals).toHaveLength(2)
+		})
+	})
+
+	describe('buildReturnSummary', () => {
+		function makeTier1Item(verb: BriefingItem['verb'], title: string): BriefingItem {
+			return {
+				id: `bi-${title}`,
+				targetType: 'opportunity',
+				targetId: title,
+				targetTitle: title,
+				verb,
+				description: `${verb} — ${title}`,
+				tier: 1,
+				timestamp: Date.now(),
+			}
+		}
+
+		it('returns null when no snapshot exists', () => {
+			const items = [makeTier1Item('objection-added', 'A')]
+			expect(buildReturnSummary(null, items)).toBeNull()
+		})
+
+		it('returns null when absence is too short', () => {
+			const snap: BoardSnapshot = {
+				opportunities: [],
+				deliverables: [],
+				links: [],
+				takenAt: Date.now() - 1000, // 1 second ago
+			}
+			const items = [makeTier1Item('objection-added', 'A')]
+			expect(buildReturnSummary(snap, items)).toBeNull()
+		})
+
+		it('returns null when no tier-1 items exist', () => {
+			const snap: BoardSnapshot = {
+				opportunities: [],
+				deliverables: [],
+				links: [],
+				takenAt: Date.now() - 24 * 60 * 60 * 1000, // 1 day ago
+			}
+			const items: BriefingItem[] = [
+				{
+					id: 'bi-1',
+					targetType: 'opportunity',
+					targetId: 'x',
+					targetTitle: 'X',
+					verb: 'added',
+					description: 'New in Explore',
+					tier: 2,
+					timestamp: Date.now(),
+				},
+			]
+			expect(buildReturnSummary(snap, items)).toBeNull()
+		})
+
+		it('builds summary with single verb', () => {
+			const snap: BoardSnapshot = {
+				opportunities: [],
+				deliverables: [],
+				links: [],
+				takenAt: Date.now() - 2 * 24 * 60 * 60 * 1000, // 2 days ago
+			}
+			const items = [makeTier1Item('objection-added', 'A'), makeTier1Item('objection-added', 'B')]
+			const result = buildReturnSummary(snap, items)
+			expect(result).not.toBeNull()
+			expect(result!.text).toContain('2 objections')
+			expect(result!.text).toMatch(/^While you were away/)
+		})
+
+		it('builds summary with multiple verbs', () => {
+			const snap: BoardSnapshot = {
+				opportunities: [],
+				deliverables: [],
+				links: [],
+				takenAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+			}
+			const items = [
+				makeTier1Item('objection-added', 'A'),
+				makeTier1Item('commitment-overdue', 'B'),
+				makeTier1Item('stale', 'C'),
+				makeTier1Item('stale', 'D'),
+			]
+			const result = buildReturnSummary(snap, items)
+			expect(result).not.toBeNull()
+			expect(result!.text).toContain('1 objection')
+			expect(result!.text).toContain('1 overdue commitment')
+			expect(result!.text).toContain('2 stale items')
+			expect(result!.hoursAway).toBeGreaterThan(70)
+		})
+
+		it('uses singular form for count of 1', () => {
+			const snap: BoardSnapshot = {
+				opportunities: [],
+				deliverables: [],
+				links: [],
+				takenAt: Date.now() - 5 * 60 * 60 * 1000, // 5 hours ago
+			}
+			const items = [makeTier1Item('stale', 'A')]
+			const result = buildReturnSummary(snap, items)
+			expect(result).not.toBeNull()
+			expect(result!.text).toContain('1 stale item')
+			expect(result!.text).toMatch(/^Since your last visit/)
+		})
+	})
+
+	describe('detectResolutions', () => {
+		function makeItem(verb: BriefingItem['verb'], id: string, title: string): BriefingItem {
+			return {
+				id: `bi-${id}`,
+				targetType: 'opportunity',
+				targetId: id,
+				targetTitle: title,
+				verb,
+				description: `${verb} — ${title}`,
+				tier: 1,
+				timestamp: Date.now(),
+			}
+		}
+
+		it('returns empty when no snapshot', () => {
+			const items = [makeItem('commitment-overdue', 'a', 'Alpha')]
+			const { resolutions, updatedConditions } = detectResolutions(items, null)
+			expect(resolutions).toHaveLength(0)
+			expect(Object.keys(updatedConditions)).toHaveLength(1)
+		})
+
+		it('tracks current conditions in updatedConditions', () => {
+			const items = [
+				makeItem('commitment-overdue', 'a', 'Alpha'),
+				makeItem('stale', 'b', 'Beta'),
+				makeItem('stage-changed', 'c', 'Charlie'), // not a condition
+			]
+			const { updatedConditions } = detectResolutions(items, null)
+			expect(Object.keys(updatedConditions)).toHaveLength(2)
+			expect(updatedConditions['commitment-overdue:a']).toBeDefined()
+			expect(updatedConditions['stale:b']).toBeDefined()
+		})
+
+		it('generates resolution when condition disappears after > 24h', () => {
+			const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000
+			const snap: BoardSnapshot = {
+				opportunities: [],
+				deliverables: [],
+				links: [],
+				takenAt: twoDaysAgo,
+				activeConditions: {
+					'commitment-overdue:a': {
+						firstSeen: twoDaysAgo,
+						title: 'Alpha',
+						targetId: 'a',
+						targetType: 'opportunity',
+						verb: 'commitment-overdue',
+					},
+				},
+			}
+			// Empty current items — condition resolved
+			const { resolutions } = detectResolutions([], snap)
+			expect(resolutions).toHaveLength(1)
+			expect(resolutions[0].verb).toBe('resolved')
+			expect(resolutions[0].description).toContain('Commitment fulfilled')
+			expect(resolutions[0].description).toContain('Alpha')
+		})
+
+		it('does not generate resolution for conditions < 24h old (flap protection)', () => {
+			const oneHourAgo = Date.now() - 60 * 60 * 1000
+			const snap: BoardSnapshot = {
+				opportunities: [],
+				deliverables: [],
+				links: [],
+				takenAt: oneHourAgo,
+				activeConditions: {
+					'stale:a': {
+						firstSeen: oneHourAgo,
+						title: 'Alpha',
+						targetId: 'a',
+						targetType: 'opportunity',
+						verb: 'stale',
+					},
+				},
+			}
+			const { resolutions } = detectResolutions([], snap)
+			expect(resolutions).toHaveLength(0)
+		})
+
+		it('does not generate resolution for wip-over/wip-under', () => {
+			const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000
+			const snap: BoardSnapshot = {
+				opportunities: [],
+				deliverables: [],
+				links: [],
+				takenAt: twoDaysAgo,
+				activeConditions: {
+					'wip-over:explore': {
+						firstSeen: twoDaysAgo,
+						title: 'Explore',
+						targetId: '',
+						targetType: 'opportunity',
+						verb: 'wip-over',
+					},
+				},
+			}
+			const { resolutions } = detectResolutions([], snap)
+			expect(resolutions).toHaveLength(0)
+		})
+
+		it('preserves firstSeen for conditions still active', () => {
+			const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000
+			const snap: BoardSnapshot = {
+				opportunities: [],
+				deliverables: [],
+				links: [],
+				takenAt: twoDaysAgo,
+				activeConditions: {
+					'stale:a': {
+						firstSeen: twoDaysAgo,
+						title: 'Alpha',
+						targetId: 'a',
+						targetType: 'opportunity',
+						verb: 'stale',
+					},
+				},
+			}
+			const items = [makeItem('stale', 'a', 'Alpha')]
+			const { updatedConditions } = detectResolutions(items, snap)
+			expect(updatedConditions['stale:a'].firstSeen).toBe(twoDaysAgo)
+		})
+	})
+
+	describe('computeAgeBand', () => {
+		function makeItem(verb: BriefingItem['verb'], ts: number): BriefingItem {
+			return {
+				id: 'bi-1',
+				targetType: 'opportunity',
+				targetId: 'a',
+				targetTitle: 'Alpha',
+				verb,
+				description: 'test',
+				tier: 2,
+				timestamp: ts,
+			}
+		}
+
+		const now = Date.now()
+
+		it('returns fresh for events < 24h old', () => {
+			const item = makeItem('stage-changed', now - 12 * 60 * 60 * 1000)
+			expect(computeAgeBand(item, new Set(), now)).toBe('fresh')
+		})
+
+		it('returns read for events 1-3 days old', () => {
+			const item = makeItem('stage-changed', now - 2 * 24 * 60 * 60 * 1000)
+			expect(computeAgeBand(item, new Set(), now)).toBe('read')
+		})
+
+		it('returns older for events > 3 days old', () => {
+			const item = makeItem('stage-changed', now - 4 * 24 * 60 * 60 * 1000)
+			expect(computeAgeBand(item, new Set(), now)).toBe('older')
+		})
+
+		it('returns fresh for conditions regardless of age', () => {
+			const item = makeItem('commitment-overdue', now - 10 * 24 * 60 * 60 * 1000)
+			expect(computeAgeBand(item, new Set(), now)).toBe('fresh')
+		})
+
+		it('returns read when manually marked read', () => {
+			const item = makeItem('stage-changed', now - 1000)
+			expect(computeAgeBand(item, new Set(['stage-changed:a']), now)).toBe('read')
+		})
+	})
+
+	describe('isDecayed', () => {
+		function makeItem(verb: BriefingItem['verb'], ts: number): BriefingItem {
+			return {
+				id: 'bi-1',
+				targetType: 'opportunity',
+				targetId: 'a',
+				targetTitle: 'Alpha',
+				verb,
+				description: 'test',
+				tier: 2,
+				timestamp: ts,
+			}
+		}
+
+		const now = Date.now()
+
+		it('returns true for events older than DECAY_MS', () => {
+			const item = makeItem('stage-changed', now - DECAY_MS - 1000)
+			expect(isDecayed(item, now)).toBe(true)
+		})
+
+		it('returns false for events within DECAY_MS', () => {
+			const item = makeItem('stage-changed', now - DECAY_MS + 1000)
+			expect(isDecayed(item, now)).toBe(false)
+		})
+
+		it('returns false for conditions regardless of age', () => {
+			const item = makeItem('commitment-overdue', now - DECAY_MS - 100000)
+			expect(isDecayed(item, now)).toBe(false)
+		})
+	})
+
+	describe('reconcileFeed', () => {
+		it('places fresh events in fresh band', () => {
+			const opp = createOpportunity('New Thing')
+			const snap = snapshotBoard(makeBoard())
+			const board = makeBoard([opp])
+			const rawItems = diffBoard(snap, board)
+			const feed = reconcileFeed(rawItems, snap)
+			expect(feed.fresh.length).toBeGreaterThan(0)
+			expect(feed.total).toBeGreaterThan(0)
+		})
+
+		it('places old events in older band', () => {
+			const opp = createOpportunity('Old Thing')
+			// Simulate an old snapshot
+			const snap = snapshotBoard(makeBoard())
+			const board = makeBoard([opp])
+			// Manually create items with old timestamps
+			const oldItems: BriefingItem[] = [
+				{
+					id: 'bi-old',
+					targetType: 'opportunity',
+					targetId: opp.id,
+					targetTitle: opp.title,
+					verb: 'added',
+					description: 'New in Explore',
+					tier: 2,
+					timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000,
+				},
+			]
+			const feed = reconcileFeed(oldItems, snap)
+			expect(feed.older.length).toBe(1)
+			expect(feed.fresh.length).toBe(0)
+		})
+
+		it('filters out decayed events', () => {
+			const oldItems: BriefingItem[] = [
+				{
+					id: 'bi-decayed',
+					targetType: 'opportunity',
+					targetId: 'x',
+					targetTitle: 'Decayed',
+					verb: 'added',
+					description: 'New in Explore',
+					tier: 2,
+					timestamp: Date.now() - 6 * 24 * 60 * 60 * 1000,
+				},
+			]
+			const feed = reconcileFeed(oldItems, null)
+			expect(feed.total).toBe(0)
+		})
+
+		it('keeps conditions in fresh band regardless of age', () => {
+			const items: BriefingItem[] = [
+				{
+					id: 'bi-cond',
+					targetType: 'opportunity',
+					targetId: 'a',
+					targetTitle: 'Alpha',
+					verb: 'commitment-overdue',
+					description: 'Overdue',
+					tier: 1,
+					timestamp: Date.now() - 10 * 24 * 60 * 60 * 1000,
+				},
+			]
+			const feed = reconcileFeed(items, null)
+			expect(feed.fresh.length).toBe(1)
+			expect(feed.older.length).toBe(0)
+		})
+
+		it('includes resolution items when conditions disappear', () => {
+			const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000
+			const snap: BoardSnapshot = {
+				opportunities: [],
+				deliverables: [],
+				links: [],
+				takenAt: twoDaysAgo,
+				activeConditions: {
+					'stale:a': {
+						firstSeen: twoDaysAgo,
+						title: 'Alpha',
+						targetId: 'a',
+						targetType: 'opportunity',
+						verb: 'stale',
+					},
+				},
+			}
+			// No current items — stale condition resolved
+			const feed = reconcileFeed([], snap)
+			const resolved = feed.fresh.filter((i) => !isGrouped(i) && i.verb === 'resolved')
+			expect(resolved.length).toBe(1)
+		})
+
+		it('migrates legacy dismissedKeys to readKeys', () => {
+			const snap: BoardSnapshot = {
+				opportunities: [],
+				deliverables: [],
+				links: [],
+				takenAt: Date.now(),
+				dismissedKeys: ['stage-changed:a'],
+			}
+			const items: BriefingItem[] = [
+				{
+					id: 'bi-1',
+					targetType: 'opportunity',
+					targetId: 'a',
+					targetTitle: 'Alpha',
+					verb: 'stage-changed',
+					description: 'Advanced',
+					tier: 2,
+					timestamp: Date.now() - 12 * 60 * 60 * 1000,
+				},
+			]
+			const feed = reconcileFeed(items, snap)
+			// Should be in read band (migrated from dismissedKeys)
+			expect(feed.read.length).toBe(1)
+			expect(feed.fresh.length).toBe(0)
+		})
+	})
+
+	describe('buildReadItems', () => {
+		it('stores events, skips conditions', () => {
+			const items: BriefingItem[] = [
+				{
+					id: 'bi-1',
+					targetType: 'opportunity',
+					targetId: 'a',
+					targetTitle: 'Alpha',
+					verb: 'stage-changed',
+					description: 'Advanced',
+					tier: 2,
+					timestamp: Date.now(),
+				},
+				{
+					id: 'bi-2',
+					targetType: 'opportunity',
+					targetId: 'b',
+					targetTitle: 'Beta',
+					verb: 'commitment-overdue',
+					description: 'Overdue',
+					tier: 1,
+					timestamp: Date.now(),
+				},
+			]
+			const result = buildReadItems(items, [])
+			expect(result).toHaveLength(1)
+			expect(result[0].verb).toBe('stage-changed')
+		})
+
+		it('deduplicates by key, keeping newer', () => {
+			const now = Date.now()
+			const existing = [
+				{
+					key: 'stage-changed:a',
+					verb: 'stage-changed' as const,
+					targetType: 'opportunity' as const,
+					targetId: 'a',
+					targetTitle: 'Alpha',
+					description: 'Old',
+					tier: 2 as const,
+					timestamp: now - 100000,
+					readAt: now - 100000,
+				},
+			]
+			const items: BriefingItem[] = [
+				{
+					id: 'bi-1',
+					targetType: 'opportunity',
+					targetId: 'a',
+					targetTitle: 'Alpha',
+					verb: 'stage-changed',
+					description: 'New',
+					tier: 2,
+					timestamp: now,
+				},
+			]
+			const result = buildReadItems(items, existing)
+			expect(result).toHaveLength(1)
+			expect(result[0].description).toBe('New')
 		})
 	})
 })

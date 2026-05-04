@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { deriveRosterKey, computeRosterDTag, encryptRoster, decryptRoster } from './crypto'
-import { deriveRoomKey, computeDTag } from '../crypto'
+import { computeDTag, deriveRoomKey } from '../crypto'
+import { computeRosterDTag, decryptRoster, deriveRosterKey, encryptRoster } from './crypto'
 
 describe('deriveRosterKey', () => {
 	it('produces a different key than the tool-level deriveRoomKey', async () => {

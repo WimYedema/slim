@@ -3,17 +3,17 @@ import type { MeetingData } from './meeting'
 import {
 	type BoardData,
 	clearBoard,
-	loadBoard,
-	loadMeetingData,
-	saveBoard,
-	saveMeetingData,
-	loadBoardRegistry,
-	saveBoardRegistry,
 	createBoardEntry,
-	getActiveBoardId,
-	setActiveBoardId,
 	deleteBoardEntry,
+	getActiveBoardId,
+	loadBoard,
+	loadBoardRegistry,
+	loadMeetingData,
 	migrateToMultiBoard,
+	saveBoard,
+	saveBoardRegistry,
+	saveMeetingData,
+	setActiveBoardId,
 } from './store'
 import { createDeliverable, createOpportunity } from './types'
 

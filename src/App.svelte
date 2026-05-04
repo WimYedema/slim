@@ -929,7 +929,7 @@
 					opportunities = updatedOpps
 				}}
 				onClose={() => (showRoomPanel = false)}
-				onLeaveRoom={() => { roomInfo.leaveRoom(); showRoomPanel = false }}
+				onLeaveRoom={() => { roomInfo?.leaveRoom(); showRoomPanel = false }}
 			/>
 		</div>
 	{:else if selectedOpportunity}

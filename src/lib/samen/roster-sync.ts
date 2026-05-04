@@ -8,8 +8,8 @@
 import { finalizeEvent, SimplePool } from 'nostr-tools'
 import { hexToBytes } from 'nostr-tools/utils'
 import { computeRosterDTag, decryptRoster, deriveRosterKey, encryptRoster } from './crypto'
+import { expirationTag, RELAY_URLS, type SyncKeys } from './nostr-config'
 import type { TeamSpace } from './types'
-import { RELAY_URLS, expirationTag, type SyncKeys } from './nostr-config'
 
 // --- Config ---
 

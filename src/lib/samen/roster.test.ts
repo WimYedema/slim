@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
-	createTeamSpace,
 	addMember,
+	addPublicKey,
+	createTeamSpace,
+	findMemberByName,
+	findMemberByPubkey,
 	removeMember,
 	renameMember,
-	addPublicKey,
-	touchMember,
-	findMemberByPubkey,
-	findMemberByName,
 	rosterNames,
+	touchMember,
 } from './roster'
 import type { TeamSpace } from './types'
 

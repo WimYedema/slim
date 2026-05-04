@@ -21,6 +21,10 @@
 		isGrouped,
 		snapshotBoard,
 		briefingKey,
+		buildReturnSummary,
+		reconcileFeed,
+		buildReadItems,
+		CONDITION_VERBS,
 		type GroupedBriefingItem,
 		type AnyBriefingItem,
 		type BoardSnapshot,
@@ -59,19 +63,37 @@
 
 	const currentBoard = $derived<BoardData>({ opportunities, deliverables, links })
 	const rawItems = $derived(diffBoard(snapshot, currentBoard, meetingData))
-	const deduped = $derived(deduplicateItems(rawItems))
-	const allItems = $derived(groupItems(deduped))
-	const dismissedSet = $derived(new Set(snapshot?.dismissedKeys ?? []))
-	const items = $derived(allItems.filter(i => !dismissedSet.has(briefingKey(i))))
+	const feed = $derived(reconcileFeed(rawItems, snapshot, meetingData))
 
-	const tier1 = $derived(items.filter(i => i.tier === 1))
-	const tier2 = $derived(items.filter(i => i.tier === 2))
-	const tier3 = $derived(items.filter(i => i.tier === 3))
+	const returnSummary = $derived(buildReturnSummary(snapshot, rawItems))
+	let returnDismissed = $state(false)
+	// Reset dismissed state when snapshot changes (new session)
+	let lastSnapshotAt = $state(snapshot?.takenAt ?? 0)
+	$effect(() => {
+		const snapAt = snapshot?.takenAt ?? 0
+		if (snapAt !== lastSnapshotAt) {
+			lastSnapshotAt = snapAt
+			returnDismissed = true
+		}
+	})
+
+	// Persist updated activeConditions back to snapshot (side effect)
+	$effect(() => {
+		const conds = feed.activeConditions
+		if (!snapshot) return
+		const prev = snapshot.activeConditions
+		// Only update if conditions actually changed
+		const prevKeys = Object.keys(prev ?? {}).sort().join(',')
+		const newKeys = Object.keys(conds).sort().join(',')
+		if (prevKeys !== newKeys) {
+			onMarkSeen({ ...snapshot, activeConditions: conds })
+		}
+	})
 
 	let parkingId = $state<string | null>(null)
 	let parkUntilInput = $state(defaultHorizon())
 	let editDesc = $state(boardDescription)
-	let subView: 'changes' | 'overview' = $state('changes')
+	let subView: 'news' | 'overview' = $state('news')
 
 	const activeOpps = $derived(opportunities.filter(o => !o.discontinuedAt))
 	const boardSummary = $derived(() => {
@@ -170,22 +192,26 @@
 		}
 	}
 
-	function handleMarkSeen() {
+	function handleMarkRead() {
 		const freshSnap = snapshotBoard(currentBoard)
-		// Dismiss all currently visible items; prune stale keys
-		const visibleKeys = items.map(i => briefingKey(i))
-		const freshAllKeys = new Set(allItems.map(i => briefingKey(i)))
-		const existingKeys = (snapshot?.dismissedKeys ?? []).filter(k => freshAllKeys.has(k))
-		const allKeys = [...new Set([...existingKeys, ...visibleKeys])]
-		onMarkSeen({ ...freshSnap, dismissedKeys: allKeys })
+		// Store current visible events as read items (conditions are recomputed, not stored)
+		const allVisible = [...feed.fresh, ...feed.read]
+		const storedReadItems = buildReadItems(allVisible, snapshot?.readItems ?? [])
+		onMarkSeen({
+			...freshSnap,
+			readItems: storedReadItems,
+			activeConditions: feed.activeConditions,
+		})
 	}
 
 	function handleDismiss(e: Event, item: AnyBriefingItem) {
 		e.stopPropagation()
+		// Conditions cannot be dismissed (they demand action)
+		if (!isGrouped(item) && CONDITION_VERBS.has(item.verb)) return
 		const key = briefingKey(item)
 		const current = snapshot ?? snapshotBoard(currentBoard)
-		const keys = [...(current.dismissedKeys ?? []), key]
-		onMarkSeen({ ...current, dismissedKeys: keys })
+		const keys = [...new Set([...(current.readKeys ?? []), ...(current.dismissedKeys ?? []), key])]
+		onMarkSeen({ ...current, readKeys: keys })
 	}
 
 	function handleParkPrompt(e: Event, item: AnyBriefingItem) {
@@ -227,7 +253,7 @@
 		<div class="bf-product-top">
 			<h2 class="bf-product-name">{boardName}</h2>
 			<span class="bf-toggle">
-				<button class="bf-toggle-btn" class:active={subView === 'changes'} onclick={() => subView = 'changes'}>Changes</button>
+				<button class="bf-toggle-btn" class:active={subView === 'news'} onclick={() => subView = 'news'}>News</button>
 				<button class="bf-toggle-btn" class:active={subView === 'overview'} onclick={() => subView = 'overview'}>Overview</button>
 			</span>
 		</div>
@@ -291,8 +317,38 @@
 			</section>
 		{/if}
 	{:else}
-	<!-- Changes: the existing briefing feed -->
-	{#if items.length === 0}
+	<!-- News feed with age bands -->
+	{#snippet wireItem(item: AnyBriefingItem, muted: boolean)}
+		{#if isGrouped(item)}
+			<div class="bf-wire-item bf-wire-grouped" class:bf-wire-muted={muted}>
+				<span class="bf-dot" class:bf-dot-muted={muted}></span>
+				<span class="bf-wire-text">{item.description}:
+					{#each item.targets as target, i}<button class="bf-target-link" onclick={() => handleTargetClick(target)}>{target.title}</button>{#if i < item.targets.length - 1}, {/if}{/each}{#if item.detail}. <span class="bf-detail">{item.detail}</span>{/if}
+				</span>
+				<span class="bf-time">{timeAgo(item.timestamp)}</span>
+				{#if !CONDITION_VERBS.has(item.verb)}
+					<button class="bf-dismiss-wire" title="Mark read" onclick={(e) => handleDismiss(e, item)}>×</button>
+				{/if}
+			</div>
+		{:else}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<div class="bf-wire-item" class:bf-wire-muted={muted} role="button" tabindex="0" onclick={() => handleClick(item)}>
+				<span class="bf-dot" class:bf-dot-muted={muted}></span>
+				<span class="bf-wire-text">
+					{#if item.verb === 'resolved'}
+						<span class="bf-resolved-icon">✓</span>
+					{/if}
+					{item.description} — <span class="bf-entity">{item.targetTitle}</span>{#if item.detail}. <span class="bf-detail">{item.detail}</span>{/if}
+				</span>
+				<span class="bf-time">{timeAgo(item.timestamp)}</span>
+				{#if !CONDITION_VERBS.has(item.verb)}
+					<button class="bf-dismiss-wire" title="Mark read" onclick={(e) => handleDismiss(e, item)}>×</button>
+				{/if}
+			</div>
+		{/if}
+	{/snippet}
+
+	{#if feed.total === 0}
 		<div class="bf-empty">
 			<span class="bf-empty-icon">✓</span>
 			<p class="bf-empty-text">All caught up — nothing new since your last check.</p>
@@ -304,108 +360,104 @@
 		</div>
 	{:else}
 		<div class="bf-header">
-			<span class="bf-summary">{items.length} item{items.length === 1 ? '' : 's'} since {snapshot ? timeAgo(snapshot.takenAt) : 'first visit'}</span>
-			<button class="btn-ghost bf-mark-btn" onclick={handleMarkSeen}>Mark all seen</button>
+			<span class="bf-summary">{feed.total} item{feed.total === 1 ? '' : 's'} since {snapshot ? timeAgo(snapshot.takenAt) : 'first visit'}</span>
+			{#if feed.fresh.length > 0}
+				<button class="btn-ghost bf-mark-btn" onclick={handleMarkRead}>Mark all read</button>
+			{/if}
 		</div>
 
-		{#if tier1.length > 0}
-			<section class="bf-tier bf-tier-1">
-				<div class="bf-headlines">
-					{#each tier1 as item (item.id)}
-						{#if isGrouped(item)}
-							<div class="bf-headline">
-								<button class="bf-dismiss" title="Dismiss" onclick={(e) => handleDismiss(e, item)}>×</button>
-								<span class="bf-headline-desc">{item.description}:
-									{#each item.targets as target, i}<button class="bf-target-link" onclick={() => handleTargetClick(target)}>{target.title}</button>{#if i < item.targets.length - 1}, {/if}{/each}
-								</span>
-								{#if item.detail}<span class="bf-detail">{item.detail}</span>{/if}
-								<span class="bf-time">{timeAgo(item.timestamp)}</span>
-							</div>
-						{:else}
-							{@const questions = unscoredQuestions(item)}
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
-							<div class="bf-headline" role="button" tabindex="0" onclick={() => handleClick(item)}>
-								<button class="bf-dismiss" title="Dismiss" onclick={(e) => handleDismiss(e, item)}>×</button>
-								<span class="bf-headline-desc">{item.description}</span>
-								<span class="bf-headline-subject">{item.targetTitle}</span>							{#if item.detail}<span class="bf-detail">{item.detail}</span>{/if}								{#if questions.length > 0}
-									<ul class="bf-questions">
-										{#each questions as q}
-											<li>{q}</li>
-										{/each}
-									</ul>
-								{/if}
-								<div class="bf-headline-footer">
-									{#if !isGrouped(item) && (item.verb === 'stale' || item.verb === 'revisit-due')}
-										{#if parkingId === item.targetId}
-											<span class="bf-park-inline">
-												<input class="bf-park-input" type="text" placeholder="e.g. 2026Q3" bind:value={parkUntilInput} onclick={(e) => e.stopPropagation()} />
-												<button class="bf-park-btn" onclick={confirmPark}>Park</button>
-												<button class="bf-park-cancel" onclick={cancelPark}>×</button>
-											</span>
-										{:else}
-											<button class="bf-park-btn" onclick={(e) => handleParkPrompt(e, item)}>Park it</button>
-										{/if}
+		{#if returnSummary && !returnDismissed}
+			<div class="bf-return">
+				<span class="bf-return-text">{returnSummary.text}</span>
+				<button class="bf-return-dismiss" title="Dismiss" onclick={() => returnDismissed = true}>×</button>
+			</div>
+		{/if}
+
+		{#if feed.fresh.length > 0}
+			{@const freshT1 = feed.fresh.filter(i => i.tier === 1)}
+			{@const freshRest = feed.fresh.filter(i => i.tier !== 1)}
+
+			{#if freshT1.length > 0}
+				<section class="bf-tier bf-tier-1">
+					<div class="bf-headlines">
+						{#each freshT1 as item (item.id)}
+							{#if isGrouped(item)}
+								<div class="bf-headline">
+									{#if !CONDITION_VERBS.has(item.verb)}
+										<button class="bf-dismiss" title="Mark read" onclick={(e) => handleDismiss(e, item)}>×</button>
 									{/if}
+									<span class="bf-headline-desc">{item.description}:
+										{#each item.targets as target, i}<button class="bf-target-link" onclick={() => handleTargetClick(target)}>{target.title}</button>{#if i < item.targets.length - 1}, {/if}{/each}
+									</span>
+									{#if item.detail}<span class="bf-detail">{item.detail}</span>{/if}
 									<span class="bf-time">{timeAgo(item.timestamp)}</span>
 								</div>
-							</div>
-						{/if}
-					{/each}
-				</div>
-			</section>
+							{:else}
+								{@const questions = unscoredQuestions(item)}
+								<!-- svelte-ignore a11y_click_events_have_key_events -->
+								<div class="bf-headline" role="button" tabindex="0" onclick={() => handleClick(item)}>
+									{#if !CONDITION_VERBS.has(item.verb)}
+										<button class="bf-dismiss" title="Mark read" onclick={(e) => handleDismiss(e, item)}>×</button>
+									{/if}
+									<span class="bf-headline-desc">{item.description}</span>
+									<span class="bf-headline-subject">{item.targetTitle}</span>
+									{#if item.detail}<span class="bf-detail">{item.detail}</span>{/if}
+									{#if questions.length > 0}
+										<ul class="bf-questions">
+											{#each questions as q}
+												<li>{q}</li>
+											{/each}
+										</ul>
+									{/if}
+									<div class="bf-headline-footer">
+										{#if !isGrouped(item) && (item.verb === 'stale' || item.verb === 'revisit-due')}
+											{#if parkingId === item.targetId}
+												<span class="bf-park-inline">
+													<input class="bf-park-input" type="text" placeholder="e.g. 2026Q3" bind:value={parkUntilInput} onclick={(e) => e.stopPropagation()} />
+													<button class="bf-park-btn" onclick={confirmPark}>Park</button>
+													<button class="bf-park-cancel" onclick={cancelPark}>×</button>
+												</span>
+											{:else}
+												<button class="bf-park-btn" onclick={(e) => handleParkPrompt(e, item)}>Park it</button>
+											{/if}
+										{/if}
+										<span class="bf-time">{timeAgo(item.timestamp)}</span>
+									</div>
+								</div>
+							{/if}
+						{/each}
+					</div>
+				</section>
+			{/if}
+
+			{#if freshRest.length > 0}
+				<section class="bf-tier bf-tier-2">
+					<div class="bf-wire">
+						{#each freshRest as item (item.id)}
+							{@render wireItem(item, false)}
+						{/each}
+					</div>
+				</section>
+			{/if}
 		{/if}
 
-		{#if tier2.length > 0}
-			<section class="bf-tier bf-tier-2">
-				{#if tier1.length === 0}<h3 class="bf-tier-label">What changed</h3>{/if}
+		{#if feed.read.length > 0}
+			<section class="bf-tier bf-tier-read">
+				<h3 class="bf-tier-label bf-tier-label-read">Read</h3>
 				<div class="bf-wire">
-					{#each tier2 as item (item.id)}
-						{#if isGrouped(item)}
-							<div class="bf-wire-item bf-wire-grouped">
-								<span class="bf-dot"></span>
-								<span class="bf-wire-text">{item.description}:
-									{#each item.targets as target, i}<button class="bf-target-link" onclick={() => handleTargetClick(target)}>{target.title}</button>{#if i < item.targets.length - 1}, {/if}{/each}{#if item.detail}. <span class="bf-detail">{item.detail}</span>{/if}
-								</span>
-								<span class="bf-time">{timeAgo(item.timestamp)}</span>
-								<button class="bf-dismiss-wire" title="Dismiss" onclick={(e) => handleDismiss(e, item)}>×</button>
-							</div>
-						{:else}
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
-							<div class="bf-wire-item" role="button" tabindex="0" onclick={() => handleClick(item)}>
-								<span class="bf-dot"></span>
-								<span class="bf-wire-text">{item.description} — <span class="bf-entity">{item.targetTitle}</span>{#if item.detail}. <span class="bf-detail">{item.detail}</span>{/if}</span>
-								<span class="bf-time">{timeAgo(item.timestamp)}</span>
-								<button class="bf-dismiss-wire" title="Dismiss" onclick={(e) => handleDismiss(e, item)}>×</button>
-							</div>
-						{/if}
+					{#each feed.read as item (item.id)}
+						{@render wireItem(item, true)}
 					{/each}
 				</div>
 			</section>
 		{/if}
 
-		{#if tier3.length > 0}
+		{#if feed.older.length > 0}
 			<details class="bf-tier bf-tier-3">
-				<summary class="bf-tier-label bf-tier-toggle">Background <span class="bf-tier-count">{tier3.length}</span></summary>
+				<summary class="bf-tier-label bf-tier-toggle">Older <span class="bf-tier-count">{feed.older.length}</span></summary>
 				<div class="bf-wire">
-					{#each tier3 as item (item.id)}
-						{#if isGrouped(item)}
-							<div class="bf-wire-item bf-wire-grouped bf-wire-muted">
-								<span class="bf-dot bf-dot-muted"></span>
-								<span class="bf-wire-text">{item.description}:
-									{#each item.targets as target, i}<button class="bf-target-link" onclick={() => handleTargetClick(target)}>{target.title}</button>{#if i < item.targets.length - 1}, {/if}{/each}{#if item.detail}. <span class="bf-detail">{item.detail}</span>{/if}
-								</span>
-								<span class="bf-time">{timeAgo(item.timestamp)}</span>
-								<button class="bf-dismiss-wire" title="Dismiss" onclick={(e) => handleDismiss(e, item)}>×</button>
-							</div>
-						{:else}
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
-							<div class="bf-wire-item bf-wire-muted" role="button" tabindex="0" onclick={() => handleClick(item)}>
-								<span class="bf-dot bf-dot-muted"></span>
-								<span class="bf-wire-text">{item.description} — <span class="bf-entity">{item.targetTitle}</span>{#if item.detail}. <span class="bf-detail">{item.detail}</span>{/if}</span>
-								<span class="bf-time">{timeAgo(item.timestamp)}</span>
-								<button class="bf-dismiss-wire" title="Dismiss" onclick={(e) => handleDismiss(e, item)}>×</button>
-							</div>
-						{/if}
+					{#each feed.older as item (item.id)}
+						{@render wireItem(item, true)}
 					{/each}
 				</div>
 			</details>
@@ -697,6 +749,38 @@
 		padding: var(--sp-xs) var(--sp-sm);
 	}
 
+	/* --- Return summary --- */
+	.bf-return {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-sm);
+		padding: var(--sp-sm) var(--sp-md);
+		background: var(--c-surface-alt);
+		border-left: 3px solid var(--c-accent);
+		border-radius: var(--radius-sm);
+		font-size: var(--fs-sm);
+	}
+
+	.bf-return-text {
+		flex: 1;
+		font-weight: var(--fw-medium);
+		color: var(--c-text);
+	}
+
+	.bf-return-dismiss {
+		background: none;
+		border: none;
+		color: var(--c-text-muted);
+		cursor: pointer;
+		font-size: var(--fs-md);
+		padding: 0 var(--sp-2xs);
+		line-height: 1;
+	}
+
+	.bf-return-dismiss:hover {
+		color: var(--c-text);
+	}
+
 	/* --- Tiers --- */
 	.bf-tier {
 		display: flex;
@@ -923,6 +1007,16 @@
 
 	.bf-wire-muted {
 		opacity: 0.7;
+	}
+
+	.bf-resolved-icon {
+		color: var(--c-green-signal);
+		font-weight: var(--fw-bold);
+		margin-right: 2px;
+	}
+
+	.bf-tier-label-read {
+		color: var(--c-text-ghost);
 	}
 
 	.bf-dot {

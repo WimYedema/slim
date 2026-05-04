@@ -21,8 +21,12 @@ export interface BoardEntry {
 	updatedAt: number
 }
 
-function boardKey(id: string): string { return `slim-board:${id}` }
-function meetingKey(id: string): string { return `slim-meetings:${id}` }
+function boardKey(id: string): string {
+	return `slim-board:${id}`
+}
+function meetingKey(id: string): string {
+	return `slim-meetings:${id}`
+}
 
 export function loadBoardRegistry(): BoardEntry[] {
 	try {
@@ -61,7 +65,7 @@ export function createBoardEntry(name: string): BoardEntry {
 }
 
 export function deleteBoardEntry(id: string): void {
-	const entries = loadBoardRegistry().filter(e => e.id !== id)
+	const entries = loadBoardRegistry().filter((e) => e.id !== id)
 	saveBoardRegistry(entries)
 	localStorage.removeItem(boardKey(id))
 	localStorage.removeItem(meetingKey(id))

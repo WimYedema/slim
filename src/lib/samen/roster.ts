@@ -3,7 +3,7 @@
  * No Nostr, no side effects. Operates on TeamSpace objects.
  */
 
-import type { TeamSpace, TeamMember } from './types'
+import type { TeamMember, TeamSpace } from './types'
 
 /** Create a new TeamSpace with the creator as owner. */
 export function createTeamSpace(
@@ -32,11 +32,7 @@ export function createTeamSpace(
 }
 
 /** Add a new member to the roster. Returns the updated TeamSpace. */
-export function addMember(
-	team: TeamSpace,
-	displayName: string,
-	publicKey: string,
-): TeamSpace {
+export function addMember(team: TeamSpace, displayName: string, publicKey: string): TeamSpace {
 	const existing = findMemberByName(team, displayName)
 	if (existing) {
 		// Name match — add pubkey to existing member if not already present
@@ -68,26 +64,16 @@ export function removeMember(team: TeamSpace, memberId: string): TeamSpace {
 }
 
 /** Rename a member by ID. Returns the updated TeamSpace. */
-export function renameMember(
-	team: TeamSpace,
-	memberId: string,
-	newName: string,
-): TeamSpace {
+export function renameMember(team: TeamSpace, memberId: string, newName: string): TeamSpace {
 	return {
 		...team,
-		members: team.members.map((m) =>
-			m.id === memberId ? { ...m, displayName: newName } : m,
-		),
+		members: team.members.map((m) => (m.id === memberId ? { ...m, displayName: newName } : m)),
 		updatedAt: Date.now(),
 	}
 }
 
 /** Add a public key to an existing member (multi-device). Returns the updated TeamSpace. */
-export function addPublicKey(
-	team: TeamSpace,
-	memberId: string,
-	publicKey: string,
-): TeamSpace {
+export function addPublicKey(team: TeamSpace, memberId: string, publicKey: string): TeamSpace {
 	return {
 		...team,
 		members: team.members.map((m) =>
@@ -104,9 +90,7 @@ export function touchMember(team: TeamSpace, memberId: string): TeamSpace {
 	const now = Date.now()
 	return {
 		...team,
-		members: team.members.map((m) =>
-			m.id === memberId ? { ...m, lastSeenAt: now } : m,
-		),
+		members: team.members.map((m) => (m.id === memberId ? { ...m, lastSeenAt: now } : m)),
 		updatedAt: now,
 	}
 }

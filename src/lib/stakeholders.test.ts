@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { createOpportunity, createDeliverable } from './types'
-import type { Opportunity, OpportunityDeliverableLink } from './types'
 import {
-	collectStakeholders,
 	buildStakeholderProfile,
 	buildStakeholderSummaries,
 	buildTalkingPoints,
+	collectStakeholders,
 } from './stakeholders'
+import type { Opportunity, OpportunityDeliverableLink } from './types'
+import { createDeliverable, createOpportunity } from './types'
 
 function oppWithStakeholder(title: string, name: string): Opportunity {
 	const opp = createOpportunity(title)
@@ -151,7 +151,7 @@ describe('buildTalkingPoints', () => {
 		const opp = oppWithCommitmentTo('Feature', 'Bob', -3)
 		const profile = buildStakeholderProfile('Bob', [opp], [], [], null)
 		const points = buildTalkingPoints(profile)
-		expect(points.some(p => p.includes('overdue'))).toBe(true)
+		expect(points.some((p) => p.includes('overdue'))).toBe(true)
 	})
 
 	it('generates points for input needed', () => {
@@ -161,13 +161,13 @@ describe('buildTalkingPoints', () => {
 		]
 		const profile = buildStakeholderProfile('Alice', [opp], [], [], null)
 		const points = buildTalkingPoints(profile)
-		expect(points.some(p => p.includes('Input needed'))).toBe(true)
+		expect(points.some((p) => p.includes('Input needed'))).toBe(true)
 	})
 
 	it('lists opportunity status', () => {
 		const opp = oppWithStakeholder('Feature X', 'Alice')
 		const profile = buildStakeholderProfile('Alice', [opp], [], [], null)
 		const points = buildTalkingPoints(profile)
-		expect(points.some(p => p.includes('Feature X'))).toBe(true)
+		expect(points.some((p) => p.includes('Feature X'))).toBe(true)
 	})
 })

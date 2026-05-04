@@ -1,6 +1,11 @@
-import type { Stage, OriginType } from './types'
-import { createOpportunity, createDeliverable } from './types'
-import type { Opportunity, Deliverable, OpportunityDeliverableLink } from './types'
+import type {
+	Deliverable,
+	Opportunity,
+	OpportunityDeliverableLink,
+	OriginType,
+	Stage,
+} from './types'
+import { createDeliverable, createOpportunity } from './types'
 
 // ── Parsed result types ──
 
@@ -65,17 +70,20 @@ function extractTags(raw: string): ExtractedTags {
 	})
 
 	// Extract #tags
-	const cleanTitle = text.replace(/#([\w][\w-]*)/g, (_match, tag: string) => {
-		const lower = tag.toLowerCase()
-		if (lower in STAGE_TAGS) {
-			stage = STAGE_TAGS[lower]
-		} else if (lower in ORIGIN_TAGS) {
-			origin = ORIGIN_TAGS[lower]
-		} else {
-			horizon = tag
-		}
-		return ''
-	}).replace(/\s+/g, ' ').trim()
+	const cleanTitle = text
+		.replace(/#([\w][\w-]*)/g, (_match, tag: string) => {
+			const lower = tag.toLowerCase()
+			if (lower in STAGE_TAGS) {
+				stage = STAGE_TAGS[lower]
+			} else if (lower in ORIGIN_TAGS) {
+				origin = ORIGIN_TAGS[lower]
+			} else {
+				horizon = tag
+			}
+			return ''
+		})
+		.replace(/\s+/g, ' ')
+		.trim()
 
 	return { stage, origin, horizon, people, cleanTitle }
 }
@@ -179,7 +187,7 @@ export interface PreviewResult {
 
 /** Convert a ParsedBoard into a preview-friendly structure */
 export function toPreview(board: ParsedBoard): PreviewResult {
-	const opportunities: PreviewOpportunity[] = board.opportunities.map(o => ({
+	const opportunities: PreviewOpportunity[] = board.opportunities.map((o) => ({
 		title: o.title,
 		stage: o.stage,
 		origin: o.origin,
@@ -215,7 +223,7 @@ export function materialize(board: ParsedBoard): MaterializedBoard {
 	const deliverables: Deliverable[] = []
 	const links: OpportunityDeliverableLink[] = []
 
-	const realOpps = board.opportunities.map(parsed => {
+	const realOpps = board.opportunities.map((parsed) => {
 		const opp = createOpportunity(parsed.title)
 		opp.stage = parsed.stage
 		if (parsed.stage !== 'explore') {
