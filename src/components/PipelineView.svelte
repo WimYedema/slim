@@ -527,15 +527,38 @@
 
 <div class="pl-container" class:compact>
 	{#if opportunities.length === 0}
-		<div class="pl-add-row">
-			<input
-				type="text"
-				class="add-input"
-				placeholder="Type a title and press Enter to add your first opportunity"
-				bind:value={newTitle}
-				onkeydown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') (e.target as HTMLInputElement).blur() }}
-			/>
+		<div class="pl-onboarding-hint">
+			Opportunities flow from Explore → Decompose. Start by adding one below.
 		</div>
+		{#each STAGES as stage, i}
+			<section class="pl-stage-group" style="min-height: {stage.key === 'explore' ? 'auto' : stage.key === 'sketch' ? '4rem' : stage.key === 'validate' ? '3rem' : '2rem'}">
+				<header class="pl-stage-header" style="--stage-color: var(--c-stage-{stage.key})">
+					<span class="pl-stage-name">{stage.label}</span>
+					<span class="pl-stage-count">0</span>
+				</header>
+				{#if stage.key === 'explore'}
+					<div class="pl-ghost-card" aria-hidden="true">
+						<span class="pl-ghost-title">e.g. Reduce onboarding churn</span>
+						<span class="pl-ghost-dots">
+							<span class="dot score-none">·</span>
+							<span class="dot score-none">·</span>
+							<span class="dot score-none">·</span>
+						</span>
+					</div>
+					<div class="pl-empty-invite">
+						<input
+							type="text"
+							class="add-input"
+							placeholder="What's an opportunity you're considering?"
+							bind:value={newTitle}
+							onkeydown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') (e.target as HTMLInputElement).blur() }}
+						/>
+					</div>
+				{:else}
+					<div class="pl-empty pl-empty-ghost">{STAGE_PURPOSE[stage.key]}</div>
+				{/if}
+			</section>
+		{/each}
 	{:else}
 		{#if zoomedGroup}
 			<div class="pl-breadcrumb" class:sticky-breadcrumb={true}>
@@ -688,6 +711,9 @@
 									/>
 								{/each}
 							</div>
+						{/if}
+						{#if group.stage.key === 'explore' && opportunities.length === 1 && !selectedId}
+							<div class="pl-first-add-nudge">Click to open the detail pane — add perspectives and score signals</div>
 						{/if}
 						{#if group.stage.key === 'explore'}
 							<div class="pl-inline-add">
@@ -855,6 +881,54 @@
 	}
 
 	/* --- Add input --- */
+	.pl-onboarding-hint {
+		font-size: var(--fs-sm);
+		color: var(--c-text-muted);
+		text-align: center;
+		padding: var(--sp-sm) var(--sp-md);
+	}
+
+	.pl-empty-invite {
+		padding: var(--sp-sm) var(--sp-md) var(--sp-md);
+	}
+
+	.pl-empty-ghost {
+		font-style: italic;
+	}
+
+	.pl-ghost-card {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--sp-xs) var(--sp-md);
+		opacity: 0.3;
+		pointer-events: none;
+		border-bottom: 1px solid var(--c-border-soft);
+	}
+
+	.pl-ghost-title {
+		font-size: var(--fs-sm);
+		color: var(--c-text);
+		font-style: italic;
+	}
+
+	.pl-ghost-dots {
+		display: flex;
+		gap: 3px;
+	}
+
+	.pl-ghost-dots .dot {
+		font-size: var(--fs-lg);
+		color: var(--c-text-ghost);
+	}
+
+	.pl-first-add-nudge {
+		font-size: var(--fs-xs);
+		color: var(--c-accent);
+		padding: var(--sp-xs) var(--sp-md);
+		padding-left: calc(var(--sp-sm) + 20px + var(--sp-sm));
+	}
+
 	.pl-add-row {
 		padding: 0 var(--sp-sm);
 	}
