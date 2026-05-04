@@ -113,8 +113,16 @@ describe('parseImportText', () => {
 		expect(opp.people).toEqual(['PM', 'Dev-lead'])
 	})
 
-	it('handles h1 and h3 headings', () => {
+	it('treats first-line single # as board name, h3 as opportunity', () => {
 		const result = parseImportText('# H1 title\n### H3 title')
+		expect(result.boardName).toBe('H1 title')
+		expect(result.opportunities).toHaveLength(1)
+		expect(result.opportunities[0].title).toBe('H3 title')
+	})
+
+	it('treats mid-text single # as opportunity, not board name', () => {
+		const result = parseImportText('## First opp\n# Second heading')
+		expect(result.boardName).toBeUndefined()
 		expect(result.opportunities).toHaveLength(2)
 	})
 
@@ -136,6 +144,7 @@ describe('parseImportText', () => {
 
 	it('parses the default template correctly', () => {
 		const result = parseImportText(IMPORT_TEMPLATE)
+		expect(result.boardName).toBe('My product')
 		expect(result.opportunities).toHaveLength(3)
 		expect(result.deliverables).toHaveLength(3)
 		expect(result.opportunities[0].title).toBe('Reduce onboarding churn')

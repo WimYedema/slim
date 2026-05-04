@@ -3,8 +3,70 @@ import type { MeetingData } from './meeting'
 import type { Deliverable, Opportunity, OpportunityDeliverableLink } from './types'
 import { defaultHorizon } from './types'
 
-const STORAGE_KEY = 'slim-board'
-const MEETING_KEY = 'slim-meetings'
+// ── Legacy single-board keys (used for migration) ──
+
+const LEGACY_BOARD_KEY = 'slim-board'
+const LEGACY_MEETING_KEY = 'slim-meetings'
+
+// ── Multi-board registry ──
+
+const REGISTRY_KEY = 'slim-boards'
+const ACTIVE_KEY = 'slim-active-board'
+
+export interface BoardEntry {
+	id: string
+	name: string
+	createdAt: number
+	updatedAt: number
+}
+
+function boardKey(id: string): string { return `slim-board:${id}` }
+function meetingKey(id: string): string { return `slim-meetings:${id}` }
+
+export function loadBoardRegistry(): BoardEntry[] {
+	try {
+		const raw = localStorage.getItem(REGISTRY_KEY)
+		if (!raw) return []
+		const entries = JSON.parse(raw)
+		return Array.isArray(entries) ? entries : []
+	} catch {
+		return []
+	}
+}
+
+export function saveBoardRegistry(entries: BoardEntry[]): void {
+	try {
+		localStorage.setItem(REGISTRY_KEY, JSON.stringify(entries))
+	} catch {
+		// Storage full or unavailable
+	}
+}
+
+export function getActiveBoardId(): string | null {
+	return localStorage.getItem(ACTIVE_KEY)
+}
+
+export function setActiveBoardId(id: string): void {
+	localStorage.setItem(ACTIVE_KEY, id)
+}
+
+export function createBoardEntry(name: string): BoardEntry {
+	return {
+		id: crypto.randomUUID(),
+		name,
+		createdAt: Date.now(),
+		updatedAt: Date.now(),
+	}
+}
+
+export function deleteBoardEntry(id: string): void {
+	const entries = loadBoardRegistry().filter(e => e.id !== id)
+	saveBoardRegistry(entries)
+	localStorage.removeItem(boardKey(id))
+	localStorage.removeItem(meetingKey(id))
+}
+
+// ── Board data ──
 
 export interface BoardData {
 	opportunities: Opportunity[]
@@ -18,20 +80,39 @@ export interface BoardData {
 	ownerName?: string
 }
 
-export function saveBoard(data: BoardData): void {
+export function saveBoard(data: BoardData, id?: string): void {
+	const key = id ? boardKey(id) : LEGACY_BOARD_KEY
 	try {
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+		localStorage.setItem(key, JSON.stringify(data))
 	} catch {
 		// Storage full or unavailable — silently ignore
 	}
 }
 
-export function loadBoard(): BoardData | null {
+function backfillBoard(data: BoardData): BoardData {
+	const fallback = defaultHorizon()
+	for (const opp of data.opportunities) {
+		if (!opp.horizon) opp.horizon = fallback
+		if (!opp.stageEnteredAt) opp.stageEnteredAt = opp.updatedAt ?? opp.createdAt
+		// Migrate incubating → parked (no parkUntil)
+		if ((opp.exitState as string) === 'incubating') opp.exitState = 'parked'
+		// Migrate blocker → approver role rename
+		for (const p of opp.people) {
+			if ((p.role as string) === 'blocker') p.role = 'approver'
+		}
+	}
+	for (const del of data.deliverables) {
+		if (!del.kind) del.kind = 'delivery'
+		if (!del.status) del.status = 'active'
+	}
+	return data
+}
+
+function loadBoardFromKey(key: string): BoardData | null {
 	try {
-		const raw = localStorage.getItem(STORAGE_KEY)
+		const raw = localStorage.getItem(key)
 		if (!raw) return null
 		const data = JSON.parse(raw) as BoardData
-		// Basic shape validation
 		if (
 			!Array.isArray(data.opportunities) ||
 			!Array.isArray(data.deliverables) ||
@@ -39,45 +120,40 @@ export function loadBoard(): BoardData | null {
 		) {
 			return null
 		}
-		// Backfill fields for data saved before these features
-		const fallback = defaultHorizon()
-		for (const opp of data.opportunities) {
-			if (!opp.horizon) opp.horizon = fallback
-			if (!opp.stageEnteredAt) opp.stageEnteredAt = opp.updatedAt ?? opp.createdAt
-			// Migrate incubating → parked (no parkUntil)
-			if ((opp.exitState as string) === 'incubating') opp.exitState = 'parked'
-			// Migrate blocker → approver role rename
-			for (const p of opp.people) {
-				if ((p.role as string) === 'blocker') p.role = 'approver'
-			}
-		}
-		for (const del of data.deliverables) {
-			if (!del.kind) del.kind = 'delivery'
-			if (!del.status) del.status = 'active'
-		}
-		return data
+		return backfillBoard(data)
 	} catch {
 		return null
 	}
 }
 
-export function clearBoard(): void {
-	localStorage.removeItem(STORAGE_KEY)
-	localStorage.removeItem(MEETING_KEY)
+export function loadBoard(id?: string): BoardData | null {
+	return loadBoardFromKey(id ? boardKey(id) : LEGACY_BOARD_KEY)
 }
 
-export function saveMeetingData(data: MeetingData): void {
+export function clearBoard(id?: string): void {
+	if (id) {
+		localStorage.removeItem(boardKey(id))
+		localStorage.removeItem(meetingKey(id))
+	} else {
+		localStorage.removeItem(LEGACY_BOARD_KEY)
+		localStorage.removeItem(LEGACY_MEETING_KEY)
+	}
+}
+
+export function saveMeetingData(data: MeetingData, id?: string): void {
+	const key = id ? meetingKey(id) : LEGACY_MEETING_KEY
 	try {
-		localStorage.setItem(MEETING_KEY, JSON.stringify(data))
+		localStorage.setItem(key, JSON.stringify(data))
 	} catch {
 		// Storage full or unavailable
 	}
 }
 
-export function loadMeetingData(): MeetingData {
+export function loadMeetingData(id?: string): MeetingData {
+	const key = id ? meetingKey(id) : LEGACY_MEETING_KEY
 	const empty: MeetingData = { lastDiscussed: {}, records: [], snapshots: {} }
 	try {
-		const raw = localStorage.getItem(MEETING_KEY)
+		const raw = localStorage.getItem(key)
 		if (!raw) return empty
 		const data = JSON.parse(raw) as MeetingData
 		if (!data.lastDiscussed || !Array.isArray(data.records)) {
@@ -90,4 +166,38 @@ export function loadMeetingData(): MeetingData {
 	} catch {
 		return empty
 	}
+}
+
+// ── Migration: single-board → multi-board ──
+
+export function migrateToMultiBoard(): { entries: BoardEntry[]; activeId: string | null } {
+	const existing = loadBoardRegistry()
+	if (existing.length > 0) {
+		// Already migrated
+		return { entries: existing, activeId: getActiveBoardId() }
+	}
+
+	// Check for legacy single-board data
+	const legacyBoard = loadBoardFromKey(LEGACY_BOARD_KEY)
+	if (!legacyBoard) {
+		return { entries: [], activeId: null }
+	}
+
+	// Create a board entry for the legacy data
+	const entry = createBoardEntry('My board')
+	saveBoardRegistry([entry])
+	setActiveBoardId(entry.id)
+
+	// Copy data to new key
+	saveBoard(legacyBoard, entry.id)
+	const legacyMeetings = loadMeetingData()
+	if (legacyMeetings.records.length > 0 || Object.keys(legacyMeetings.lastDiscussed).length > 0) {
+		saveMeetingData(legacyMeetings, entry.id)
+	}
+
+	// Remove legacy keys
+	localStorage.removeItem(LEGACY_BOARD_KEY)
+	localStorage.removeItem(LEGACY_MEETING_KEY)
+
+	return { entries: [entry], activeId: entry.id }
 }

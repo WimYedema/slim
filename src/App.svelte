@@ -25,12 +25,14 @@
 		stageConsent,
 	} from './lib/types'
 	import { saveBoard, loadBoard, clearBoard, saveMeetingData, loadMeetingData, type BoardData } from './lib/store'
+	import { loadBoardRegistry, saveBoardRegistry, getActiveBoardId, setActiveBoardId, createBoardEntry, deleteBoardEntry, migrateToMultiBoard, type BoardEntry } from './lib/store'
 	import type { MeetingData } from './lib/meeting'
 	import { snapshotBoard, type BoardSnapshot } from './lib/briefing'
 	import { opportunitiesToCsv, csvToOpportunities } from './lib/csv'
 	import { mergeBoards, formatMergeStats } from './lib/merge'
 	import { boardNames } from './lib/queries'
 	import { parseImportText, materialize } from './lib/import-parser'
+	import BoardPicker from './components/BoardPicker.svelte'
 
 	type ViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'meetings'
 	type ContributorViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'assignments'
@@ -281,11 +283,17 @@
 	}
 
 	const WELCOMED_KEY = 'slim-welcomed'
-	const saved = loadBoard()
-	const savedMeetings = loadMeetingData()
+
+	// ── Multi-board bootstrap ──
+	const migration = migrateToMultiBoard()
+	let boardEntries: BoardEntry[] = $state(migration.entries)
+	let activeBoardId: string | null = $state(migration.activeId)
+
+	const saved = activeBoardId ? loadBoard(activeBoardId) : null
+	const savedMeetings = activeBoardId ? loadMeetingData(activeBoardId) : loadMeetingData()
 	// Auto-join link bypasses welcome; existing data means already welcomed
 	const hasRoomParam = new URLSearchParams(location.search).has('room')
-	let showWelcome = $state(!saved && !hasRoomParam && !localStorage.getItem(WELCOMED_KEY))
+	let showWelcome = $state(!saved && boardEntries.length === 0 && !hasRoomParam && !localStorage.getItem(WELCOMED_KEY))
 
 	let opportunities: Opportunity[] = $state(saved?.opportunities ?? [])
 	let deliverables: Deliverable[] = $state(saved?.deliverables ?? [])
@@ -371,13 +379,13 @@
 	}
 
 	$effect(() => {
-		if (showWelcome || showBrainDump) return
-		saveBoard({ opportunities, deliverables, links, customHorizons, briefingSnapshot: briefingSnapshot ?? undefined })
+		if (showWelcome || showBrainDump || !activeBoardId) return
+		saveBoard({ opportunities, deliverables, links, customHorizons, briefingSnapshot: briefingSnapshot ?? undefined }, activeBoardId)
 	})
 
 	$effect(() => {
-		if (showWelcome || showBrainDump) return
-		saveMeetingData(meetingData)
+		if (showWelcome || showBrainDump || !activeBoardId) return
+		saveMeetingData(meetingData, activeBoardId)
 	})
 
 	/** Flat ordered list of opportunity IDs — synced from ListView's bucket sort */
@@ -666,7 +674,19 @@
 		showWelcome = false
 	}
 
+	/** Ensure a board entry exists and is active. Returns the board ID. */
+	function ensureBoard(name: string): string {
+		if (activeBoardId) return activeBoardId
+		const entry = createBoardEntry(name)
+		boardEntries = [...boardEntries, entry]
+		saveBoardRegistry(boardEntries)
+		activeBoardId = entry.id
+		setActiveBoardId(entry.id)
+		return entry.id
+	}
+
 	function loadSampleData() {
+		ensureBoard('Sample board')
 		const sampleOpps = createSampleData()
 		const sampleDL = createSampleDeliverables(sampleOpps)
 		opportunities = sampleOpps
@@ -687,6 +707,10 @@
 	function applyBrainDump(text: string) {
 		const parsed = parseImportText(text)
 		const board = materialize(parsed)
+		const boardName = parsed.boardName || 'My board'
+		ensureBoard(boardName)
+		// Always update the name — ensureBoard may have returned an existing entry with a placeholder name
+		if (activeBoardId) renameBoard(activeBoardId, boardName)
 		opportunities = board.opportunities
 		deliverables = board.deliverables
 		links = board.links
@@ -698,12 +722,14 @@
 	}
 
 	function skipBrainDump() {
+		ensureBoard('My board')
 		dismissWelcome()
 		showBrainDump = false
 		view = 'pipeline'
 	}
 
 	function welcomeJoinRoom() {
+		ensureBoard('My board')
 		dismissWelcome()
 		showSyncPanelOnMount = true
 	}
@@ -711,9 +737,70 @@
 	let showSyncPanelOnMount = $state(false)
 	let pipelineFirstVisit = $state(false)
 
+	// ── Board management ──
+
+	function switchBoard(id: string) {
+		// Save current board first (effect may not have fired yet)
+		if (activeBoardId) {
+			saveBoard({ opportunities, deliverables, links, customHorizons, briefingSnapshot: briefingSnapshot ?? undefined }, activeBoardId)
+			saveMeetingData(meetingData, activeBoardId)
+		}
+		// Load new board
+		activeBoardId = id
+		setActiveBoardId(id)
+		const data = loadBoard(id)
+		opportunities = data?.opportunities ?? []
+		deliverables = data?.deliverables ?? []
+		links = data?.links ?? []
+		customHorizons = data?.customHorizons ?? []
+		briefingSnapshot = data?.briefingSnapshot ?? null
+		meetingData = loadMeetingData(id)
+		selectedId = null
+		selectedDeliverableId = null
+		undoStack = []
+	}
+
+	function newBoard() {
+		// Save current board
+		if (activeBoardId) {
+			saveBoard({ opportunities, deliverables, links, customHorizons, briefingSnapshot: briefingSnapshot ?? undefined }, activeBoardId)
+			saveMeetingData(meetingData, activeBoardId)
+		}
+		// Create empty board
+		const entry = createBoardEntry('New board')
+		boardEntries = [...boardEntries, entry]
+		saveBoardRegistry(boardEntries)
+		activeBoardId = entry.id
+		setActiveBoardId(entry.id)
+		opportunities = []
+		deliverables = []
+		links = []
+		customHorizons = []
+		briefingSnapshot = null
+		meetingData = { lastDiscussed: {}, records: [], snapshots: {} }
+		selectedId = null
+		selectedDeliverableId = null
+		undoStack = []
+		showBrainDump = true
+	}
+
+	function renameBoard(id: string, name: string) {
+		boardEntries = boardEntries.map(e => e.id === id ? { ...e, name, updatedAt: Date.now() } : e)
+		saveBoardRegistry(boardEntries)
+	}
+
+	function deleteBoard(id: string) {
+		if (boardEntries.length <= 1) return
+		deleteBoardEntry(id)
+		boardEntries = boardEntries.filter(e => e.id !== id)
+		if (activeBoardId === id) {
+			switchBoard(boardEntries[0].id)
+		}
+	}
+
 	function resetBoard() {
 		pushUndo('Reset board')
-		clearBoard()
+		if (activeBoardId) clearBoard(activeBoardId)
 		const freshOpps = createSampleData()
 		const freshDL = createSampleDeliverables(freshOpps)
 		opportunities = freshOpps
@@ -876,6 +963,16 @@
 <main class="app">
 	<header class="app-header">
 		<h1>Slim</h1>
+		{#if !showWelcome && !showBrainDump && boardEntries.length > 0}
+		<BoardPicker
+			boards={boardEntries}
+			{activeBoardId}
+			onSwitch={switchBoard}
+			onNew={newBoard}
+			onRename={renameBoard}
+			onDelete={deleteBoard}
+		/>
+		{/if}
 		{#if showWelcome || showBrainDump}
 		<div class="header-actions">
 			<button class="help-btn" onclick={() => showHelp = true} title="Keyboard shortcuts (?)">?</button>

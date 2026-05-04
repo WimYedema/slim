@@ -19,6 +19,7 @@ export interface ParsedDeliverable {
 }
 
 export interface ParsedBoard {
+	boardName?: string
 	opportunities: ParsedOpportunity[]
 	deliverables: ParsedDeliverable[]
 }
@@ -80,6 +81,7 @@ function extractTags(raw: string): ExtractedTags {
 }
 
 const HEADING_RE = /^#{1,3}\s+(.+)$/
+const BOARD_NAME_RE = /^#\s+(.+)$/
 const BULLET_RE = /^[\s]*[-*•]\s+(.+)$/
 
 export function parseImportText(text: string): ParsedBoard {
@@ -87,10 +89,22 @@ export function parseImportText(text: string): ParsedBoard {
 	const opportunities: ParsedOpportunity[] = []
 	const deliverables: ParsedDeliverable[] = []
 	let currentOppIndex = -1
+	let boardName: string | undefined
+	let firstContentLine = true
 
 	for (const rawLine of lines) {
 		const line = rawLine.trimEnd()
 		if (!line.trim()) continue
+
+		// First non-empty line: single # (not ##) → board name
+		if (firstContentLine) {
+			firstContentLine = false
+			const boardMatch = line.match(BOARD_NAME_RE)
+			if (boardMatch && !line.startsWith('## ')) {
+				boardName = boardMatch[1].trim()
+				continue
+			}
+		}
 
 		const headingMatch = line.match(HEADING_RE)
 		if (headingMatch) {
@@ -131,12 +145,13 @@ export function parseImportText(text: string): ParsedBoard {
 		currentOppIndex = opportunities.length - 1
 	}
 
-	return { opportunities, deliverables }
+	return { boardName, opportunities, deliverables }
 }
 
 // ── Default template ──
 
-export const IMPORT_TEMPLATE = `## Reduce onboarding churn
+export const IMPORT_TEMPLATE = `# My product
+## Reduce onboarding churn
 - Simplify signup flow
 - Add progress indicator
 

@@ -12,6 +12,7 @@
 	let text = $state(IMPORT_TEMPLATE)
 	let parsed = $derived(parseImportText(text))
 	let preview = $derived(toPreview(parsed))
+	let boardName = $derived(parsed.boardName)
 	let totalOpps = $derived(preview.opportunities.length)
 	let totalDels = $derived(
 		preview.opportunities.reduce((n, o) => n + o.deliverables.length, 0) + preview.orphanDeliverables.length
@@ -30,7 +31,7 @@
 	<div class="bd-header">
 		<h2 class="bd-title">What's on your plate?</h2>
 		<p class="bd-hint">
-			<code>## Heading</code> = opportunity · <code>- Bullet</code> = deliverable · <code>#sketch</code> = stage · <code>#request</code> = origin · <code>@Name</code> = person
+			<code># Title</code> = board name · <code>## Heading</code> = opportunity · <code>- Bullet</code> = deliverable · <code>#sketch</code> = stage · <code>#request</code> = origin · <code>@Name</code> = person
 		</p>
 	</div>
 
@@ -98,7 +99,7 @@
 
 	<div class="bd-footer">
 		<span class="bd-summary">
-			{totalOpps} {totalOpps === 1 ? 'opportunity' : 'opportunities'} · {totalDels} {totalDels === 1 ? 'deliverable' : 'deliverables'} · {totalPeople} {totalPeople === 1 ? 'person' : 'people'}
+			{#if boardName}<strong>{boardName}</strong> · {/if}{totalOpps} {totalOpps === 1 ? 'opportunity' : 'opportunities'} · {totalDels} {totalDels === 1 ? 'deliverable' : 'deliverables'} · {totalPeople} {totalPeople === 1 ? 'person' : 'people'}
 		</span>
 		<div class="bd-actions">
 			<button class="bd-btn-skip" onclick={onSkip}>Skip — start empty</button>
