@@ -44,6 +44,7 @@
 		onUpdateOpportunity?: (opp: Opportunity) => void
 		onAddHorizon?: (name: string) => void
 		onRemoveHorizon?: (name: string) => void
+		firstVisit?: boolean
 	}
 
 	let {
@@ -63,6 +64,7 @@
 		onUpdateOpportunity,
 		onAddHorizon,
 		onRemoveHorizon,
+		firstVisit = false,
 	}: Props = $props()
 
 	let newTitle = $state('')
@@ -712,8 +714,8 @@
 								{/each}
 							</div>
 						{/if}
-						{#if group.stage.key === 'explore' && opportunities.length === 1 && !selectedId}
-							<div class="pl-first-add-nudge">Click to open the detail pane — add perspectives and score signals</div>
+						{#if group.stage.key === 'explore' && ((opportunities.length === 1 && !selectedId) || (firstVisit && !selectedId))}
+							<div class="pl-first-add-nudge">Click any opportunity to open the detail pane — add perspectives and score signals</div>
 						{/if}
 						{#if group.stage.key === 'explore'}
 							<div class="pl-inline-add">

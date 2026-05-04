@@ -693,6 +693,7 @@
 		briefingSnapshot = snapshotBoard({ opportunities, deliverables, links })
 		dismissWelcome()
 		showBrainDump = false
+		pipelineFirstVisit = true
 		view = 'pipeline'
 	}
 
@@ -708,6 +709,7 @@
 	}
 
 	let showSyncPanelOnMount = $state(false)
+	let pipelineFirstVisit = $state(false)
 
 	function resetBoard() {
 		pushUndo('Reset board')
@@ -1076,7 +1078,7 @@
 	<div class="split-layout">
 		<div class="split-list">
 			<PipelineView {opportunities} {deliverables} {links} {selectedId}
-				allHorizons={allHorizons()} onSelect={selectOpportunity}
+				allHorizons={allHorizons()} onSelect={(id) => { pipelineFirstVisit = false; selectOpportunity(id) }}
 				onSelectDeliverable={toggleDeliverable}
 				onAdvance={moveOpportunity} onAdd={addOpportunity} compact={!!selectedId}
 				bind:orderedIds={listViewOrderedIds}
@@ -1084,6 +1086,7 @@
 				onUpdateOpportunity={updateOpportunity}
 				onAddHorizon={(h) => { if (!customHorizons.includes(h)) customHorizons = [...customHorizons, h] }}
 				onRemoveHorizon={(h) => { customHorizons = customHorizons.filter((c) => c !== h) }}
+				firstVisit={pipelineFirstVisit}
 			/>
 		</div>
 		{@render detailSidebar()}
