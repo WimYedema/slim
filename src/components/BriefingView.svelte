@@ -7,9 +7,13 @@
 		PERSPECTIVES,
 		STAGES,
 		defaultHorizon,
+		stageLabel,
+		linksForDeliverable,
 	} from '../lib/types'
+	import { agingLevel, daysInStage } from '../lib/queries'
 	import type { BoardData } from '../lib/store'
 	import type { MeetingData } from '../lib/meeting'
+	import { collectPeople } from '../lib/meeting'
 	import {
 		diffBoard,
 		deduplicateItems,
@@ -29,6 +33,9 @@
 		links: OpportunityDeliverableLink[]
 		snapshot: BoardSnapshot | null
 		meetingData: MeetingData
+		boardName: string
+		boardDescription: string
+		onUpdateDescription: (description: string) => void
 		onMarkSeen: (snapshot: BoardSnapshot) => void
 		onSelectOpportunity: (id: string) => void
 		onSelectDeliverable: (id: string) => void
@@ -41,6 +48,9 @@
 		links,
 		snapshot,
 		meetingData,
+		boardName,
+		boardDescription,
+		onUpdateDescription,
 		onMarkSeen,
 		onSelectOpportunity,
 		onSelectDeliverable,
@@ -60,6 +70,8 @@
 
 	let parkingId = $state<string | null>(null)
 	let parkUntilInput = $state(defaultHorizon())
+	let editDesc = $state(boardDescription)
+	let subView: 'changes' | 'overview' = $state('changes')
 
 	const activeOpps = $derived(opportunities.filter(o => !o.discontinuedAt))
 	const boardSummary = $derived(() => {
@@ -68,6 +80,63 @@
 			return n > 0 ? `${n} ${s.label}` : null
 		}).filter(Boolean)
 		return `${activeOpps.length} opportunities (${counts.join(', ')}), ${deliverables.length} deliverables`
+	})
+
+	// ── Overview derived data ──
+
+	type OvHealth = 'green' | 'amber' | 'red'
+	const ovOpps = $derived(activeOpps.map(o => {
+		const signals = { positive: 0, uncertain: 0, negative: 0, none: 0 }
+		for (const p of PERSPECTIVES) {
+			const score = o.signals[o.stage]?.[p]?.score ?? 'none'
+			signals[score]++
+		}
+		const health: OvHealth = signals.negative > 0 ? 'red' : (signals.none > 0 || signals.uncertain > 0) ? 'amber' : 'green'
+		return {
+			id: o.id, title: o.title, stage: o.stage, horizon: o.horizon,
+			aging: agingLevel(o), days: daysInStage(o), health,
+		}
+	}))
+
+	const ovByStage = $derived(STAGES.map(s => ({
+		stage: s,
+		opps: ovOpps.filter(o => o.stage === s.key)
+			.sort((a, b) => {
+				const agingOrder = { stale: 0, aging: 1, fresh: 2 }
+				return agingOrder[a.aging] - agingOrder[b.aging]
+			}),
+	})).filter(g => g.opps.length > 0))
+
+	const activeDeliverables = $derived(deliverables.filter(d => d.status === 'active'))
+	const ovDels = $derived(activeDeliverables.map(d => {
+		const dLinks = linksForDeliverable(links, d.id)
+		const oppTitles = dLinks
+			.map(l => opportunities.find(o => o.id === l.opportunityId)?.title)
+			.filter((t): t is string => !!t)
+		return {
+			id: d.id, title: d.title, size: d.size,
+			linkCount: dLinks.length, orphan: dLinks.length === 0,
+			oppTitles,
+		}
+	}))
+
+	const ovStakeholders = $derived(() => {
+		const people = collectPeople(opportunities, deliverables)
+		const result: { name: string; oppCount: number }[] = []
+		for (const [, person] of people) {
+			if (!person.roles.has('stakeholder') && !person.isCommitmentTarget) continue
+			result.push({ name: person.name, oppCount: person.opportunityIds.length })
+		}
+		// Also include consumers on deliverables
+		for (const d of deliverables) {
+			for (const consumer of d.extraConsumers) {
+				if (!result.some(r => r.name === consumer)) {
+					const person = people.get(consumer)
+					result.push({ name: consumer, oppCount: person?.opportunityIds.length ?? 0 })
+				}
+			}
+		}
+		return result.sort((a, b) => b.oppCount - a.oppCount)
 	})
 
 	function handleClick(item: AnyBriefingItem) {
@@ -154,6 +223,75 @@
 </script>
 
 <div class="bf-container">
+	<div class="bf-product-header">
+		<div class="bf-product-top">
+			<h2 class="bf-product-name">{boardName}</h2>
+			<span class="bf-toggle">
+				<button class="bf-toggle-btn" class:active={subView === 'changes'} onclick={() => subView = 'changes'}>Changes</button>
+				<button class="bf-toggle-btn" class:active={subView === 'overview'} onclick={() => subView = 'overview'}>Overview</button>
+			</span>
+		</div>
+		<input
+			type="text"
+			class="bf-product-desc"
+			placeholder="What is this product about?"
+			value={editDesc}
+			oninput={(e) => { editDesc = (e.target as HTMLInputElement).value }}
+			onblur={() => { if (editDesc !== boardDescription) onUpdateDescription(editDesc) }}
+		/>
+	</div>
+
+	{#if subView === 'overview'}
+		<!-- Overview: inventory snapshot -->
+		<section class="ov-section">
+			<h3 class="ov-section-title">Opportunities <span class="ov-count">{activeOpps.length}</span></h3>
+			{#if ovByStage.length === 0}
+				<p class="ov-empty">No active opportunities</p>
+			{:else}
+				{#each ovByStage as group (group.stage.key)}
+					<h4 class="ov-stage-label" style="--stage-color: var(--c-stage-{group.stage.key})">{group.stage.label} <span class="ov-count">{group.opps.length}</span></h4>
+					{#each group.opps as opp (opp.id)}
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<div class="ov-row" role="button" tabindex="0" onclick={() => onSelectOpportunity(opp.id)}>
+							<span class="ov-health ov-health-{opp.health}" title="{opp.health === 'green' ? 'All clear' : opp.health === 'red' ? 'Has objections' : 'Needs attention'}">●</span>
+							<span class="ov-title">{opp.title}</span>
+							{#if opp.horizon}<span class="ov-pill ov-horizon">{opp.horizon}</span>{/if}
+							{#if opp.aging !== 'fresh'}<span class="ov-aging ov-aging-{opp.aging}">{opp.days}d</span>{/if}
+						</div>
+					{/each}
+				{/each}
+			{/if}
+		</section>
+
+		<section class="ov-section">
+			<h3 class="ov-section-title">Deliverables <span class="ov-count">{ovDels.length}</span></h3>
+			{#if ovDels.length === 0}
+				<p class="ov-empty">No active deliverables</p>
+			{:else}
+				{#each ovDels as d (d.id)}
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<div class="ov-row" role="button" tabindex="0" onclick={() => onSelectDeliverable(d.id)}>
+						<span class="ov-title">{d.title}</span>
+						{#if d.size}<span class="ov-pill">{d.size}</span>{/if}
+						{#if d.orphan}<span class="ov-pill ov-orphan">orphan</span>{/if}
+						{#if d.oppTitles.length > 0}<span class="ov-meta">← {d.oppTitles.join(', ')}</span>{/if}
+					</div>
+				{/each}
+			{/if}
+		</section>
+
+		{#if ovStakeholders().length > 0}
+			<section class="ov-section">
+				<h3 class="ov-section-title">Stakeholders <span class="ov-count">{ovStakeholders().length}</span></h3>
+				<div class="ov-chips">
+					{#each ovStakeholders() as person (person.name)}
+						<span class="ov-chip">{person.name}{#if person.oppCount > 0}<span class="ov-chip-count">{person.oppCount}</span>{/if}</span>
+					{/each}
+				</div>
+			</section>
+		{/if}
+	{:else}
+	<!-- Changes: the existing briefing feed -->
 	{#if items.length === 0}
 		<div class="bf-empty">
 			<span class="bf-empty-icon">✓</span>
@@ -273,6 +411,7 @@
 			</details>
 		{/if}
 	{/if}
+	{/if}
 </div>
 
 <style>
@@ -289,6 +428,228 @@
 	.bf-container > * {
 		width: 100%;
 		max-width: 720px;
+	}
+
+	/* --- Product header --- */
+	.bf-product-header {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2xs);
+		padding-bottom: var(--sp-sm);
+		border-bottom: 1px solid var(--c-border);
+	}
+
+	.bf-product-top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-sm);
+	}
+
+	.bf-product-name {
+		font-size: var(--fs-lg);
+		font-weight: var(--fw-bold);
+		color: var(--c-text);
+		margin: 0;
+	}
+
+	.bf-product-desc {
+		font: inherit;
+		font-size: var(--fs-sm);
+		color: var(--c-text-muted);
+		background: transparent;
+		border: none;
+		border-bottom: 1px dashed transparent;
+		padding: 2px 0;
+		transition: border-color var(--tr-fast);
+	}
+
+	.bf-product-desc:hover {
+		border-bottom-color: var(--c-border);
+	}
+
+	.bf-product-desc:focus {
+		outline: none;
+		border-bottom-color: var(--c-accent);
+		color: var(--c-text);
+	}
+
+	.bf-product-desc::placeholder {
+		color: var(--c-text-ghost);
+		font-style: italic;
+	}
+
+	/* --- Sub-view toggle --- */
+	.bf-toggle {
+		display: inline-flex;
+		border: 1px solid var(--c-border);
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+		flex-shrink: 0;
+	}
+
+	.bf-toggle-btn {
+		font-family: var(--font);
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-medium);
+		padding: 2px var(--sp-sm);
+		border: none;
+		background: transparent;
+		color: var(--c-text-muted);
+		cursor: pointer;
+		transition: background var(--tr-fast), color var(--tr-fast);
+	}
+
+	.bf-toggle-btn:hover {
+		color: var(--c-text);
+	}
+
+	.bf-toggle-btn.active {
+		background: var(--c-accent);
+		color: var(--c-bg);
+	}
+
+	/* --- Overview sections --- */
+	.ov-section {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		background: var(--c-surface);
+		border-radius: var(--radius-md);
+		padding: var(--sp-sm) var(--sp-md);
+		box-shadow: var(--shadow-sm);
+	}
+
+	.ov-section-title {
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-medium);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--c-text-muted);
+		margin: 0 0 var(--sp-2xs);
+		display: flex;
+		align-items: center;
+		gap: var(--sp-xs);
+	}
+
+	.ov-count {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-ghost);
+		font-weight: normal;
+	}
+
+	.ov-empty {
+		font-size: var(--fs-sm);
+		color: var(--c-text-ghost);
+		font-style: italic;
+		margin: 0;
+		padding: var(--sp-xs) 0;
+	}
+
+	.ov-row {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-xs);
+		padding: var(--sp-2xs) var(--sp-xs);
+		border-radius: var(--radius-sm);
+		font-size: var(--fs-sm);
+		cursor: pointer;
+		transition: background var(--tr-fast);
+	}
+
+	.ov-row:hover {
+		background: var(--c-surface-alt);
+	}
+
+	.ov-title {
+		flex: 1;
+		color: var(--c-text);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.ov-stage-label {
+		font-size: var(--fs-sm);
+		font-weight: var(--fw-bold);
+		color: var(--c-text);
+		margin: var(--sp-xs) 0 0;
+		padding: var(--sp-2xs) var(--sp-xs);
+		border-left: 3px solid var(--stage-color);
+		display: flex;
+		align-items: baseline;
+		gap: var(--sp-xs);
+	}
+
+	.ov-health {
+		font-size: var(--fs-2xs);
+		flex-shrink: 0;
+	}
+
+	.ov-health-green { color: var(--c-green-signal); }
+	.ov-health-amber { color: var(--c-warm); }
+	.ov-health-red { color: var(--c-red); }
+
+	.ov-pill {
+		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+		background: var(--c-bg-hover);
+		padding: 0.1rem 0.3rem;
+		border-radius: var(--radius-sm);
+		white-space: nowrap;
+	}
+
+	.ov-horizon {
+		color: var(--c-accent);
+	}
+
+	.ov-orphan {
+		color: var(--c-warm);
+	}
+
+	.ov-aging {
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-medium);
+		white-space: nowrap;
+	}
+
+	.ov-aging-aging {
+		color: var(--c-warm);
+	}
+
+	.ov-aging-stale {
+		color: var(--c-red);
+	}
+
+	.ov-meta {
+		font-size: var(--fs-xs);
+		color: var(--c-text-ghost);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 12rem;
+	}
+
+	.ov-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2xs);
+	}
+
+	.ov-chip {
+		font-size: var(--fs-xs);
+		color: var(--c-text);
+		background: var(--c-bg-hover);
+		padding: 0.15rem var(--sp-xs);
+		border-radius: var(--radius-sm);
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2xs);
+	}
+
+	.ov-chip-count {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-ghost);
 	}
 
 	/* --- Empty state --- */

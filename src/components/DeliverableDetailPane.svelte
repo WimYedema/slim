@@ -216,7 +216,7 @@
 	</div>
 
 	<!-- Contributors -->
-	{#each [{ group: 'contributors' as const, label: 'Built by', field: 'extraContributors' as const, adding: addingContributor, setAdding: (v: boolean) => addingContributor = v }, { group: 'consumers' as const, label: 'Present to', field: 'extraConsumers' as const, adding: addingConsumer, setAdding: (v: boolean) => addingConsumer = v }] as { group, label, field, adding, setAdding }}
+	{#each [{ group: 'contributors' as const, label: 'Built by', field: 'extraContributors' as const, adding: addingContributor, setAdding: (v: boolean) => addingContributor = v }, { group: 'consumers' as const, label: 'Deliver to', field: 'extraConsumers' as const, adding: addingConsumer, setAdding: (v: boolean) => addingConsumer = v }] as { group, label, field, adding, setAdding }}
 		{@const inherited = inheritedPeople(group)}
 		{@const extras = deliverable[field]}
 		<div class="ddp-section">

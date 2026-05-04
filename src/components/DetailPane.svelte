@@ -10,6 +10,7 @@
 		type Score,
 		type Stage,
 		type ExitState,
+		type PersonRole,
 		STAGES,
 		PERSPECTIVES,
 		PERSPECTIVE_LABELS,
@@ -18,6 +19,7 @@
 		SCORE_SYMBOL,
 		EXIT_STATES,
 		ORIGIN_TYPES,
+		PERSON_ROLES,
 		cellHasSignal,
 		nextStage,
 		prevStage,
@@ -172,7 +174,32 @@
 		onUpdate({ ...opportunity, people: [...opportunity.people, person] })
 	}
 
+	function addPersonWithRole(name: string, role: PersonRole) {
+		const trimmed = name.trim()
+		if (!trimmed) return
+		if (opportunity.people.some(p => p.name.toLowerCase() === trimmed.toLowerCase())) return
+		const person: PersonLink = {
+			id: crypto.randomUUID(),
+			name: trimmed,
+			role,
+			perspectives: [],
+		}
+		onUpdate({ ...opportunity, people: [...opportunity.people, person] })
+	}
+
+	function removePersonById(id: string) {
+		onUpdate({ ...opportunity, people: opportunity.people.filter(p => p.id !== id) })
+	}
+
+	function changePersonRole(id: string, role: PersonRole) {
+		onUpdate({
+			...opportunity,
+			people: opportunity.people.map(p => p.id === id ? { ...p, role } : p),
+		})
+	}
+
 	let addingFor: { perspective: Perspective; stage: Stage } | null = $state(null)
+	let addingPerson = $state(false)
 	let expandedCells: Set<string> = $state(new Set())
 	let collapsedPerspectives: Set<Perspective> = $state(new Set())
 
@@ -582,6 +609,42 @@
 			</div>
 		{:else}
 			<button class="btn-ghost add-commitment-btn" onclick={() => showAddCommitment = true}>+ promise</button>
+		{/if}
+	</div>
+
+	<!-- People -->
+	<div class="people-section">
+		<div class="people-header">
+			<span class="section-label">Inform</span>
+			<span class="commitment-count">{opportunity.people.length}</span>
+		</div>
+		{#each opportunity.people as person (person.id)}
+			<div class="people-row">
+				<span class="people-name">{person.name}</span>
+				<select
+					class="people-role-select"
+					value={person.role}
+					onchange={(e) => changePersonRole(person.id, (e.target as HTMLSelectElement).value as PersonRole)}
+				>
+					{#each PERSON_ROLES as role}
+						<option value={role.key}>{role.label}</option>
+					{/each}
+				</select>
+				<button class="commitment-remove" onclick={() => removePersonById(person.id)} aria-label="Remove person">×</button>
+			</div>
+		{/each}
+		{#if addingPerson}
+			<div class="people-add-row">
+				<MemberPicker
+					{knownNames}
+					placeholder="Name…"
+					inputClass="people-name-input"
+					onPick={(name) => { addPersonWithRole(name, 'stakeholder'); addingPerson = false }}
+				/>
+				<button class="commitment-cancel" onclick={() => addingPerson = false}>×</button>
+			</div>
+		{:else}
+			<button class="btn-ghost add-commitment-btn" onclick={() => addingPerson = true}>+ person</button>
 		{/if}
 	</div>
 
@@ -1268,6 +1331,71 @@
 
 	.add-commitment-btn:hover {
 		color: var(--c-accent);
+	}
+
+	/* --- People (Voices) section --- */
+
+	.people-section {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.people-header {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-xs);
+	}
+
+	.people-row {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-xs);
+		font-size: var(--fs-xs);
+		padding: 2px var(--sp-xs);
+		border-radius: var(--radius-sm);
+	}
+
+	.people-row:hover {
+		background: color-mix(in srgb, var(--c-accent) var(--opacity-moderate), transparent);
+	}
+
+	.people-name {
+		flex: 1;
+		color: var(--c-text);
+	}
+
+	.people-role-select {
+		font: inherit;
+		font-size: var(--fs-xs);
+		color: var(--c-text);
+		background: var(--c-surface);
+		border: 1px solid var(--c-border);
+		border-radius: var(--radius-sm);
+		padding: 1px 4px;
+	}
+
+	.people-add-row {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		font-size: var(--fs-xs);
+	}
+
+	:global(.people-name-input) {
+		font: inherit;
+		font-size: var(--fs-xs);
+		color: var(--c-text);
+		background: transparent;
+		border: none;
+		border-bottom: 1px dashed var(--c-border);
+		padding: 1px 2px;
+		width: 10em;
+	}
+
+	:global(.people-name-input:focus) {
+		outline: none;
+		border-bottom-color: var(--c-accent);
 	}
 
 	/* --- People summary --- */

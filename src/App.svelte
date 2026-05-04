@@ -33,8 +33,9 @@
 	import { boardNames } from './lib/queries'
 	import { parseImportText, materialize } from './lib/import-parser'
 	import BoardPicker from './components/BoardPicker.svelte'
+	import StakeholdersView from './components/StakeholdersView.svelte'
 
-	type ViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'meetings'
+	type ViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'meetings' | 'stakeholders'
 	type ContributorViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'assignments'
 
 	/**
@@ -288,6 +289,7 @@
 	const migration = migrateToMultiBoard()
 	let boardEntries: BoardEntry[] = $state(migration.entries)
 	let activeBoardId: string | null = $state(migration.activeId)
+	const activeBoardEntry = $derived(boardEntries.find(e => e.id === activeBoardId))
 
 	const saved = activeBoardId ? loadBoard(activeBoardId) : null
 	const savedMeetings = activeBoardId ? loadMeetingData(activeBoardId) : loadMeetingData()
@@ -459,7 +461,7 @@
 		window.dispatchEvent(new CustomEvent('slim:open-exit-menu'))
 	}
 
-	const VIEW_KEYS: Record<string, ViewMode> = { '1': 'briefing', '2': 'pipeline', '3': 'deliverables', '4': 'meetings' }
+	const VIEW_KEYS: Record<string, ViewMode> = { '1': 'briefing', '2': 'pipeline', '3': 'deliverables', '4': 'meetings', '5': 'stakeholders' }
 
 	$effect(() => {
 		function onKeydown(e: KeyboardEvent) {
@@ -789,6 +791,12 @@
 		saveBoardRegistry(boardEntries)
 	}
 
+	function updateBoardDescription(description: string) {
+		if (!activeBoardId) return
+		boardEntries = boardEntries.map(e => e.id === activeBoardId ? { ...e, description, updatedAt: Date.now() } : e)
+		saveBoardRegistry(boardEntries)
+	}
+
 	function deleteBoard(id: string) {
 		if (boardEntries.length <= 1) return
 		deleteBoardEntry(id)
@@ -979,14 +987,15 @@
 		</div>
 		{:else if !contributorInfo}
 		<nav class="view-tabs">
-			<button class="view-tab" class:active={view === 'briefing'} onclick={() => switchView('briefing')}>Briefing{#if opportunities.length === 0}<span class="tab-hint">what changed</span>{/if}</button>
+			<button class="view-tab" class:active={view === 'briefing'} onclick={() => switchView('briefing')}>Latest{#if opportunities.length === 0}<span class="tab-hint">what changed</span>{/if}</button>
 			<button class="view-tab" class:active={view === 'pipeline'} onclick={() => switchView('pipeline')}>Pipeline{#if opportunities.length === 0}<span class="tab-hint">where things stand</span>{/if}</button>
 			<button class="view-tab" class:active={view === 'deliverables'} onclick={() => switchView('deliverables')}>Deliverables{#if opportunities.length === 0}<span class="tab-hint">what to build</span>{/if}</button>
 			<button class="view-tab" class:active={view === 'meetings'} onclick={() => switchView('meetings')}>Meetings{#if opportunities.length === 0}<span class="tab-hint">who to talk to</span>{/if}</button>
+			<button class="view-tab" class:active={view === 'stakeholders'} onclick={() => switchView('stakeholders')}>Stakeholders{#if opportunities.length === 0}<span class="tab-hint">who cares</span>{/if}</button>
 		</nav>
 		{:else}
 		<nav class="view-tabs">
-			<button class="view-tab" class:active={contributorView === 'briefing'} onclick={() => contributorView = 'briefing'}>Briefing</button>
+			<button class="view-tab" class:active={contributorView === 'briefing'} onclick={() => contributorView = 'briefing'}>Latest</button>
 			<button class="view-tab" class:active={contributorView === 'pipeline'} onclick={() => contributorView = 'pipeline'}>Pipeline</button>
 			<button class="view-tab" class:active={contributorView === 'deliverables'} onclick={() => contributorView = 'deliverables'}>Deliverables</button>
 			<button class="view-tab" class:active={contributorView === 'assignments'} onclick={() => contributorView = 'assignments'}>Assignments</button>
@@ -1148,6 +1157,9 @@
 				{opportunities} {deliverables} {links}
 				snapshot={briefingSnapshot}
 				{meetingData}
+				boardName={activeBoardEntry?.name ?? 'Untitled'}
+				boardDescription={activeBoardEntry?.description ?? ''}
+				onUpdateDescription={updateBoardDescription}
 				onMarkSeen={(snap) => { briefingSnapshot = snap }}
 				onSelectOpportunity={toggleOpportunity}
 				onSelectDeliverable={toggleDeliverable}
@@ -1222,6 +1234,20 @@
 				onUpdateOpportunity={updateOpportunity}
 				onUpdateMeetingData={(data) => { meetingData = data }}
 				onBeforeDone={() => pushUndo('Meeting stamp', true)}
+			/>
+		</div>
+		{@render detailSidebar()}
+	</div>
+	{:else if view === 'stakeholders'}
+	<div class="split-layout">
+		<div class="split-list">
+			<StakeholdersView
+				{opportunities}
+				{deliverables}
+				{links}
+				{meetingData}
+				onSelectOpportunity={toggleOpportunity}
+				onSelectDeliverable={toggleDeliverable}
 			/>
 		</div>
 		{@render detailSidebar()}

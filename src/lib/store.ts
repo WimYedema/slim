@@ -16,6 +16,7 @@ const ACTIVE_KEY = 'slim-active-board'
 export interface BoardEntry {
 	id: string
 	name: string
+	description?: string
 	createdAt: number
 	updatedAt: number
 }
