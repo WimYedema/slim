@@ -76,6 +76,7 @@ export type ChangeVerb =
 	| 'unscored-assignment'
 	| 'meeting-overdue'
 	| 'deliverable-changed'
+	| 'estimate-received'
 	| 'revisit-due'
 	| 'wip-over'
 	| 'wip-under'
@@ -132,6 +133,7 @@ const TIER_MAP: Record<ChangeVerb, ImportanceTier> = {
 	'unscored-assignment': 1,
 	'meeting-overdue': 2,
 	'deliverable-changed': 2,
+	'estimate-received': 2,
 	'revisit-due': 1,
 	'wip-over': 2,
 	'wip-under': 3,
@@ -497,6 +499,20 @@ function diffDeliverables(prev: Deliverable[], curr: Deliverable[], now: number)
 			continue
 		}
 
+		// Estimate received or updated
+		if (del.estimate && (!old.estimate || del.estimate.estimatedAt > old.estimate.estimatedAt)) {
+			items.push({
+				id: itemId(),
+				targetType: 'deliverable',
+				targetId: del.id,
+				targetTitle: del.title,
+				verb: 'estimate-received',
+				description: `Estimated: ${del.estimate.snappedValue} (${del.estimate.n} estimators)`,
+				tier: TIER_MAP['estimate-received'],
+				timestamp: del.estimate.estimatedAt,
+			})
+		}
+
 		// Field-level changes
 		const changes: string[] = []
 		if (del.size !== old.size) changes.push(`size → ${del.size ?? 'unset'}`)
@@ -745,6 +761,7 @@ const GROUPABLE_VERBS: Set<ChangeVerb> = new Set([
 	'added',
 	'stage-changed',
 	'deliverable-added',
+	'estimate-received',
 	'link-added',
 	'link-removed',
 ])

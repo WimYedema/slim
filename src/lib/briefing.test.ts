@@ -255,6 +255,71 @@ describe('briefing', () => {
 			expect(removed?.tier).toBe(3)
 		})
 
+		it('detects new estimate on deliverable', () => {
+			const del = createDeliverable('API endpoint')
+			snap.deliverables = [structuredClone(del)]
+			del.estimate = {
+				mu: 1.1,
+				sigma: 0.4,
+				n: 4,
+				unit: 'days',
+				snappedValue: '3d',
+				estimatedAt: Date.now(),
+			}
+			const board = makeBoard([], [del])
+			const items = diffBoard(snap, board)
+
+			const est = items.find((i) => i.verb === 'estimate-received')
+			expect(est).toBeDefined()
+			expect(est?.description).toContain('3d')
+			expect(est?.description).toContain('4 estimators')
+			expect(est?.tier).toBe(2)
+		})
+
+		it('detects updated estimate (newer timestamp)', () => {
+			const del = createDeliverable('API endpoint')
+			del.estimate = {
+				mu: 0.5,
+				sigma: 0.6,
+				n: 2,
+				unit: 'days',
+				snappedValue: '2d',
+				estimatedAt: 1000,
+			}
+			snap.deliverables = [structuredClone(del)]
+			del.estimate = {
+				mu: 1.5,
+				sigma: 0.3,
+				n: 5,
+				unit: 'days',
+				snappedValue: '5d',
+				estimatedAt: 2000,
+			}
+			const board = makeBoard([], [del])
+			const items = diffBoard(snap, board)
+
+			const est = items.find((i) => i.verb === 'estimate-received')
+			expect(est).toBeDefined()
+			expect(est?.description).toContain('5d')
+		})
+
+		it('ignores estimate with same timestamp', () => {
+			const del = createDeliverable('API endpoint')
+			del.estimate = {
+				mu: 1.1,
+				sigma: 0.4,
+				n: 4,
+				unit: 'days',
+				snappedValue: '3d',
+				estimatedAt: 1000,
+			}
+			snap.deliverables = [structuredClone(del)]
+			const board = makeBoard([], [del])
+			const items = diffBoard(snap, board)
+
+			expect(items.find((i) => i.verb === 'estimate-received')).toBeUndefined()
+		})
+
 		it('detects link additions', () => {
 			const opp = createOpportunity('Connected')
 			const del = createDeliverable('Work')
