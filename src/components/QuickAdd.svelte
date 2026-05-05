@@ -56,7 +56,7 @@
 			bind:this={inputEl}
 			type="text"
 			class="qa-input"
-			placeholder={mode === 'opportunity' ? 'New opportunity title…' : 'New deliverable title…'}
+			placeholder={mode === 'opportunity' ? 'Add an idea or request…' : 'New deliverable title…'}
 			bind:value={title}
 			onkeydown={handleKeydown}
 		/>

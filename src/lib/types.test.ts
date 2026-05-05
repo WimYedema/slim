@@ -205,19 +205,19 @@ describe('stageConsent', () => {
 		expect(result.unheard).toEqual(['feasibility'])
 	})
 
-	it('returns blocked when any perspective is negative', () => {
+	it('returns urgent when any perspective is negative', () => {
 		let opp = makeOpp({ stage: 'explore' })
 		opp = setStageScores(opp, 'explore', 'positive', 'negative', 'positive')
 		const result = stageConsent(opp)
-		expect(result.status).toBe('blocked')
+		expect(result.status).toBe('urgent')
 		expect(result.objections).toEqual(['feasibility'])
 	})
 
-	it('reports blocked even with unheard perspectives when there is an objection', () => {
+	it('reports urgent even with unheard perspectives when there is an objection', () => {
 		let opp = makeOpp({ stage: 'explore' })
 		opp = setStageScores(opp, 'explore', 'none', 'negative', 'positive')
 		const result = stageConsent(opp)
-		expect(result.status).toBe('blocked')
+		expect(result.status).toBe('urgent')
 		expect(result.objections).toEqual(['feasibility'])
 		expect(result.unheard).toEqual(['desirability'])
 	})
@@ -227,7 +227,7 @@ describe('stageConsent', () => {
 		opp = setStageScores(opp, 'explore', 'positive', 'positive', 'positive')
 		opp = setStageScores(opp, 'sketch', 'positive', 'negative', 'positive')
 		const result = stageConsent(opp)
-		expect(result.status).toBe('blocked')
+		expect(result.status).toBe('urgent')
 	})
 
 	it('returns ready at decompose if all decompose signals are positive', () => {

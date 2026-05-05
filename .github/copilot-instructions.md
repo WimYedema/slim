@@ -71,17 +71,18 @@ One runtime dependency: `nostr-tools` (P2P relay communication). No server, no d
 - Entry point: `index.html` -> `src/main.ts` -> `App.svelte`
 - All state lives as `$state` in `App.svelte` -- no external state library, no context API, no stores
 - Components receive state via props and emit changes via callback props or by mutating bound props
-- Persistence: localStorage (`slim-board`, `slim-meetings`, `slim-sync`), auto-saved in `$effect`
+- Persistence: localStorage (`slim-boards`, `slim-active-board`, `slim-board:{id}`, `slim-meetings:{id}`, `slim-welcomed`), auto-saved in `$effect`
 
 ### Module responsibilities
 
 | Module | Purpose | Key exports |
 |---|---|---|
 | `types.ts` | Data types, constants, factory functions; re-exports query functions from `queries.ts` | `Opportunity`, `Deliverable`, `CellSignal`, `createOpportunity`, `createDeliverable`, `STAGES`, `PERSPECTIVES` |
-| `queries.ts` | Pure query/computation functions (26 functions) | `stageConsent`, `daysInStage`, `agingLevel`, `commitmentUrgency`, `linksForOpportunity`, `linksForDeliverable`, `perspectiveWeight`, `ternaryPosition` |
+| `queries.ts` | Pure query/computation functions (27 functions) | `stageConsent`, `daysInStage`, `agingLevel`, `commitmentUrgency`, `linksForOpportunity`, `linksForDeliverable`, `perspectiveWeight`, `ternaryPosition`, `boardHealth` |
 | `store.ts` | localStorage wrappers with schema backfill | `saveBoard`, `loadBoard`, `clearBoard`, `saveMeetingData`, `loadMeetingData`, `BoardData` |
 | `meeting.ts` | Meeting agenda computation, person aggregation, snapshot-based change detection | `collectPeople`, `buildMeetingAgenda`, `personUrgency`, `completeMeeting`, `MeetingAgenda`, `MeetingData` |
-| `briefing.ts` | Board-wide change detection, importance tier classification, grouping | `snapshotBoard`, `diffBoard`, `deduplicateItems`, `groupItems`, `BoardSnapshot`, `BriefingItem` |
+| `briefing.ts` | Board-wide change detection, importance tier classification, aging model (decay, resolution, flap protection) | `snapshotBoard`, `diffBoard`, `reconcileFeed`, `buildReturnSummary`, `BoardSnapshot`, `BriefingItem` |
+| `stakeholders.ts` | Person-centric query module for stakeholder profiles and talking points (consumed by MeetingView) | `collectStakeholders`, `buildStakeholderProfile`, `buildStakeholderSummaries`, `buildTalkingPoints` |
 | `crypto.ts` | Room-level encryption using Web Crypto API (HKDF-SHA256 -> AES-256-GCM) | `deriveRoomKey`, `computeDTag`, `encrypt`, `decrypt` |
 | `sync.ts` | Nostr relay pub/sub for P2P board sharing and score submission | `generateSyncKeys`, `publishBoard`, `queryBoard`, `publishScores`, `queryScores`, `applyScores` |
 | `merge.ts` | ID-based board merge with `updatedAt` conflict resolution | `mergeBoards`, `formatMergeStats`, `MergeResult` |
@@ -91,19 +92,22 @@ One runtime dependency: `nostr-tools` (P2P relay communication). No server, no d
 
 | Component | Purpose |
 |---|---|
-| `BriefingView.svelte` | News feed: board-wide changes, 5 importance tiers, newspaper card layout |
+| `BriefingView.svelte` | Latest tab: News feed with aging bands (Fresh/Read/Older) + Board Health dashboard (aggregate metrics, shown on toggle or as empty state) |
 | `PipelineView.svelte` | Opportunities by stage or horizon, nested deliverables, zoom into single group |
 | `PipelineFunnel.svelte` | Proportional stage funnel SVG, interactive hover/click filtering |
 | `OpportunityRow.svelte` | Single opportunity row with density modes (compact/overview/zoomed) |
 | `DetailPane.svelte` | Opportunity detail: signal grid, stage navigation, exit states, commitments, notes, metadata |
 | `DeliverablesView.svelte` | Execution matrix: deliverable rows, opportunity columns, contributor columns, zoom, drag-reorder |
 | `DeliverableDetailPane.svelte` | Deliverable detail: size, certainty, links, contributors, consumers |
-| `MeetingView.svelte` | Per-person agenda: entity-grouped changes, commitments, awaiting input, inline scoring, scoped stamp |
+| `MeetingView.svelte` | Per-person agenda with role filter (All/Team/Stakeholders): entity-grouped changes, commitments, awaiting input, inline scoring, talking points for stakeholders, scoped stamp |
 | `ScoreToggle.svelte` | Reusable score radiogroup (none/positive/uncertain/negative) with keyboard nav |
 | `KeyboardHelp.svelte` | Shortcut reference overlay (? key) |
 | `QuickAdd.svelte` | Quick-add dialog (n key, Tab to switch opportunity/deliverable) |
 | `SyncPanel.svelte` | P2P room management: create/join rooms, publish/pull board, contributor mode |
 | `ContributorView.svelte` | Contributor scoring view: assigned perspective cells with inline scoring |
+| `BoardPicker.svelte` | Multi-board management: create, switch, delete boards |
+| `WelcomePage.svelte` | First-time onboarding page |
+| `BrainDump.svelte` | Bulk text import for rapid board population |
 
 ## Conventions
 

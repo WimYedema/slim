@@ -26,7 +26,7 @@
 	} from '../lib/types'
 
 	type Bucket = 'urgent' | 'attention' | 'clear'
-	type Density = 'compact' | 'overview' | 'zoomed'
+	type Density = 'overview' | 'zoomed'
 
 	interface LinkedDeliverable {
 		link: OpportunityDeliverableLink
@@ -51,6 +51,7 @@
 		onAdvance: (id: string, stage: Stage) => void
 		onSelectDeliverable?: (id: string) => void
 		onPark?: (id: string) => void
+		lens?: Perspective | null
 	}
 
 	let {
@@ -71,6 +72,7 @@
 		onAdvance,
 		onSelectDeliverable,
 		onPark,
+		lens = null,
 	}: Props = $props()
 
 	const next = $derived(nextStage(opp.stage))
@@ -81,6 +83,14 @@
 	const pacing = $derived(pacingSummary(opp, pressure))
 	const urgency = $derived(commitmentUrgency(opp))
 
+	const lensNudge = $derived.by(() => {
+		if (!lens) return null
+		const cell = opp.signals[opp.stage][lens]
+		if (cell.verdict) return { text: cell.verdict, prompt: false }
+		if (cell.score === 'none') return { text: CELL_QUESTIONS[opp.stage][lens], prompt: true }
+		return { text: SCORE_DISPLAY[cell.score].label, prompt: true }
+	})
+
 	let expanded = $state(false)
 
 	function toggleExpand(e: Event) {
@@ -90,11 +100,10 @@
 
 	$effect(() => {
 		if (density === 'zoomed') expanded = true
-		if (density === 'compact') expanded = false
 	})
 
 	const delCount = $derived(linkedDeliverables.length)
-	const showExpander = $derived(density !== 'compact' && density !== 'zoomed')
+	const showExpander = $derived(density !== 'zoomed')
 
 	/** Signal verdicts for zoomed display — best available evidence model */
 	interface VerdictSnippet {
@@ -222,11 +231,8 @@
 	onclick={() => onSelect(opp.id)}
 	{...(draggable ? { draggable: true } : {})}
 >
-	{#if density === 'compact'}
-		<span class="pl-title">{opp.title}{#if showStageBadge}<span class="pl-title-stage">{stageLabel(opp.stage).charAt(0)}</span>{/if}</span>
-	{:else}
-		<!-- LINE 1: expander, title, meta, health dots, aging -->
-		<div class="row-line1">
+	<!-- LINE 1: expander, title, meta, health dots, aging -->
+	<div class="row-line1">
 			{#if draggable}
 				<span class="drag-handle" title="Drag to move between horizons">⠿</span>
 			{/if}
@@ -243,13 +249,17 @@
 			{#if showStageBadge}
 				<span class="stage-badge stage-{opp.stage}">{stageLabel(opp.stage)}</span>
 			{/if}
-			<span class="pl-meta">
-				{#if opp.origin}<span class="origin-tag">{originLabel(opp.origin)}</span>{/if}
-			</span>
+			{#if !lens}
+				<span class="pl-meta">
+					{#if opp.origin}<span class="origin-tag">{originLabel(opp.origin)}</span>{/if}
+				</span>
+			{/if}
 			<span class="pl-health" role="group" aria-label="Signal scores">
 				{#each PERSPECTIVES as p}
-					{@const score = opp.signals[opp.stage][p].score}
-					<span class="dot score-{score}" title="{PERSPECTIVE_LABELS[p]}: {SCORE_DISPLAY[score].label}" role="img" aria-label="{PERSPECTIVE_LABELS[p]}: {SCORE_DISPLAY[score].label}">{SCORE_SYMBOL[score]}</span>
+					{#if !lens || lens === p}
+						{@const score = opp.signals[opp.stage][p].score}
+						<span class="dot score-{score}" title="{PERSPECTIVE_LABELS[p]}: {SCORE_DISPLAY[score].label}" role="img" aria-label="{PERSPECTIVE_LABELS[p]}: {SCORE_DISPLAY[score].label}">{SCORE_SYMBOL[score]}</span>
+					{/if}
 				{/each}
 			</span>
 			{#if days > 0}<span class="aging-badge aging-{aging}" title={pacing}>{days}d</span>{/if}
@@ -265,7 +275,11 @@
 		<!-- LINE 2: nudge -->
 		<div class="row-line2">
 			<span class="pl-nudge">
-				{#if density === 'zoomed'}<span class="nudge-prefix">Suggestion:</span> {/if}{nudge}
+				{#if lensNudge}
+					<span class:lens-prompt={lensNudge.prompt}>{lensNudge.text}</span>
+				{:else}
+					{#if density === 'zoomed'}<span class="nudge-prefix">Suggestion:</span> {/if}{nudge}
+				{/if}
 			</span>
 		</div>
 		<!-- ZOOMED: verdicts differ by funnel vs horizon mode -->
@@ -330,9 +344,8 @@
 				{/if}
 			</div>
 		{/if}
-	{/if}
 </div>
-{#if expanded && density !== 'compact' && delCount > 0 && !delSummary}
+{#if expanded && delCount > 0 && !delSummary}
 	<div class="pl-deliverables">
 		<span class="pl-del-label">Deliverables{#if density === 'zoomed'} ({delCount}){/if}</span>
 		{#each linkedDeliverables as { link, deliverable } (deliverable.id)}
@@ -372,10 +385,6 @@
 		border-top: none;
 	}
 
-	.pl-row.density-compact {
-		flex-direction: row;
-	}
-
 	.row-line1 {
 		display: flex;
 		align-items: baseline;
@@ -401,10 +410,6 @@
 
 	.pl-row-horizon.density-zoomed .row-line2 {
 		padding-left: calc(16px + var(--sp-md));
-	}
-
-	:global(.compact) .pl-row {
-		flex-direction: row;
 	}
 
 	.pl-row:hover {
@@ -544,6 +549,11 @@
 		color: var(--c-text-soft);
 	}
 
+	.lens-prompt {
+		font-style: italic;
+		color: var(--c-text-ghost);
+	}
+
 	.pl-meta {
 		display: flex;
 		gap: var(--sp-sm);
@@ -604,10 +614,9 @@
 		font-size: var(--fs-2xs);
 		font-weight: var(--fw-medium);
 		color: var(--c-accent);
-		text-transform: lowercase;
-		border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent);
-		padding: 0 6px;
-		border-radius: 9px;
+		background: color-mix(in srgb, var(--c-accent) var(--opacity-moderate), transparent);
+		padding: 0 4px;
+		border-radius: var(--radius-sm);
 	}
 
 	.aging-badge {

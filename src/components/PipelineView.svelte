@@ -36,7 +36,6 @@
 		onSelectDeliverable?: (id: string) => void
 		onAdvance: (id: string, toStage: Stage) => void
 		onAdd: (title: string) => void
-		compact?: boolean
 		orderedIds?: string[]
 		allHorizons?: string[]
 		grouping?: 'stage' | 'horizon'
@@ -45,6 +44,8 @@
 		onAddHorizon?: (name: string) => void
 		onRemoveHorizon?: (name: string) => void
 		firstVisit?: boolean
+		lens?: Perspective | null
+		onLensChange?: (lens: Perspective | null) => void
 	}
 
 	let {
@@ -56,7 +57,6 @@
 		onSelectDeliverable,
 		onAdvance,
 		onAdd,
-		compact = false,
 		orderedIds = $bindable([]),
 		allHorizons = [],
 		grouping = $bindable('stage'),
@@ -65,6 +65,8 @@
 		onAddHorizon,
 		onRemoveHorizon,
 		firstVisit = false,
+		lens = null,
+		onLensChange,
 	}: Props = $props()
 
 	let newTitle = $state('')
@@ -74,6 +76,27 @@
 	let lastAddedId = $state<string | null>(null)
 	let addInputEl = $state<HTMLInputElement | null>(null)
 	let inlineTitle = $state('')
+
+	/** Sort priority for perspective lens: objection first, then unheard, then concern, then consent */
+	const LENS_SCORE_ORDER: Record<string, number> = { negative: 0, none: 1, uncertain: 2, positive: 3 }
+
+	function toggleLens(p: Perspective) {
+		const next = lens === p ? null : p
+		if (onLensChange) onLensChange(next)
+	}
+
+	const lensSummary = $derived.by(() => {
+		if (!lens) return null
+		let consent = 0, concern = 0, objection = 0, unheard = 0
+		for (const opp of activeOpps) {
+			const score = opp.signals[opp.stage][lens].score
+			if (score === 'positive') consent++
+			else if (score === 'uncertain') concern++
+			else if (score === 'negative') objection++
+			else unheard++
+		}
+		return { consent, concern, objection, unheard, total: activeOpps.length }
+	})
 
 	// ── Zoom state ──
 	let zoomedGroup = $state<string | null>(null)
@@ -451,12 +474,19 @@
 		return result
 	})
 
+	function lensSort(a: PipelineItem, b: PipelineItem): number {
+		if (!lens) return 0
+		const sa = a.opp.signals[a.opp.stage][lens].score
+		const sb = b.opp.signals[b.opp.stage][lens].score
+		return LENS_SCORE_ORDER[sa] - LENS_SCORE_ORDER[sb]
+	}
+
 	const stageGroups = $derived.by(() => {
 		return STAGES.map((stage) => {
 			const items = activeOpps
 				.filter((o) => o.stage === stage.key)
 				.map(buildItem)
-				.sort((a, b) => BUCKET_ORDER[a.bucket] - BUCKET_ORDER[b.bucket] || b.urgency - a.urgency)
+				.sort((a, b) => lensSort(a, b) || BUCKET_ORDER[a.bucket] - BUCKET_ORDER[b.bucket] || b.urgency - a.urgency)
 			return { stage, items }
 		})
 	})
@@ -481,13 +511,13 @@
 			const items = activeOpps
 				.filter(o => o.horizon === horizon)
 				.map(buildItem)
-				.sort((a, b) => stageIndex(b.opp.stage) - stageIndex(a.opp.stage) || b.urgency - a.urgency)
+				.sort((a, b) => lensSort(a, b) || stageIndex(b.opp.stage) - stageIndex(a.opp.stage) || b.urgency - a.urgency)
 			return { horizon, items }
 		})
 		if (unassigned.length > 0) {
 			groups.push({
 				horizon: '(no horizon)',
-				items: unassigned.map(buildItem).sort((a, b) => stageIndex(b.opp.stage) - stageIndex(a.opp.stage) || b.urgency - a.urgency),
+				items: unassigned.map(buildItem).sort((a, b) => lensSort(a, b) || stageIndex(b.opp.stage) - stageIndex(a.opp.stage) || b.urgency - a.urgency),
 			})
 		}
 		return groups
@@ -519,15 +549,15 @@
 		}).filter((x): x is NonNullable<typeof x> => x !== null)
 	}
 
-	const density = $derived<'compact' | 'overview' | 'zoomed'>(
-		zoomedGroup ? 'zoomed' : compact ? 'compact' : 'overview'
+	const density = $derived<'overview' | 'zoomed'>(
+		zoomedGroup ? 'zoomed' : 'overview'
 	)
 
 	/** The active stage used for row dimming (filter takes precedence over hover) */
 	const activeStage = $derived(filteredStage ?? hoveredStage)
 </script>
 
-<div class="pl-container" class:compact>
+<div class="pl-container">
 	{#if opportunities.length === 0}
 		<div class="pl-onboarding-hint">
 			Opportunities flow from Explore → Decompose. Start by adding one below.
@@ -588,7 +618,23 @@
 				<button class="grouping-btn" class:active={grouping === 'stage'} onclick={() => { zoomedGroup = null; filteredStage = null; grouping = 'stage' }}>Funnel</button>
 				<button class="grouping-btn" class:active={grouping === 'horizon'} onclick={() => { zoomedGroup = null; filteredStage = null; grouping = 'horizon' }}>Horizon</button>
 			</span>
+			<span class="lens-toggle">
+				{#each PERSPECTIVES as p}
+					<button class="lens-btn" class:active={lens === p} onclick={() => toggleLens(p)}>{PERSPECTIVE_LABELS[p]}</button>
+				{/each}
+			</span>
 		</div>
+
+		{#if lensSummary}
+			<div class="lens-summary">
+				<span class="lens-summary-label">{PERSPECTIVE_LABELS[lens!]}:</span>
+				{#if lensSummary.objection > 0}<span class="lens-stat lens-stat-negative">{lensSummary.objection} objection{lensSummary.objection !== 1 ? 's' : ''}</span>{/if}
+				{#if lensSummary.unheard > 0}<span class="lens-stat lens-stat-none">{lensSummary.unheard} unheard</span>{/if}
+				{#if lensSummary.concern > 0}<span class="lens-stat lens-stat-uncertain">{lensSummary.concern} concern{lensSummary.concern !== 1 ? 's' : ''}</span>{/if}
+				{#if lensSummary.consent > 0}<span class="lens-stat lens-stat-positive">{lensSummary.consent} consent{lensSummary.consent !== 1 ? 's' : ''}</span>{/if}
+				<span class="lens-stat-total">across {lensSummary.total} opportunit{lensSummary.total !== 1 ? 'ies' : 'y'}</span>
+			</div>
+		{/if}
 
 		{#if revisitDueOpps.length > 0}
 			<div class="revisit-prompt">
@@ -668,6 +714,7 @@
 										{onAdvance}
 										{onSelectDeliverable}
 										onPark={handlePark}
+										{lens}
 									/>
 								{/each}
 								{#if urgent.length > 0 && (attention.length > 0 || clear.length > 0)}
@@ -689,6 +736,7 @@
 										{onAdvance}
 										{onSelectDeliverable}
 										onPark={handlePark}
+										{lens}
 									/>
 								{/each}
 								{#if attention.length > 0 && clear.length > 0}
@@ -710,6 +758,7 @@
 										{onAdvance}
 										{onSelectDeliverable}
 										onPark={handlePark}
+										{lens}
 									/>
 								{/each}
 							</div>
@@ -823,6 +872,7 @@
 											{onAdvance}
 											{onSelectDeliverable}
 											onPark={handlePark}
+											{lens}
 										/>
 									</div>
 								{/each}
@@ -854,9 +904,7 @@
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<div class="pl-row pl-exited-row" role="button" tabindex="0" class:selected={opp.id === selectedId} onclick={() => onSelect(opp.id)}>
 							<span class="pl-title">{opp.title}{#if opp.exitState}<span class="exit-tag">{EXIT_STATES.find(e => e.key === opp.exitState)?.label ?? 'Exited'}</span>{/if}</span>
-							{#if !compact}
 							<span class="pl-nudge">{EXIT_STATES.find(e => e.key === opp.exitState)?.icon ?? '✗'} at {STAGES.find((s) => s.key === opp.stage)?.label}</span>
-							{/if}
 						</div>
 					{/each}
 				</div>
@@ -1064,6 +1112,59 @@
 		background: var(--c-accent);
 		color: var(--c-surface);
 	}
+
+	/* --- Perspective lens --- */
+	.lens-toggle {
+		display: inline-flex;
+		border: 1px solid var(--c-border);
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+		flex-shrink: 0;
+		margin-inline-start: auto;
+	}
+
+	.lens-btn {
+		font-family: var(--font);
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-medium);
+		padding: 2px var(--sp-sm);
+		border: none;
+		background: transparent;
+		color: var(--c-text-muted);
+		cursor: pointer;
+		transition: background var(--tr-fast), color var(--tr-fast);
+	}
+
+	.lens-btn:hover {
+		color: var(--c-text);
+	}
+
+	.lens-btn.active {
+		background: var(--c-accent);
+		color: var(--c-surface);
+	}
+
+	.lens-summary {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--sp-sm);
+		padding: var(--sp-xs) var(--sp-sm);
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+	}
+
+	.lens-summary-label {
+		font-weight: var(--fw-bold);
+		color: var(--c-text);
+	}
+
+	.lens-stat { font-weight: var(--fw-medium); }
+	.lens-stat-negative { color: var(--c-red); }
+	.lens-stat-none { color: var(--c-text-ghost); }
+	.lens-stat-uncertain { color: var(--c-warm); }
+	.lens-stat-positive { color: var(--c-green-signal); }
+	.lens-stat-total { color: var(--c-text-ghost); }
 
 	/* --- Stage groups --- */
 	.pl-stage-group {

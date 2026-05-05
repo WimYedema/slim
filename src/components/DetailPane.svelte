@@ -28,7 +28,6 @@
 		commitmentUrgency,
 		stageConsent,
 		stageIndex,
-		linksForOpportunity,
 		daysInStage,
 		agingLevel,
 		scoreClass,
@@ -36,6 +35,8 @@
 	} from '../lib/types'
 	import ScoreToggle from './ScoreToggle.svelte'
 	import MemberPicker from './MemberPicker.svelte'
+	import DeliverablesSection from './DeliverablesSection.svelte'
+	import CommitmentsAndPeople from './CommitmentsAndPeople.svelte'
 
 	interface Props {
 		opportunity: Opportunity
@@ -50,9 +51,11 @@
 		onLinkDeliverable: (opportunityId: string, deliverableId: string, coverage: 'full' | 'partial') => void
 		onUnlinkDeliverable: (opportunityId: string, deliverableId: string) => void
 		onUpdateLinkCoverage: (opportunityId: string, deliverableId: string, coverage: 'full' | 'partial') => void
+		onNavigateToDeliverable?: (id: string) => void
+		lens?: Perspective | null
 	}
 
-	let { opportunity, deliverables, links, allHorizons = [], knownNames = [], onUpdate, onClose, onAddDeliverable, onUpdateDeliverable, onLinkDeliverable, onUnlinkDeliverable, onUpdateLinkCoverage }: Props = $props()
+	let { opportunity, deliverables, links, allHorizons = [], knownNames = [], lens = null, onUpdate, onClose, onAddDeliverable, onUpdateDeliverable, onLinkDeliverable, onUnlinkDeliverable, onUpdateLinkCoverage, onNavigateToDeliverable }: Props = $props()
 
 	function updateSignalField(stage: Stage, perspective: Perspective, field: keyof CellSignal, value: string | Score) {
 		onUpdate({
@@ -70,17 +73,7 @@
 		})
 	}
 
-	function rowState(rowStage: Stage): 'completed' | 'current' | 'future' {
-		const current = stageIndex(opportunity.stage)
-		const row = stageIndex(rowStage)
-		if (row < current) return 'completed'
-		if (row === current) return 'current'
-		return 'future'
-	}
 
-	function stageHasAnySignal(stage: Stage): boolean {
-		return PERSPECTIVES.some((p) => cellHasSignal(opportunity.signals[stage][p]))
-	}
 
 
 
@@ -174,34 +167,10 @@
 		onUpdate({ ...opportunity, people: [...opportunity.people, person] })
 	}
 
-	function addPersonWithRole(name: string, role: PersonRole) {
-		const trimmed = name.trim()
-		if (!trimmed) return
-		if (opportunity.people.some(p => p.name.toLowerCase() === trimmed.toLowerCase())) return
-		const person: PersonLink = {
-			id: crypto.randomUUID(),
-			name: trimmed,
-			role,
-			perspectives: [],
-		}
-		onUpdate({ ...opportunity, people: [...opportunity.people, person] })
-	}
 
-	function removePersonById(id: string) {
-		onUpdate({ ...opportunity, people: opportunity.people.filter(p => p.id !== id) })
-	}
-
-	function changePersonRole(id: string, role: PersonRole) {
-		onUpdate({
-			...opportunity,
-			people: opportunity.people.map(p => p.id === id ? { ...p, role } : p),
-		})
-	}
 
 	let addingFor: { perspective: Perspective; stage: Stage } | null = $state(null)
-	let addingPerson = $state(false)
 	let expandedCells: Set<string> = $state(new Set())
-	let collapsedPerspectives: Set<Perspective> = $state(new Set())
 
 	function cellKey(stage: Stage, perspective: Perspective): string {
 		return `${stage}:${perspective}`
@@ -215,57 +184,13 @@
 		expandedCells = next
 	}
 
-	function togglePerspective(p: Perspective) {
-		const next = new Set(collapsedPerspectives)
-		if (next.has(p)) next.delete(p)
-		else next.add(p)
-		collapsedPerspectives = next
-	}
 
-	// Commitment management
-	let showAddCommitment = $state(false)
-	let commitTo = $state('')
-	let commitMilestone: Stage = $state('sketch')
-	let commitByDate = $state('')
-
-	function addCommitment() {
-		const trimmed = commitTo.trim()
-		if (!trimmed || !commitByDate) return
-		const commitment: Commitment = {
-			id: crypto.randomUUID(),
-			to: trimmed,
-			milestone: commitMilestone,
-			by: new Date(commitByDate).getTime(),
-		}
-		onUpdate({ ...opportunity, commitments: [...opportunity.commitments, commitment] })
-		commitTo = ''
-		commitByDate = ''
-		showAddCommitment = false
-	}
-
-	function removeCommitment(id: string) {
-		onUpdate({ ...opportunity, commitments: opportunity.commitments.filter((c) => c.id !== id) })
-	}
 
 
 
 	const urgency = $derived(commitmentUrgency(opportunity))
 
 	// ── Deliverables ──
-
-	const oppLinks = $derived(linksForOpportunity(links, opportunity.id))
-	const linkedDeliverables = $derived(
-		oppLinks.map((link) => ({
-			link,
-			deliverable: deliverables.find((d) => d.id === link.deliverableId)!,
-		})).filter((x) => x.deliverable)
-	)
-	const unlinkedDeliverables = $derived(
-		deliverables.filter((d) => !oppLinks.some((l) => l.deliverableId === d.id))
-	)
-
-	let showLinkPicker = $state(false)
-	let newDeliverableTitle = $state('')
 
 	let showExitMenu = $state(false)
 	let exitReasonInput = $state('')
@@ -282,19 +207,6 @@
 		showExitMenu = false
 		exitReasonInput = ''
 		parkUntilInput = ''
-	}
-
-	function addAndLink(title: string) {
-		const trimmed = title.trim()
-		if (!trimmed) return
-		const d = onAddDeliverable(trimmed)
-		onLinkDeliverable(opportunity.id, d.id, 'partial')
-		newDeliverableTitle = ''
-	}
-
-	function linkExisting(deliverableId: string) {
-		onLinkDeliverable(opportunity.id, deliverableId, 'partial')
-		showLinkPicker = false
 	}
 
 	function scrollToCell(perspective: Perspective) {
@@ -453,200 +365,158 @@
 	{/if}
 
 	<div class="signal-grid">
-		{#each PERSPECTIVES as p}
-			{@const hasAnySignal = STAGES.some((s) => cellHasSignal(opportunity.signals[s.key][p]))}
-			{@const currentSI = stageIndex(opportunity.stage)}
-			{@const isCollapsed = collapsedPerspectives.has(p)}
-			<div class="perspective-section">
-				<!-- svelte-ignore a11y_click_events_have_key_events -->
-				<div class="perspective-label" role="button" tabindex="0" onclick={() => togglePerspective(p)}>
-					<span class="perspective-toggle">{isCollapsed ? '▸' : '▾'}</span>
-					{PERSPECTIVE_LABELS[p]}
-					{#if isCollapsed}
-						<span class="perspective-summary">
-							{#each STAGES as stage}
-								{@const sig = opportunity.signals[stage.key][p]}
-								{#if cellHasSignal(sig)}
-									<span class="score-btn-mini {scoreClass(sig.score)}" role="img" aria-label="{stage.label}: {SCORE_DISPLAY[sig.score].label}">{SCORE_SYMBOL[sig.score]}</span>
+		<!-- Section 1: Current Stage — action rows for all perspectives -->
+		<div class="current-stage-section">
+			<div class="section-heading">
+				<span class="section-heading-label">{STAGES.find(s => s.key === opportunity.stage)?.label}</span>
+			</div>
+			{#each PERSPECTIVES as p}
+				{@const signal = opportunity.signals[opportunity.stage][p]}
+				{@const delegation = perspectiveAssignment(opportunity, p, opportunity.stage)}
+				{@const isAdding = addingFor?.perspective === p && addingFor?.stage === opportunity.stage}
+				<div id="cell-{opportunity.stage}-{p}" class="signal-row-edit current-stage">
+					<div class="cell-header">
+						<span class="cell-question">{CELL_QUESTIONS[opportunity.stage][p]}</span>
+						<span class="cell-meta">
+							<span class="cell-perspective">{PERSPECTIVE_LABELS[p]}</span>
+							<span class="row-delegation">
+								{#if delegation}
+									{@const hasResponded = cellHasSignal(signal)}
+									<span class="delegation" class:responded={hasResponded}>
+										{delegation.person.name}
+										{#if hasResponded}
+											✓
+										{:else}
+											{@const daysAgo = Math.floor((Date.now() - delegation.assignment.assignedAt) / 86_400_000)}
+											{daysAgo === 0 ? '·today' : `·${daysAgo}d`}
+										{/if}
+									</span>
+									<button class="unassign-btn visible" onclick={() => assignPerspective(delegation.person.id, p, opportunity.stage)} title="Unassign">×</button>
+								{:else if isAdding}
+									<span class="assign-inline">
+										{#if opportunity.people.length > 0}
+											<select class="assign-select" onchange={(e) => {
+												const val = (e.target as HTMLSelectElement).value
+												if (val === '__new__') {
+													// MemberPicker handles new name entry
+												} else if (val) {
+													assignPerspective(val, p, opportunity.stage)
+													addingFor = null
+												}
+											}}>
+												<option value="">Pick…</option>
+												{#each opportunity.people as person}
+													<option value={person.id}>{person.name}</option>
+												{/each}
+												<option value="__new__">+ New</option>
+											</select>
+										{/if}
+										{#if opportunity.people.length === 0 || isAdding}
+											<MemberPicker
+												{knownNames}
+												placeholder="Name…"
+												inputClass="assign-name-input"
+												onPick={(name) => {
+													addPersonAndAssign(name, p, opportunity.stage)
+													addingFor = null
+												}}
+											/>
+										{/if}
+										<button class="assign-cancel" onclick={() => { addingFor = null }}>×</button>
+									</span>
+								{:else}
+									<button class="assign-btn" onclick={() => addingFor = { perspective: p, stage: opportunity.stage }}>+ ask</button>
+								{/if}
+							</span>
+						</span>
+					</div>
+					<input
+						type="text"
+						class="verdict-input"
+						placeholder="Your verdict…"
+						value={signal.verdict}
+						oninput={(e) => updateSignalField(opportunity.stage, p, 'verdict', (e.target as HTMLInputElement).value)}
+					/>
+					<ScoreToggle
+						score={signal.score}
+						label="{PERSPECTIVE_LABELS[p]} — {STAGES.find(s => s.key === opportunity.stage)?.label}"
+						onScoreChange={(s) => updateSignalField(opportunity.stage, p, 'score', s)}
+						expanded
+					/>
+				</div>
+			{/each}
+		</div>
+
+		<!-- Section 2: History — completed stage verdicts as readable document -->
+		{#if stageIndex(opportunity.stage) > 0}
+			<div class="history-section">
+				<div class="section-heading">
+					<span class="section-heading-label">Verdicts</span>
+				</div>
+				{#each PERSPECTIVES as p}
+					{@const completedStages = STAGES.filter((_, i) => i < stageIndex(opportunity.stage))}
+					{@const hasAny = completedStages.some(s => cellHasSignal(opportunity.signals[s.key][p]))}
+					{#if hasAny}
+						<div class="history-perspective">
+							<span class="history-perspective-label">{PERSPECTIVE_LABELS[p]}</span>
+							{#each completedStages as stage}
+								{@const signal = opportunity.signals[stage.key][p]}
+								{@const delegation = perspectiveAssignment(opportunity, p, stage.key)}
+								{@const isExpanded = expandedCells.has(cellKey(stage.key, p))}
+								{#if cellHasSignal(signal)}
+									{#if !isExpanded}
+										<!-- svelte-ignore a11y_click_events_have_key_events -->
+										<div class="history-verdict" role="button" tabindex="0" onclick={() => toggleExpand(stage.key, p)} title="Click to edit">
+											<span class="history-stage">{stage.label}</span>
+											<span class="score-btn-mini {scoreClass(signal.score)}" role="img" aria-label="{SCORE_DISPLAY[signal.score].label}">{SCORE_SYMBOL[signal.score]}</span>
+											<span class="history-verdict-text">{signal.verdict || '—'}{#if delegation}<span class="compact-owner"> ({delegation.person.name})</span>{/if}</span>
+										</div>
+									{:else}
+										<div id="cell-{stage.key}-{p}" class="signal-row-edit completed-stage">
+											<div class="signal-row-top">
+												<span class="signal-stage">{stage.label}</span>
+												{#if signal.score !== 'none'}
+													<span class="score-label score-label-{signal.score}">{SCORE_DISPLAY[signal.score].label}</span>
+												{/if}
+												<span class="row-delegation">
+													{#if delegation}
+														{@const hasResponded = cellHasSignal(signal)}
+														<span class="delegation" class:responded={hasResponded}>
+															{delegation.person.name}
+															{#if hasResponded}✓{/if}
+														</span>
+													{/if}
+												</span>
+												<ScoreToggle
+													score={signal.score}
+													label="{PERSPECTIVE_LABELS[p]} — {stage.label}"
+													onScoreChange={(s) => updateSignalField(stage.key, p, 'score', s)}
+												/>
+											</div>
+											<div class="verdict-field">
+												<label class="verdict-label">{CELL_QUESTIONS[stage.key][p]}</label>
+												<input
+													type="text"
+													class="verdict-input"
+													placeholder="Your verdict…"
+													value={signal.verdict}
+													oninput={(e) => updateSignalField(stage.key, p, 'verdict', (e.target as HTMLInputElement).value)}
+												/>
+											</div>
+											<!-- svelte-ignore a11y_click_events_have_key_events -->
+											<span class="history-collapse" role="button" tabindex="0" onclick={() => toggleExpand(stage.key, p)}>collapse</span>
+										</div>
+									{/if}
 								{/if}
 							{/each}
-						</span>
-					{/if}
-				</div>
-				{#if !isCollapsed}
-				{#each STAGES as stage, i}
-					{@const state = rowState(stage.key)}
-					{@const signal = opportunity.signals[stage.key][p]}
-					{@const delegation = perspectiveAssignment(opportunity, p, stage.key)}
-					{@const isAdding = addingFor?.perspective === p && addingFor?.stage === stage.key}
-					{#if state !== 'future' || cellHasSignal(signal)}
-						{#if state === 'completed' && !expandedCells.has(cellKey(stage.key, p))}
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<div class="signal-row-compact" role="button" tabindex="0" onclick={() => toggleExpand(stage.key, p)} title="Click to edit">
-							<span class="score-btn-mini {scoreClass(signal.score)}" role="img" aria-label="{SCORE_DISPLAY[signal.score].label}">{SCORE_SYMBOL[signal.score]}</span>
-							<span class="compact-verdict">{signal.verdict || '—'}{#if delegation}<span class="compact-owner"> ({delegation.person.name})</span>{/if}</span>
 						</div>
-						{:else}
-						<div id="cell-{stage.key}-{p}" class="signal-row-edit" class:current-stage={state === 'current'} class:completed-stage={state === 'completed'}>
-							<div class="signal-row-top">
-								<span class="signal-stage">{stage.label}</span>
-								{#if signal.score !== 'none'}
-									<span class="score-label score-label-{signal.score}">{SCORE_DISPLAY[signal.score].label}</span>
-								{/if}
-								<span class="row-delegation">
-									{#if delegation}
-										{@const hasResponded = cellHasSignal(signal)}
-										<span class="delegation" class:responded={hasResponded}>
-											{delegation.person.name}
-											{#if hasResponded}
-												✓
-											{:else}
-												{@const daysAgo = Math.floor((Date.now() - delegation.assignment.assignedAt) / 86_400_000)}
-												{daysAgo === 0 ? '·today' : `·${daysAgo}d`}
-											{/if}
-										</span>
-										<button class="unassign-btn visible" onclick={() => assignPerspective(delegation.person.id, p, stage.key)} title="Unassign">×</button>
-									{:else if isAdding}
-										<span class="assign-inline">
-											{#if opportunity.people.length > 0}
-												<select class="assign-select" onchange={(e) => {
-													const val = (e.target as HTMLSelectElement).value
-													if (val === '__new__') {
-														// MemberPicker handles new name entry
-													} else if (val) {
-														assignPerspective(val, p, stage.key)
-														addingFor = null
-													}
-												}}>
-													<option value="">Pick…</option>
-													{#each opportunity.people as person}
-														<option value={person.id}>{person.name}</option>
-													{/each}
-													<option value="__new__">+ New</option>
-												</select>
-											{/if}
-											{#if opportunity.people.length === 0 || isAdding}
-												<MemberPicker
-													{knownNames}
-													placeholder="Name…"
-													inputClass="assign-name-input"
-													onPick={(name) => {
-														addPersonAndAssign(name, p, stage.key)
-														addingFor = null
-													}}
-												/>
-											{/if}
-											<button class="assign-cancel" onclick={() => { addingFor = null }}>×</button>
-										</span>
-									{:else}
-										<button class="assign-btn" onclick={() => addingFor = { perspective: p, stage: stage.key }}>+ ask</button>
-									{/if}
-								</span>
-								<ScoreToggle
-									score={signal.score}
-									label="{PERSPECTIVE_LABELS[p]} — {stage.label}"
-									onScoreChange={(s) => updateSignalField(stage.key, p, 'score', s)}
-								/>
-							</div>
-							<div class="verdict-field">
-								<label class="verdict-label">{CELL_QUESTIONS[stage.key][p]}</label>
-								<input
-									type="text"
-									class="verdict-input"
-									placeholder="Your verdict…"
-									value={signal.verdict}
-									oninput={(e) => updateSignalField(stage.key, p, 'verdict', (e.target as HTMLInputElement).value)}
-								/>
-							</div>
-						</div>
-						{/if}
 					{/if}
 				{/each}
-				{/if}
 			</div>
-		{/each}
-	</div>
-
-	<div id="commitments-section" class="commitments-section">
-		<div class="commitments-header">
-			<span class="section-label">Promises</span>
-			<span class="commitment-count">{opportunity.commitments.length}</span>
-		</div>
-		{#each opportunity.commitments as c (c.id)}
-			{@const si = stageIndex(opportunity.stage)}
-			{@const met = stageIndex(c.milestone) < si}
-			{@const daysLeft = Math.ceil((c.by - Date.now()) / 86_400_000)}
-			<div class="commitment-row" class:met class:overdue={!met && daysLeft < 0} class:urgent={!met && daysLeft >= 0 && daysLeft <= 7}>
-				<span class="commitment-text">
-					{STAGES.find((s) => s.key === c.milestone)?.label} for {c.to}
-				</span>
-				<span class="commitment-deadline">
-					{#if met}
-						✓ met
-					{:else}
-						{formatDaysLeft(daysLeft)}
-					{/if}
-				</span>
-				<button class="commitment-remove" onclick={() => removeCommitment(c.id)} aria-label="Remove commitment">×</button>
-			</div>
-		{/each}
-		{#if showAddCommitment}
-		<div class="commitment-add-form">
-				<input type="text" class="commitment-input" placeholder="Promised to…" bind:value={commitTo} list="known-names-list" />
-				<datalist id="known-names-list">
-					{#each knownNames as name}
-						<option value={name} />
-					{/each}
-				</datalist>
-				<select class="commitment-select" bind:value={commitMilestone}>
-					{#each STAGES as stage}
-						<option value={stage.key}>{stage.label}</option>
-					{/each}
-				</select>
-				<input type="date" class="commitment-date" bind:value={commitByDate} />
-				<button class="commitment-save" onclick={addCommitment} disabled={!commitTo.trim() || !commitByDate}>✓</button>
-				<button class="commitment-cancel" onclick={() => { showAddCommitment = false; commitTo = ''; commitByDate = '' }}>×</button>
-			</div>
-		{:else}
-			<button class="btn-ghost add-commitment-btn" onclick={() => showAddCommitment = true}>+ promise</button>
 		{/if}
 	</div>
 
-	<!-- People -->
-	<div class="people-section">
-		<div class="people-header">
-			<span class="section-label">Inform</span>
-			<span class="commitment-count">{opportunity.people.length}</span>
-		</div>
-		{#each opportunity.people as person (person.id)}
-			<div class="people-row">
-				<span class="people-name">{person.name}</span>
-				<select
-					class="people-role-select"
-					value={person.role}
-					onchange={(e) => changePersonRole(person.id, (e.target as HTMLSelectElement).value as PersonRole)}
-				>
-					{#each PERSON_ROLES as role}
-						<option value={role.key}>{role.label}</option>
-					{/each}
-				</select>
-				<button class="commitment-remove" onclick={() => removePersonById(person.id)} aria-label="Remove person">×</button>
-			</div>
-		{/each}
-		{#if addingPerson}
-			<div class="people-add-row">
-				<MemberPicker
-					{knownNames}
-					placeholder="Name…"
-					inputClass="people-name-input"
-					onPick={(name) => { addPersonWithRole(name, 'stakeholder'); addingPerson = false }}
-				/>
-				<button class="commitment-cancel" onclick={() => addingPerson = false}>×</button>
-			</div>
-		{:else}
-			<button class="btn-ghost add-commitment-btn" onclick={() => addingPerson = true}>+ person</button>
-		{/if}
-	</div>
+	<CommitmentsAndPeople {opportunity} {knownNames} {onUpdate} />
 
 	<label class="pane-field">
 		<span class="pane-label">Notes</span>
@@ -659,70 +529,17 @@
 		></textarea>
 	</label>
 
-	{#if opportunity.stage === 'decompose' || linkedDeliverables.length > 0}
-		<div class="deliverables-section">
-			<div class="deliverables-header">
-				<span class="section-label">Deliverables</span>
-				{#if linkedDeliverables.length > 0}
-					<span class="deliverable-count">{linkedDeliverables.filter((x) => x.link.coverage === 'full').length}/{linkedDeliverables.length} full</span>
-				{/if}
-				{#if opportunity.stage === 'decompose'}
-					<label class="decomposition-complete-toggle" title={opportunity.decompositionComplete ? 'Decomposition complete' : 'Mark decomposition as complete'}>
-						<input
-							type="checkbox"
-							checked={opportunity.decompositionComplete ?? false}
-							onchange={() => onUpdate({ ...opportunity, decompositionComplete: !opportunity.decompositionComplete })}
-						/>
-						complete
-					</label>
-				{/if}
-			</div>
-			{#each linkedDeliverables as { link, deliverable } (deliverable.id)}
-				{@const contributors = [...new Set([...opportunity.people.filter((p) => p.role === 'expert').map((p) => p.name), ...deliverable.extraContributors])]}
-				{@const consumers = [...new Set([...opportunity.people.filter((p) => p.role === 'stakeholder' || p.role === 'approver').map((p) => p.name), ...deliverable.extraConsumers])]}
-				<div class="deliverable-row">
-					<button
-						class="coverage-toggle"
-						class:full={link.coverage === 'full'}
-						onclick={() => onUpdateLinkCoverage(opportunity.id, deliverable.id, link.coverage === 'full' ? 'partial' : 'full')}
-						title={link.coverage === 'full' ? 'Full coverage — click to mark partial' : 'Partial coverage — click to mark full'}
-					>{link.coverage === 'full' ? '●' : '◐'}</button>
-					<span class="deliverable-title">{#if deliverable.externalUrl}<a href={deliverable.externalUrl} target="_blank" rel="noopener">{deliverable.title}</a>{:else}{deliverable.title}{/if}</span>
-					{#if deliverable.size}
-						<span class="deliverable-size-badge">{deliverable.size}</span>
-					{/if}
-					{#if deliverable.certainty != null}
-						<span class="deliverable-certainty" title="Certainty {deliverable.certainty}/5">{'●'.repeat(deliverable.certainty)}{'○'.repeat(5 - deliverable.certainty)}</span>
-					{/if}
-					{#if consumers.length > 0}
-						<span class="deliverable-stakeholders" title="Present to: {consumers.join(', ')}">→ {consumers.join(', ')}</span>
-					{/if}
-					<button class="deliverable-unlink" onclick={() => onUnlinkDeliverable(opportunity.id, deliverable.id)} title="Unlink">×</button>
-				</div>
-			{/each}
-			<div class="deliverable-add">
-				<input
-					type="text"
-					class="deliverable-input"
-					placeholder="New deliverable…"
-					bind:value={newDeliverableTitle}
-					onkeydown={(e) => { if (e.key === 'Enter') addAndLink(newDeliverableTitle) }}
-				/>
-				{#if unlinkedDeliverables.length > 0}
-					{#if showLinkPicker}
-						<div class="link-picker">
-							{#each unlinkedDeliverables as d (d.id)}
-								<button class="link-option" onclick={() => linkExisting(d.id)}>{d.title}</button>
-							{/each}
-							<button class="link-option cancel" onclick={() => showLinkPicker = false}>Cancel</button>
-						</div>
-					{:else}
-						<button class="link-existing-btn" onclick={() => showLinkPicker = true}>+ link existing</button>
-					{/if}
-				{/if}
-			</div>
-		</div>
-	{/if}
+	<DeliverablesSection
+		{opportunity}
+		{deliverables}
+		{links}
+		{onUpdate}
+		{onAddDeliverable}
+		{onLinkDeliverable}
+		{onUnlinkDeliverable}
+		{onUpdateLinkCoverage}
+		{onNavigateToDeliverable}
+	/>
 </div>
 
 <style>
@@ -796,7 +613,6 @@
 		display: flex;
 		align-items: center;
 		gap: var(--sp-sm);
-		margin-top: var(--sp-xs);
 	}
 
 	.pane-horizon .horizon-label {
@@ -814,7 +630,7 @@
 		background: transparent;
 		border: 1px dashed var(--c-border-soft);
 		border-radius: var(--radius-sm);
-		padding: 1px var(--sp-xs);
+		padding: 2px var(--sp-xs);
 		width: 100px;
 		outline: none;
 		transition: border-color var(--tr-fast);
@@ -972,8 +788,6 @@
 		align-items: center;
 		flex-wrap: wrap;
 		padding: var(--sp-xs) 0;
-		border-top: 1px dashed var(--c-border);
-		margin-top: var(--sp-xs);
 	}
 
 	.pane-origin {
@@ -1177,500 +991,112 @@
 		font-weight: var(--fw-medium);
 	}
 
-	/* --- Commitments --- */
-
-	.commitments-section {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.commitments-header {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-xs);
-	}
-
-	.commitment-count {
-		font-size: var(--fs-2xs);
-		color: var(--c-text-ghost);
-	}
-
-	.commitment-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-xs);
-		font-size: var(--fs-xs);
-		padding: 2px var(--sp-xs);
-		border-radius: var(--radius-sm);
-	}
-
-	.commitment-row.urgent {
-		background: color-mix(in srgb, var(--c-warm) var(--opacity-moderate), transparent);
-	}
-
-	.commitment-row.overdue {
-		background: color-mix(in srgb, var(--c-red) var(--opacity-moderate), transparent);
-	}
-
-	.commitment-row.met {
-		color: var(--c-text-ghost);
-		text-decoration: line-through;
-	}
-
-	.commitment-text {
-		flex: 1;
-		color: var(--c-text);
-	}
-
-	.commitment-deadline {
-		font-family: var(--font);
-		font-weight: var(--fw-medium);
-		white-space: nowrap;
-		color: var(--c-text-muted);
-	}
-
-	.commitment-row.urgent .commitment-deadline {
-		color: var(--c-warm);
-	}
-
-	.commitment-row.overdue .commitment-deadline {
-		color: var(--c-red);
-	}
-
-	.commitment-remove {
-		font-size: var(--fs-xs);
-		color: var(--c-text-ghost);
-		background: none;
-		border: none;
-		cursor: pointer;
-		padding: 0 2px;
-		opacity: 0;
-		transition: opacity var(--tr-fast);
-	}
-
-	.commitment-row:hover .commitment-remove {
-		opacity: 1;
-	}
-
-	.commitment-add-form {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		font-size: var(--fs-xs);
-	}
-
-	.commitment-input {
-		font: inherit;
-		font-size: var(--fs-xs);
-		color: var(--c-text);
-		background: transparent;
-		border: none;
-		border-bottom: 1px dashed var(--c-border);
-		padding: 1px 2px;
-		width: 7em;
-	}
-
-	.commitment-input:focus {
-		outline: none;
-		border-bottom-color: var(--c-accent);
-	}
-
-	.commitment-select {
-		font: inherit;
-		font-size: var(--fs-xs);
-		color: var(--c-text);
-		background: var(--c-surface);
-		border: 1px solid var(--c-border);
-		border-radius: var(--radius-sm);
-		padding: 1px 4px;
-	}
-
-	.commitment-date {
-		font: inherit;
-		font-size: var(--fs-xs);
-		color: var(--c-text);
-		background: var(--c-surface);
-		border: 1px solid var(--c-border);
-		border-radius: var(--radius-sm);
-		padding: 1px 4px;
-	}
-
-	.commitment-save, .commitment-cancel {
-		font-size: var(--fs-xs);
-		background: none;
-		border: none;
-		cursor: pointer;
-		padding: 0 2px;
-	}
-
-	.commitment-save {
-		color: var(--c-green-signal);
-	}
-
-	.commitment-save:disabled {
-		opacity: 0.3;
-		cursor: default;
-	}
-
-	.commitment-cancel {
-		color: var(--c-text-ghost);
-	}
-
-	.add-commitment-btn {
-		font-family: var(--font);
-		font-size: var(--fs-xs);
-		color: var(--c-text-ghost);
-		background: none;
-		border: none;
-		cursor: pointer;
-		padding: 0;
-		align-self: flex-start;
-		transition: color var(--tr-fast);
-	}
-
-	.add-commitment-btn:hover {
-		color: var(--c-accent);
-	}
-
-	/* --- People (Voices) section --- */
-
-	.people-section {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.people-header {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-xs);
-	}
-
-	.people-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-xs);
-		font-size: var(--fs-xs);
-		padding: 2px var(--sp-xs);
-		border-radius: var(--radius-sm);
-	}
-
-	.people-row:hover {
-		background: color-mix(in srgb, var(--c-accent) var(--opacity-moderate), transparent);
-	}
-
-	.people-name {
-		flex: 1;
-		color: var(--c-text);
-	}
-
-	.people-role-select {
-		font: inherit;
-		font-size: var(--fs-xs);
-		color: var(--c-text);
-		background: var(--c-surface);
-		border: 1px solid var(--c-border);
-		border-radius: var(--radius-sm);
-		padding: 1px 4px;
-	}
-
-	.people-add-row {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		font-size: var(--fs-xs);
-	}
-
-	:global(.people-name-input) {
-		font: inherit;
-		font-size: var(--fs-xs);
-		color: var(--c-text);
-		background: transparent;
-		border: none;
-		border-bottom: 1px dashed var(--c-border);
-		padding: 1px 2px;
-		width: 10em;
-	}
-
-	:global(.people-name-input:focus) {
-		outline: none;
-		border-bottom-color: var(--c-accent);
-	}
-
-	/* --- People summary --- */
-
-	.people-summary {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: var(--sp-xs);
-		padding: var(--sp-xs) 0;
-	}
-
-	.people-label {
-		font-family: var(--font);
-		font-size: var(--fs-xs);
-		font-weight: var(--fw-bold);
-		color: var(--c-text-muted);
-		margin-right: var(--sp-xs);
-	}
-
-	.people-chip {
-		font-family: var(--font);
-		font-size: var(--fs-2xs);
-		color: var(--c-text-soft);
-		background: var(--c-neutral-bg-light);
-		border-radius: var(--radius-sm);
-		padding: 1px var(--sp-xs);
-		display: inline-flex;
-		align-items: center;
-		gap: 3px;
-	}
-
-	.people-chip.all-responded {
-		color: var(--c-green-signal);
-		background: color-mix(in srgb, var(--c-green-signal) var(--opacity-moderate), transparent);
-	}
-
-	.people-status {
-		font-weight: var(--fw-bold);
-		font-size: var(--fs-2xs);
-		opacity: 0.7;
-	}
-
-	/* --- Deliverables section --- */
-
-	.deliverables-section {
-		margin-bottom: var(--sp-sm);
-		padding: var(--sp-sm);
-		background: var(--c-bg);
-		border-radius: var(--radius-sm);
-		font-family: var(--font);
-	}
-
-	.deliverables-header {
-		display: flex;
-		align-items: baseline;
-		gap: var(--sp-sm);
-		margin-bottom: var(--sp-xs);
-	}
-
-	.section-label {
-		font-size: var(--fs-xs);
-		font-weight: var(--fw-medium);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--c-text-muted);
-	}
-
-	.deliverable-count {
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-		opacity: 0.7;
-	}
-
-	.decomposition-complete-toggle {
-		margin-left: auto;
-		display: flex;
-		align-items: center;
-		gap: 3px;
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-		cursor: pointer;
-	}
-
-	.decomposition-complete-toggle input {
-		margin: 0;
-	}
-
-	.deliverable-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-xs);
-		padding: 2px 0;
-	}
-
-	.coverage-toggle {
-		background: none;
-		border: none;
-		cursor: pointer;
-		font-size: var(--fs-sm);
-		color: var(--c-text-muted);
-		padding: 0;
-		line-height: var(--lh-tight);
-		width: 1.2em;
-		text-align: center;
-	}
-
-	.coverage-toggle.full {
-		color: var(--c-green);
-	}
-
-	.deliverable-title {
-		font-size: var(--fs-xs);
-		flex: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.deliverable-title a {
-		color: var(--c-text);
-		text-decoration: none;
-	}
-
-	.deliverable-title a:hover {
-		color: var(--c-accent-text);
-		text-decoration: underline;
-	}
-
-	.deliverable-stakeholders {
-		font-size: var(--fs-2xs);
-		color: var(--c-text-muted);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		max-width: 120px;
-	}
-
-	.deliverable-size-badge {
-		font-size: var(--fs-2xs);
-		font-family: var(--font);
-		color: var(--c-text-muted);
-		background: color-mix(in srgb, var(--c-border) 40%, transparent);
-		padding: 0 var(--sp-2xs);
-		border-radius: var(--radius-sm);
-		flex-shrink: 0;
-	}
-
-	.deliverable-certainty {
-		font-size: 6px;
-		letter-spacing: -1px;
-		color: var(--c-text-ghost);
-		flex-shrink: 0;
-	}
-
-	.deliverable-unlink {
-		background: none;
-		border: none;
-		cursor: pointer;
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-		opacity: 0;
-		padding: 0 2px;
-		transition: opacity var(--tr-fast);
-	}
-
-	.deliverable-row:hover .deliverable-unlink {
-		opacity: 0.6;
-	}
-
-	.deliverable-add {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--sp-xs);
-		margin-top: var(--sp-xs);
-	}
-
-	.deliverable-input {
-		flex: 1;
-		min-width: 120px;
-		font: inherit;
-		font-size: var(--fs-sm);
-		background: var(--c-surface);
-		border: 1px solid var(--c-border-soft);
-		border-radius: var(--radius-sm);
-		padding: 2px var(--sp-xs);
-		color: var(--c-text);
-	}
-
-	.link-existing-btn {
-		background: none;
-		border: none;
-		font: inherit;
-		font-size: var(--fs-xs);
-		color: var(--c-accent);
-		cursor: pointer;
-		padding: 0;
-	}
-
-	.link-picker {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 2px;
-		width: 100%;
-		margin-top: var(--sp-xs);
-	}
-
-	.link-option {
-		background: var(--c-surface);
-		border: 1px solid var(--c-border-soft);
-		border-radius: var(--radius-sm);
-		font: inherit;
-		font-size: var(--fs-xs);
-		color: var(--c-text);
-		cursor: pointer;
-		padding: 2px var(--sp-xs);
-	}
-
-	.link-option:hover {
-		background: var(--c-hover);
-	}
-
-	.link-option.cancel {
-		color: var(--c-text-muted);
-	}
-
-	/* --- Signal grid: grouped by perspective --- */
+	/* --- Signal grid: action-first layout --- */
 
 	.signal-grid {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-md);
+		gap: var(--sp-lg);
 		background: var(--c-bg);
 		padding: var(--sp-sm);
 		border-radius: var(--radius-sm);
 		margin-top: var(--sp-xs);
 	}
 
-	.perspective-section {
+	.section-heading {
+		display: flex;
+		align-items: baseline;
+		gap: var(--sp-sm);
+		padding-bottom: 2px;
+		border-bottom: 1px solid var(--c-border-soft);
+		margin-bottom: var(--sp-xs);
+	}
+
+	.section-heading-label {
+		font-family: var(--font);
+		font-size: var(--fs-sm);
+		font-weight: var(--fw-bold);
+		color: var(--c-text);
+	}
+
+	.current-stage-section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-xs);
+	}
+
+	.signal-perspective-label {
+		font-family: var(--font);
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-bold);
+		color: var(--c-text);
+		min-width: 5em;
+	}
+
+	/* History section */
+
+	.history-section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-sm);
+	}
+
+	.history-perspective {
 		display: flex;
 		flex-direction: column;
 		gap: 1px;
 	}
 
-	.perspective-label {
+	.history-perspective-label {
 		font-family: var(--font);
-		font-size: var(--fs-sm);
+		font-size: var(--fs-2xs);
 		font-weight: var(--fw-bold);
-		color: var(--c-text);
-		padding-bottom: 2px;
-		border-bottom: 1px solid var(--c-border-soft);
-		margin-bottom: 2px;
+		color: var(--c-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		margin-bottom: 1px;
+	}
+
+	.history-verdict {
 		display: flex;
 		align-items: center;
 		gap: var(--sp-xs);
+		padding: 2px 0;
 		cursor: pointer;
-		user-select: none;
+		border-radius: var(--radius-sm);
 	}
 
-	.perspective-label:hover {
-		color: var(--c-accent-text);
+	.history-verdict:hover {
+		background: color-mix(in srgb, var(--c-text) var(--opacity-subtle), transparent);
 	}
 
-	.perspective-toggle {
+	.history-stage {
+		font-family: var(--font);
+		font-size: var(--fs-2xs);
+		color: var(--c-text-ghost);
+		min-width: 4em;
+	}
+
+	.history-verdict-text {
+		font-family: var(--font-reading);
 		font-size: var(--fs-2xs);
 		color: var(--c-text-muted);
-		width: 0.8em;
+		flex: 1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
-	.perspective-summary {
-		display: flex;
-		gap: 2px;
-		margin-left: auto;
+	.history-collapse {
+		font-family: var(--font);
+		font-size: var(--fs-3xs);
+		color: var(--c-accent);
+		cursor: pointer;
+		align-self: flex-end;
+	}
+
+	.history-collapse:hover {
+		text-decoration: underline;
 	}
 
 	.delegation {
@@ -1858,6 +1284,50 @@
 		color: var(--c-text-muted);
 	}
 
+	.cell-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		gap: var(--sp-sm);
+	}
+
+	.cell-question {
+		font-family: var(--font);
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+		font-style: italic;
+		line-height: var(--lh-reading, 1.5);
+		flex: 1;
+	}
+
+	.cell-meta {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-xs);
+		flex-shrink: 0;
+	}
+
+	.cell-perspective {
+		font-family: var(--font);
+		font-size: var(--fs-3xs);
+		color: var(--c-text-ghost);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+
+	.signal-row-edit .verdict-input {
+		margin-left: 0;
+	}
+
+	.signal-row-edit.current-stage .verdict-input {
+		font-family: var(--font-reading);
+		font-size: var(--fs-sm);
+		color: var(--c-text);
+		padding: var(--sp-xs) 0;
+		border-bottom-width: 1.5px;
+	}
+
+	/* History (completed-stage) edit rows */
 	.signal-row-top {
 		display: flex;
 		align-items: center;
@@ -1876,18 +1346,6 @@
 	.score-label-uncertain { color: var(--c-warm); }
 	.score-label-negative { color: var(--c-red); }
 
-	.signal-row-edit .verdict-input {
-		margin-left: 0;
-	}
-
-	.signal-stage {
-		font-family: var(--font);
-		font-size: var(--fs-xs);
-		font-weight: var(--fw-medium);
-		color: var(--c-text-muted);
-		min-width: 4em;
-	}
-
 	.verdict-field {
 		display: flex;
 		flex-direction: column;
@@ -1899,6 +1357,14 @@
 		font-size: var(--fs-3xs);
 		color: var(--c-text-ghost);
 		font-style: italic;
+	}
+
+	.signal-stage {
+		font-family: var(--font);
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-medium);
+		color: var(--c-text-muted);
+		min-width: 4em;
 	}
 
 	.verdict-input {

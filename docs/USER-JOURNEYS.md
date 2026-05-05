@@ -21,12 +21,12 @@ Slim is a lean planning tool for product owners, covering the workflow *before* 
 
 The app has four top-level views, switchable via click or keyboard (1-4), organized by **temporal intent** -- matching the PO's natural daily workflow:
 
-1. **Briefing** -- an actionable news feed of board-wide changes, ranked by urgency x recency
+1. **Latest** -- an actionable news feed of board-wide changes with natural aging (Fresh / Read / Older bands), plus a Board Health dashboard showing aggregate metrics
 2. **Pipeline** -- opportunities grouped by stage (default) or by horizon, with nested deliverables and zoom into single groups
 3. **Deliverables** -- a cross-reference matrix (deliverables x opportunities) for execution-order planning with contributor columns and inline detail pane
-4. **Meetings** -- per-person agenda builder with change detection and inline scoring
+4. **Meetings** -- per-person agenda builder with role filter (All / Team / Stakeholders), change detection, inline scoring, and auto-generated talking points for stakeholders
 
-All views except Briefing use a split layout: list/matrix on the left, detail pane on the right. The Briefing view is a single-column news feed. The Meetings view uses a person sidebar on the left.
+All views except Latest use a split layout: list/matrix on the left, detail pane on the right. The Latest view has two sub-views: a single-column news feed (News) and a Board Health dashboard (aggregate pipeline, consent, commitment, and deliverable metrics). The Meetings view uses a person sidebar on the left with a role filter to switch between team members and stakeholders.
 
 **Pipeline modes**: The Pipeline view has two grouping modes toggled in the header:
 - **By stage** -- funnel visualization + triage buckets (Blocked -> Needs Input -> On Track)
@@ -44,7 +44,7 @@ Press **?** to see the full shortcut reference. Key bindings:
 | k / Up | Previous item in list |
 | Enter | Edit selected title / zoom into group |
 | Escape | Close pane / dialog / zoom out |
-| 1-4 | Switch views (Briefing, Pipeline, Deliverables, Meetings) |
+| 1-4 | Switch views (Latest, Pipeline, Deliverables, Meetings) |
 | Tab | Toggle Pipeline grouping (stage <-> horizon) |
 | n | Quick-add dialog (Tab to toggle opportunity/deliverable mode) |
 | / | Focus the add input in current view |
@@ -161,10 +161,9 @@ Stage advancement follows **consent-based gating**:
 ### 2.4 Exiting an Opportunity
 
 1. In the detail pane stage bar, click the exit button (or press **x**)
-2. An inline exit menu appears with four exit states and a reason field:
+2. An inline exit menu appears with three exit states and a reason field:
    - **Kill** -- permanently abandon this opportunity
    - **Park** -- pause for now, might return later
-   - **Incubate** -- promising seed, not ready for the pipeline
    - **Merge** -- absorbed into another opportunity
 3. Type a reason in the inline text field (optional but recommended)
 4. Click the exit state button -- the opportunity moves to the "Exited" section at the bottom of the list
@@ -348,9 +347,9 @@ The pane shows:
 - **Size picker** -- XS through XL toggle buttons; click to select, click again to deselect
 - **Certainty picker** -- 5-level bar; click a level to set, click the same level to clear
 - **External dependency** -- free text describing any external dependency
-- **Linked opportunities** -- list showing each link with coverage toggle, stage label, and unlink button. Click an opportunity name to navigate to the Opportunities tab. A "+ link opportunity" button opens a picker for unlinked opportunities.
+- **Linked opportunities** -- list showing each link with coverage toggle, stage label, and unlink button. Click an opportunity name to navigate to the Pipeline view. A "+ link opportunity" button opens a picker for unlinked opportunities.
 - **Built by** -- contributor chips. Inherited experts shown in italic (can't remove). Extra contributors can be added/removed.
-- **Present to** -- consumer chips. Inherited stakeholders/approvers shown in italic. Extras editable.
+- **Deliver to** -- consumer chips. Inherited stakeholders/approvers shown in italic. Extras editable.
 - **Delete** -- permanently removes the deliverable and all its links
 
 ---
@@ -395,40 +394,51 @@ Clicking a row opens the standard opportunity detail pane on the right, with the
 
 ---
 
-## 7. The Briefing
+## 7. The Latest View
 
-### 7.1 Understanding the Briefing
+### 7.1 Understanding the Latest View
 
-The Briefing view (press **1**) is the PO's morning start screen -- an actionable news feed of what changed since the last visit.
+The Latest view (press **1**) is the PO's morning start screen. It has two sub-views toggled in the header: **News** (the default) and **Overview**.
 
-Items are ranked by **urgency x recency** and grouped into importance tiers:
+**News** is an actionable feed of what changed since the last visit. Items are ranked by **urgency x recency** and grouped into three importance tiers:
 
-| Tier | Examples | How long it stays |
+| Tier | Examples |
+|---|---|
+| **Tier 1** | Objection scored, commitment overdue, item discontinued, stage advanced |
+| **Tier 2** | Score added, deliverable linked, commitment due soon, aging to stale |
+| **Tier 3** | Verdict edited, notes changed, horizon updated, size changed |
+
+The feed uses an **aging model** with three visual bands:
+
+| Band | Meaning | Visual treatment |
 |---|---|---|
-| **Breaking** | Objection scored, commitment overdue, item discontinued | 7 days |
-| **Important** | Stage advanced, commitment due within 7d, aging to stale | 3 days |
-| **Update** | Score added, deliverable linked, size changed | 24 hours |
-| **Minor** | Verdict edited, notes changed, horizon updated | 12 hours |
+| **Fresh** | New or unread items | Full prominence -- tier-1 items as headline cards, tier-2/3 as wire items |
+| **Read** | Marked as read via "Mark all read" | Muted styling with "Read" label |
+| **Older** | Events older than 3 days | Collapsed `<details>` section with count |
 
-Each item shows an **action verb** ("Review objection on X", "Score feasibility on Z") and is clickable -- it navigates to the relevant item in the Pipeline view, scrolling to the specific section.
+Items have two categories with different lifecycles:
+- **Events** (score-added, stage-advanced, etc.) naturally decay and disappear after 5 days
+- **Conditions** (commitment-overdue, stale, unscored-assignment, etc.) persist as long as the underlying situation exists and generate **resolution notices** (e.g. "Commitment fulfilled", "No longer stale") when resolved
 
-### 7.2 Item States
+**Flap protection**: conditions that appear and resolve within 24 hours do not generate resolution notices.
 
-- **Unread** -- full visual prominence, bold styling
-- **Seen** -- PO clicked/expanded it; the item stays but drops to quiet styling with a "[x] Reviewed" label
-- **Gone** -- aged past the time window; removed on next visit
+**Board Health** shows aggregate metrics: pipeline shape (stage counts + stale), consent coverage (percentage + objections), commitments (overdue/due-soon), deliverables (orphans + avg links), and origin balance.
+
+### 7.2 Return Summary
+
+When the PO returns after 4+ hours, a banner summarizes what happened: e.g. "While you were away: 2 objections, 1 commitment overdue, 3 scores added." The banner auto-dismisses on the next snapshot change.
 
 ### 7.3 The Briefing Clock
 
-The briefing compares current board state against a **board-wide snapshot** stored at `lastBriefingAt`. This is distinct from the per-person meeting snapshots -- meeting snapshots track what a specific person has been told, while the briefing snapshot tracks what the PO has seen.
+The feed compares current board state against a **board-wide snapshot**. This is distinct from the per-person meeting snapshots -- meeting snapshots track what a specific person has been told, while the briefing snapshot tracks what the PO has seen.
 
-Opening the Briefing view updates `lastBriefingAt`, so the next visit will only show new changes.
+Clicking "Mark all read" moves fresh items to the Read band and captures a new snapshot. Read items remain visible (muted) until they age past 3 days and move to the Older band, then decay entirely after 5 days.
 
 ---
 
 ## 8. Meeting Prep
 
-### 7.1 Understanding the Meetings View
+### 8.1 Understanding the Meetings View
 
 The Meetings tab (press **4**) is designed for 1:1 preparation. The left sidebar lists all people linked to any opportunity or deliverable, sorted by urgency (overdue commitments first, then most assignments, then alphabetical).
 
@@ -437,7 +447,7 @@ Each person entry shows:
 - Urgency badges (overdue commitments, upcoming deadlines, awaiting input count)
 - Role tags and "last met" date
 
-### 7.2 Building an Agenda
+### 8.2 Building an Agenda
 
 Click a person in the sidebar to see their personalized agenda:
 
@@ -455,7 +465,7 @@ Click a person in the sidebar to see their personalized agenda:
 
 7. **Previous Meetings** (last 5) -- history log with dates and notes.
 
-### 7.3 Completing a Meeting
+### 8.3 Completing a Meeting
 
 Click "Done" to stamp the current timestamp. This saves a snapshot so next time you open this person's agenda, the "Changed Since Last Meeting" section will show only changes *since this meeting*.
 
@@ -465,9 +475,12 @@ Note: meeting completion cannot currently be undone. Forgetting to score a cell 
 
 ## 9. Cross-View Navigation
 
-### 9.1 From Briefing to Pipeline
+Clicking entity names in detail panes and news items navigates across views, switching the active tab and selecting the target entity.
 
-1. Click any briefing item -- the app switches to the Pipeline view, selects the relevant opportunity, and scrolls the detail pane to the specific section (e.g. commitments, signal grid cell)
+### 9.1 From Latest to Pipeline / Deliverables
+
+1. Click any news item -- the app switches to the Pipeline view (for opportunities) or Deliverables view (for deliverables) and selects the relevant entity
+2. In the Overview sub-view, clicking an opportunity or deliverable row navigates to the corresponding view
 
 ### 9.2 From Deliverables to Pipeline
 
@@ -478,26 +491,22 @@ Note: meeting completion cannot currently be undone. Forgetting to score a cell 
 ### 9.3 From Pipeline to Deliverables
 
 1. In the opportunity detail pane's Deliverables section (visible at Decompose stage or when links exist), click a deliverable name
-2. Future: navigation to the Deliverables view with that row selected (not yet implemented)
-
-### 9.4 From the Deliverables Matrix to Pipeline
-
-1. Click an opportunity column header in the matrix
-2. The app switches to the Pipeline view and selects that opportunity
+2. The app switches to the Deliverables view and selects that deliverable
+3. The deliverable's detail pane opens
 
 ---
 
 ## 10. Data Management
 
-### 9.1 Persistence
+### 10.1 Persistence
 
 All data is saved to localStorage automatically on every state change. Data survives page refreshes and browser restarts. Clearing browser data or localStorage will erase the board.
 
-### 9.2 Undo
+### 10.2 Undo
 
 Press **Ctrl+Z** to undo the last action. Up to 20 snapshots are stored. Undo restores the full board state including triage ordering, funnel counts, and all signal data. This is semantic undo, not text undo.
 
-### 9.3 Import and Export
+### 10.3 Import and Export
 
 **Export:**
 - **JSON** -- full board backup (all opportunities, deliverables, links, signals, meetings). Can be re-imported for a full restore.
@@ -505,10 +514,10 @@ Press **Ctrl+Z** to undo the last action. Up to 20 snapshots are stored. Undo re
 
 **Import:**
 - **JSON** -- replaces the entire board with the imported data. Meeting history is preserved separately.
+- **CSV** -- opportunities imported from CSV format.
+- **Merge import** -- adds imported data to the existing board with ID-based conflict resolution using `updatedAt` timestamps.
 
-Note: CSV import and merge-based import (adding to an existing board instead of replacing) are not yet built.
-
-### 9.4 Reset
+### 10.4 Reset
 
 A reset option reloads the sample data, replacing the current board. This is destructive and not easily undone (though Ctrl+Z may recover the previous state if used immediately).
 
@@ -537,14 +546,14 @@ A reset option reloads the sample data, replacing the current board. This is des
        |  Consent        |          |          |         Click opp name
        |  achieved?      |          |          |               |
        |    |            |          |          |               v
-       | +--+----+       |          |     Navigate to Opportunities tab
+       | +--+----+       |          |     Navigate to Pipeline view
        | |       |       |          |
        | Advance Blocked |     +----+----+
        | (a key) (fix    |     |         |
        |  |    issues)   |   Kill    Reactivate
        |  v              |   Park    (restores
-       | Next stage      |   Incubate previous
-       |  |              |   Merge    state)
+       | Next stage      |   Merge    previous
+       |  |              |            state)
        v  v              |
   Decompose +------------+
   stage                  |
@@ -560,13 +569,12 @@ A reset option reloads the sample data, replacing the current board. This is des
 
 ---
 
-## 10. What's Not Yet Built
+## 11. What's Not Yet Built
 
 Features from the product spec that are not yet implemented:
 
 | Feature | Notes |
 |---|---|
-| Kanban board view | Only smart-sorted list + matrix views |
 | Skatting integration | Size/certainty are manual only |
 | Token budgets | v2 feature |
 | Opportunity nesting | Flat list only |
@@ -578,7 +586,9 @@ Features that have been built beyond the original spec:
 
 | Feature | Description |
 |---|---|
-| Briefing view | Board-wide news feed with 5 importance tiers |
+| Latest view (news feed) | Board-wide news with aging model (Fresh/Read/Older bands), resolution notices, flap protection |
+| Board Health dashboard | Aggregate metrics: pipeline shape, consent coverage, commitments, deliverables, origin balance |
+| Return summary | "While you were away" banner after 4+ hours absence |
 | Pipeline view | Stage/horizon grouping with funnel + zoom |
 | Card aging | Visual badges (fresh/aging/stale) based on days in current stage |
 | Origin types | Request/Idea/Incident/Debt classification per opportunity |
@@ -593,3 +603,8 @@ Features that have been built beyond the original spec:
 | P2P sharing | Nostr relay rooms with encrypted board publishing |
 | Contributor scoring | Remote verdict submission for assigned cells |
 | Auto-poll for scores | PO gets badge notification when submissions arrive |
+| Meeting role filter | All/Team/Stakeholders filter with talking points for stakeholder persons |
+| Cross-view navigation | Click entity names to navigate between views |
+| Multi-board support | Board picker with create/switch/delete |
+| Brain dump import | Bulk text import for rapid board population |
+| Welcome page | Onboarding for first-time users |

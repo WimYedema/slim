@@ -396,23 +396,23 @@
 		flex: 1;
 		min-width: 200px;
 		font-family: var(--font);
-		font-size: var(--fs-2xl);
+		font-size: var(--fs-xl);
 		font-weight: var(--fw-bold);
 		color: var(--c-text);
 		background: transparent;
-		border: 1px solid transparent;
-		border-radius: var(--radius-sm);
-		padding: var(--sp-xs) var(--sp-sm);
+		border: none;
+		border-bottom: 1px solid color-mix(in srgb, var(--c-border) var(--opacity-strong), transparent);
+		padding: 0;
+		transition: border-color var(--tr-fast);
 	}
 
 	.title-input:hover {
-		border-color: var(--c-border-soft);
+		border-bottom-color: var(--c-border);
 	}
 
 	.title-input:focus {
 		outline: none;
-		border-color: var(--c-accent);
-		background: var(--c-bg);
+		border-bottom-color: var(--c-accent);
 	}
 
 	.detail-meta {
@@ -462,10 +462,10 @@
 		right: var(--sp-md);
 		background: none;
 		border: none;
-		font-size: var(--fs-2xl);
-		color: var(--c-text-faint);
+		font-size: var(--fs-xl);
+		color: var(--c-text-ghost);
 		cursor: pointer;
-		padding: 0 var(--sp-sm);
+		padding: 0 4px;
 		font-family: var(--font);
 		line-height: var(--lh-tight);
 	}
@@ -486,7 +486,7 @@
 
 	.section-label {
 		font-size: var(--fs-xs);
-		font-weight: var(--fw-bold);
+		font-weight: var(--fw-medium);
 		color: var(--c-text-muted);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;

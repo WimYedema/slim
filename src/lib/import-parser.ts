@@ -228,6 +228,7 @@ export function materialize(board: ParsedBoard): MaterializedBoard {
 		opp.stage = parsed.stage
 		if (parsed.stage !== 'explore') {
 			opp.stageEnteredAt = Date.now()
+			opp.stageHistory = [{ stage: parsed.stage, enteredAt: Date.now() }]
 		}
 		if (parsed.origin) opp.origin = parsed.origin
 		if (parsed.horizon) opp.horizon = parsed.horizon

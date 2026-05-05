@@ -102,6 +102,7 @@ export function csvToOpportunities(text: string): CsvImportResult {
 		if (stageIdx >= 0 && VALID_STAGES.has(fields[stageIdx])) {
 			opp.stage = fields[stageIdx] as Stage
 			opp.stageEnteredAt = Date.now()
+			opp.stageHistory = [{ stage: opp.stage, enteredAt: Date.now() }]
 		}
 		if (originIdx >= 0 && VALID_ORIGINS.has(fields[originIdx])) {
 			opp.origin = fields[originIdx] as OriginType

@@ -99,6 +99,10 @@ function backfillBoard(data: BoardData): BoardData {
 	for (const opp of data.opportunities) {
 		if (!opp.horizon) opp.horizon = fallback
 		if (!opp.stageEnteredAt) opp.stageEnteredAt = opp.updatedAt ?? opp.createdAt
+		// Backfill stageHistory from current state
+		if (!opp.stageHistory || opp.stageHistory.length === 0) {
+			opp.stageHistory = [{ stage: opp.stage, enteredAt: opp.stageEnteredAt }]
+		}
 		// Migrate incubating → parked (no parkUntil)
 		if ((opp.exitState as string) === 'incubating') opp.exitState = 'parked'
 		// Migrate blocker → approver role rename
@@ -109,6 +113,7 @@ function backfillBoard(data: BoardData): BoardData {
 	for (const del of data.deliverables) {
 		if (!del.kind) del.kind = 'delivery'
 		if (!del.status) del.status = 'active'
+		if (del.notes == null) del.notes = ''
 	}
 	return data
 }

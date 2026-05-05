@@ -150,7 +150,6 @@ Not every opportunity advances. Some are rejected, some are shelved, some are ab
 | **Killed** | Evaluated and rejected. A perspective failed, or priorities shifted. Can be reopened as a new opportunity linked to the original. |
 | **Parked** | Not rejected, just not now. Can set a horizon for revisitation. Returns to the stage it left when reactivated. |
 | **Merged** | Duplicate or subsumed by another opportunity. It *is* the other one now. |
-| **Delivered** | Decomposed, exported, built. |
 
 Every exit captures *who* decided, *why*, and what the evidence looked like at that point. Over time, this builds institutional memory. "Why didn't we build X?" has a one-click answer.
 
@@ -162,9 +161,11 @@ The data model is rich -- pipeline stages, maturity levels, people links, origin
 
 The answer is progressive disclosure across four views, organized around the PO's natural daily workflow:
 
-### 1. Briefing -- "What happened?"
+### 1. Latest -- "What happened?"
 
-An actionable news feed, ranked by urgency. Objections, overdue commitments, and discontinued items are prominent. Minor edits fade quickly. Everything ages out naturally. Each item carries a verb -- "Review objection on X," "Score feasibility on Z" -- and links directly to the relevant detail.
+An actionable news feed with natural aging. Items flow through three bands: Fresh (new and prominent), Read (seen but still visible), and Older (collapsed, then decayed). Conditions like overdue commitments persist until resolved and generate resolution notices when cleared. Events like score additions decay after five days.
+
+A return summary greets POs after 4+ hours away. A Board Health dashboard shows aggregate metrics: pipeline shape, consent coverage, commitment status, deliverable health, and origin balance.
 
 The PO checks this first thing in the morning. Five minutes, context loaded.
 
@@ -183,6 +184,8 @@ Additional columns show T-shirt size, certainty, and who's building or consuming
 ### 4. Meetings -- "Who do I talk to?"
 
 A per-person meeting prep view. Select a person, get an auto-generated agenda: what changed since the last meeting (snapshot-based diffs), outstanding commitments, cells awaiting their input (scoreable inline), conflicting signals, and linked deliverables.
+
+A role filter (All / Team / Stakeholders) lets the PO switch between team members and external stakeholders. Stakeholder persons get auto-generated talking points based on their involvement across the board.
 
 Complete the meeting, and the tool captures a snapshot for next time. No notes to write -- the tool tracks what changed structurally.
 
@@ -249,13 +252,14 @@ The real competitor is the spreadsheet. Slim must be easier for daily use while 
 
 | Feature | Status |
 |---|---|
-| Briefing view (board-wide news feed, 5 importance tiers) | Done |
+| Latest view (news feed with aging model + overview sub-view) | Done |
 | Pipeline view with stage/horizon grouping + funnel + zoom | Done |
 | Triage list with smart sort and contextual nudges | Done |
 | Signal grid (4 stages x 3 perspectives) with consent gating | Done |
 | Coverage matrix with contributor columns | Done |
 | Roadmap with horizon grouping and size breakdown | Done |
-| Meeting prep with snapshot-based change detection | Done |
+| Meeting prep with snapshot-based change detection and role filter | Done |
+| Stakeholder talking points integrated into Meetings view | Done |
 | People links, delegation, commitments | Done |
 | Local persistence (localStorage) | Done |
 | Card aging (time-in-stage visual decay) | Done |
@@ -265,6 +269,8 @@ The real competitor is the spreadsheet. Slim must be easier for daily use while 
 | WIP limits per stage (funnel coloring, badges, nudges) | Done |
 | 20-level undo (Ctrl+Z) | Done |
 | Keyboard navigation + quick-add dialog | Done |
+| Cross-view navigation (click entities to navigate between views) | Done |
+| Multi-board support with board picker | Done |
 | P2P sharing (Nostr relay, encrypted rooms) | Done |
 | Contributor scoring view (remote verdict submission) | Done |
 | Skatting integration | Planned |

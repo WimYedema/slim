@@ -75,7 +75,7 @@
 			<div class="welcome-card welcome-card-hero">
 				<div class="welcome-card-body">
 					<h2 class="welcome-card-title welcome-card-title-hero">Start planning</h2>
-					<p class="welcome-card-text">Add opportunities, track them through stages, and link them to deliverables</p>
+					<p class="welcome-card-text">Track goals (opportunities) through validation stages and link them to work items (deliverables)</p>
 				</div>
 				<button class="welcome-btn" bind:this={heroBtn} onclick={onEmptyBoard}>Create your board</button>
 			</div>
@@ -84,7 +84,7 @@
 				<div class="welcome-card">
 					<div class="welcome-card-body">
 						<h2 class="welcome-card-title">Join your team</h2>
-						<p class="welcome-card-text">Got a room code from your PO? Join to score on desirability, feasibility, and viability</p>
+						<p class="welcome-card-text">Got a room code from your PO? Join to score on user, technical, and business perspectives</p>
 					</div>
 					<button class="welcome-btn welcome-btn-secondary" onclick={onJoinRoom}>Join a team room</button>
 				</div>

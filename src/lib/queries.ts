@@ -222,7 +222,7 @@ export function consentStatus(score: Score): ConsentStatus {
 
 /** Check consent across all perspectives at the current stage */
 export function stageConsent(opp: Opportunity): {
-	status: 'ready' | 'blocked' | 'incomplete'
+	status: 'ready' | 'urgent' | 'incomplete'
 	objections: Perspective[]
 	unheard: Perspective[]
 } {
@@ -233,7 +233,7 @@ export function stageConsent(opp: Opportunity): {
 		if (score === 'negative') objections.push(p)
 		else if (score === 'none') unheard.push(p)
 	}
-	if (objections.length > 0) return { status: 'blocked', objections, unheard }
+	if (objections.length > 0) return { status: 'urgent', objections, unheard }
 	if (unheard.length > 0) return { status: 'incomplete', objections, unheard }
 	return { status: 'ready', objections, unheard }
 }
@@ -386,4 +386,287 @@ export function ternaryPosition(opp: Opportunity): { x: number; y: number } {
 	const y = 1 - d * (Math.sqrt(3) / 2)
 
 	return { x, y }
+}
+
+// ── Board health ──
+
+export interface BoardHealth {
+	/** Total active opportunities */
+	totalOpps: number
+	/** Counts per stage */
+	stageCounts: { stage: Stage; count: number }[]
+	/** Aging distribution */
+	freshCount: number
+	agingCount: number
+	staleCount: number
+	/** Total scored cells / total possible cells across active opps at current stage */
+	scoredCells: number
+	totalCells: number
+	/** Perspectives with at least one negative score */
+	objectionCount: number
+	/** Per-perspective breakdown at current stage */
+	perspectiveBreakdown: { perspective: Perspective; scored: number; unheard: number; objections: number }[]
+	/** Consent readiness: how many opps are ready / incomplete / urgent */
+	readyCount: number
+	incompleteCount: number
+	urgentCount: number
+	/** Active commitments */
+	totalCommitments: number
+	overdueCommitments: number
+	dueSoonCommitments: number
+	/** Deliverable stats */
+	totalDeliverables: number
+	orphanDeliverables: number
+	avgLinksPerDeliverable: number
+	/** Origin balance: count per origin type */
+	originCounts: { origin: OriginType; count: number }[]
+}
+
+export function boardHealth(
+	opportunities: Opportunity[],
+	deliverables: Deliverable[],
+	links: OpportunityDeliverableLink[],
+): BoardHealth {
+	const active = opportunities.filter((o) => !o.discontinuedAt)
+	const now = Date.now()
+
+	const stageCounts: { stage: Stage; count: number }[] = STAGES.map((s) => ({
+		stage: s.key,
+		count: active.filter((o) => o.stage === s.key).length,
+	}))
+
+	let freshCount = 0
+	let agingCount = 0
+	let staleCount = 0
+	let scoredCells = 0
+	let totalCells = 0
+	let objectionCount = 0
+	let readyCount = 0
+	let incompleteCount = 0
+	let urgentCount = 0
+	let totalCommitments = 0
+	let overdueCommitments = 0
+	let dueSoonCommitments = 0
+	const originTally = new Map<OriginType, number>()
+	const perspTally = new Map<Perspective, { scored: number; unheard: number; objections: number }>()
+	for (const p of PERSPECTIVES) perspTally.set(p, { scored: 0, unheard: 0, objections: 0 })
+
+	for (const opp of active) {
+		const aging = agingLevel(opp)
+		if (aging === 'fresh') freshCount++
+		else if (aging === 'aging') agingCount++
+		else staleCount++
+		const consent = stageConsent(opp)
+		if (consent.status === 'ready') readyCount++
+		else if (consent.status === 'urgent') urgentCount++
+		else incompleteCount++
+		for (const p of PERSPECTIVES) {
+			totalCells++
+			const score = opp.signals[opp.stage]?.[p]?.score ?? 'none'
+			const tally = perspTally.get(p)!
+			if (score === 'negative') {
+				scoredCells++
+				objectionCount++
+				tally.objections++
+				tally.scored++
+			} else if (score !== 'none') {
+				scoredCells++
+				tally.scored++
+			} else {
+				tally.unheard++
+			}
+		}
+		for (const c of opp.commitments) {
+			totalCommitments++
+			const daysLeft = Math.ceil((c.by - now) / 86_400_000)
+			const si = stageIndex(opp.stage)
+			const met = stageIndex(c.milestone) < si
+			if (!met && daysLeft < 0) overdueCommitments++
+			else if (!met && daysLeft <= 7) dueSoonCommitments++
+		}
+		if (opp.origin) {
+			originTally.set(opp.origin, (originTally.get(opp.origin) ?? 0) + 1)
+		}
+	}
+
+	const activeDels = deliverables.filter((d) => d.status === 'active')
+	let orphanDeliverables = 0
+	let totalLinks = 0
+	for (const d of activeDels) {
+		const count = links.filter((l) => l.deliverableId === d.id).length
+		totalLinks += count
+		if (count === 0) orphanDeliverables++
+	}
+
+	const originCounts = ORIGIN_TYPES.map((o) => ({
+		origin: o.key,
+		count: originTally.get(o.key) ?? 0,
+	})).filter((o) => o.count > 0)
+
+	return {
+		totalOpps: active.length,
+		stageCounts: stageCounts.filter((s) => s.count > 0),
+		freshCount,
+		agingCount,
+		staleCount,
+		scoredCells,
+		totalCells,
+		objectionCount,
+		perspectiveBreakdown: PERSPECTIVES.map((p) => ({ perspective: p, ...perspTally.get(p)! })),
+		readyCount,
+		incompleteCount,
+		urgentCount,
+		totalCommitments,
+		overdueCommitments,
+		dueSoonCommitments,
+		totalDeliverables: activeDels.length,
+		orphanDeliverables,
+		avgLinksPerDeliverable: activeDels.length > 0 ? Math.round((totalLinks / activeDels.length) * 10) / 10 : 0,
+		originCounts,
+	}
+}
+
+// ── CFD (Cumulative Flow Diagram) ──
+
+/** One data point in the CFD: how many opps were at-or-past each stage on a given day */
+export interface CfdPoint {
+	/** Day offset from the earliest recorded transition */
+	day: number
+	/** Timestamp at midnight for this day */
+	ts: number
+	/** Cumulative counts: how many opps had reached at-or-past each stage */
+	explore: number
+	sketch: number
+	validate: number
+	decompose: number
+}
+
+/**
+ * Build CFD data from opportunity stage histories.
+ * For each day in the range, counts how many opportunities had reached
+ * at-or-past each stage by that day. Returns at most `maxDays` points.
+ */
+export function buildCfd(opportunities: Opportunity[], maxDays = 60): CfdPoint[] {
+	const active = opportunities.filter((o) => !o.discontinuedAt)
+	if (active.length === 0) return []
+
+	// Collect all transitions
+	const allTransitions: { stage: Stage; enteredAt: number }[] = []
+	for (const opp of active) {
+		const history = opp.stageHistory ?? []
+		if (history.length === 0) {
+			allTransitions.push({ stage: opp.stage, enteredAt: opp.stageEnteredAt })
+		} else {
+			for (const t of history) {
+				allTransitions.push({ stage: t.stage, enteredAt: t.enteredAt })
+			}
+		}
+	}
+
+	if (allTransitions.length === 0) return []
+
+	const earliest = Math.min(...allTransitions.map((t) => t.enteredAt))
+	const now = Date.now()
+	const DAY = 86_400_000
+
+	// Snap to midnight boundaries
+	const startDay = Math.floor(earliest / DAY) * DAY
+	const endDay = Math.floor(now / DAY) * DAY
+	const totalDays = Math.floor((endDay - startDay) / DAY) + 1
+
+	// If too many days, sample evenly
+	const step = totalDays > maxDays ? Math.ceil(totalDays / maxDays) : 1
+	const points: CfdPoint[] = []
+
+	for (let dayOffset = 0; dayOffset <= totalDays; dayOffset += step) {
+		const ts = startDay + dayOffset * DAY
+		const endOfDay = ts + DAY
+
+		let explore = 0
+		let sketch = 0
+		let validate = 0
+		let decompose = 0
+
+		for (const opp of active) {
+			const history = opp.stageHistory ?? [{ stage: opp.stage, enteredAt: opp.stageEnteredAt }]
+			let highestIdx = -1
+			for (const t of history) {
+				if (t.enteredAt < endOfDay) {
+					const idx = stageIndex(t.stage)
+					if (idx > highestIdx) highestIdx = idx
+				}
+			}
+			if (highestIdx >= 0) explore++
+			if (highestIdx >= 1) sketch++
+			if (highestIdx >= 2) validate++
+			if (highestIdx >= 3) decompose++
+		}
+
+		points.push({ day: dayOffset, ts, explore, sketch, validate, decompose })
+	}
+
+	return points
+}
+
+// ── Lead time ──
+
+export interface LeadTimeStats {
+	/** Per-stage average days spent (only for opps that have moved past that stage) */
+	stageAvg: { stage: Stage; avgDays: number; count: number }[]
+	/** Average total days from explore entry to current stage (for opps past explore) */
+	avgTotalDays: number
+	/** Median total days */
+	medianTotalDays: number
+}
+
+/**
+ * Compute lead-time statistics from stage histories.
+ * For each completed stage transition (explore→sketch, sketch→validate, etc.),
+ * calculates average days spent.
+ */
+export function leadTimeStats(opportunities: Opportunity[]): LeadTimeStats {
+	const active = opportunities.filter((o) => !o.discontinuedAt)
+	const stageKeys: Stage[] = ['explore', 'sketch', 'validate', 'decompose']
+	const stageDurations: Record<Stage, number[]> = {
+		explore: [], sketch: [], validate: [], decompose: [],
+	}
+	const totalDays: number[] = []
+	const DAY = 86_400_000
+
+	for (const opp of active) {
+		const history = opp.stageHistory ?? [{ stage: opp.stage, enteredAt: opp.stageEnteredAt }]
+		if (history.length < 2) continue
+
+		const sorted = [...history].sort((a, b) => a.enteredAt - b.enteredAt)
+
+		for (let i = 0; i < sorted.length - 1; i++) {
+			const days = (sorted[i + 1].enteredAt - sorted[i].enteredAt) / DAY
+			stageDurations[sorted[i].stage].push(days)
+		}
+
+		const total = (sorted[sorted.length - 1].enteredAt - sorted[0].enteredAt) / DAY
+		if (total > 0) totalDays.push(total)
+	}
+
+	const stageAvg = stageKeys
+		.map((stage) => {
+			const durations = stageDurations[stage]
+			if (durations.length === 0) return { stage, avgDays: 0, count: 0 }
+			const avg = durations.reduce((a, b) => a + b, 0) / durations.length
+			return { stage, avgDays: Math.round(avg * 10) / 10, count: durations.length }
+		})
+		.filter((s) => s.count > 0)
+
+	const sortedTotals = [...totalDays].sort((a, b) => a - b)
+	const median = sortedTotals.length > 0
+		? sortedTotals[Math.floor(sortedTotals.length / 2)]
+		: 0
+
+	return {
+		stageAvg,
+		avgTotalDays: totalDays.length > 0
+			? Math.round((totalDays.reduce((a, b) => a + b, 0) / totalDays.length) * 10) / 10
+			: 0,
+		medianTotalDays: Math.round(median * 10) / 10,
+	}
 }

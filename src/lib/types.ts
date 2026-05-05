@@ -112,6 +112,12 @@ export interface Commitment {
 	by: number
 }
 
+/** A record of when an opportunity entered a stage */
+export interface StageTransition {
+	stage: Stage
+	enteredAt: number
+}
+
 export interface Opportunity {
 	id: string
 	title: string
@@ -141,6 +147,8 @@ export interface Opportunity {
 	people: PersonLink[]
 	/** Promises made about this opportunity */
 	commitments: Commitment[]
+	/** History of stage transitions — used for CFD and lead time */
+	stageHistory: StageTransition[]
 	/** Verdict signals per stage × perspective, accumulated as the card moves right */
 	signals: Record<Stage, StageSignals>
 }
@@ -236,6 +244,7 @@ export function createOpportunity(title: string): Opportunity {
 		horizon: _defaultHorizon(),
 		people: [],
 		commitments: [],
+		stageHistory: [{ stage: 'explore', enteredAt: now }],
 		signals: {
 			explore: emptyStageSignals(),
 			sketch: emptyStageSignals(),
@@ -300,6 +309,8 @@ export interface Deliverable {
 	certainty: Certainty | null
 	/** Free-text description of external dependency, if any */
 	externalDependency: string
+	/** Free-text notes (technical context, design constraints, etc.) */
+	notes: string
 }
 
 export type Coverage = 'full' | 'partial'
@@ -324,6 +335,7 @@ export function createDeliverable(title: string): Deliverable {
 		size: null,
 		certainty: null,
 		externalDependency: '',
+		notes: '',
 	}
 }
 

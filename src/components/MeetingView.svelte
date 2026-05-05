@@ -14,6 +14,7 @@
 		linksForDeliverable,
 	} from '../lib/types'
 	import { collectPeople, buildMeetingAgenda, personUrgency, completeMeeting, type MeetingAgenda, type MeetingData, type ChangeItem, type CommitmentItem, type UnscoredCell, type ConflictItem, type DeliverableItem } from '../lib/meeting'
+	import { collectStakeholders, buildStakeholderProfile, buildTalkingPoints } from '../lib/stakeholders'
 	import ScoreToggle from './ScoreToggle.svelte'
 
 	interface Props {
@@ -31,6 +32,8 @@
 	let { opportunities, deliverables, links, meetingData, onSelectOpportunity, onSelectDeliverable, onUpdateOpportunity, onUpdateMeetingData, onBeforeDone }: Props = $props()
 
 	let selectedPerson: string | null = $state(null)
+	type RoleFilter = 'all' | 'team' | 'stakeholders'
+	let roleFilter: RoleFilter = $state('all')
 	/** Entity IDs the user discussed — persisted in meetingData.inProgress */
 	let discussedItems: Set<string> = $derived.by(() => {
 		if (!selectedPerson) return new Set<string>()
@@ -47,6 +50,8 @@
 	/** Expanded entity card for inline detail */
 	let expandedEntity: string | null = $state(null)
 
+	const stakeholderNames = $derived(new Set(collectStakeholders(opportunities, deliverables).keys()))
+
 	const peopleWithUrgency = $derived.by(() => {
 		const map = collectPeople(opportunities, deliverables)
 		const entries = [...map.values()].map((p) => {
@@ -60,7 +65,7 @@
 			for (const c of a.conflicts) ids.add(c.opportunityId)
 			for (const d of a.deliverables) ids.add(d.deliverableId)
 			for (const o of a.opportunities) ids.add(o.id)
-			return { ...p, urgency, itemCount: ids.size }
+			return { ...p, urgency, itemCount: ids.size, isStakeholder: stakeholderNames.has(p.name) }
 		})
 		// Sort: most urgent first, then by involvement, then alphabetical
 		return entries.sort((a, b) =>
@@ -69,6 +74,22 @@
 			|| a.name.localeCompare(b.name)
 		)
 	})
+
+	const filteredPeople = $derived(
+		roleFilter === 'all' ? peopleWithUrgency
+		: roleFilter === 'stakeholders' ? peopleWithUrgency.filter(p => p.isStakeholder)
+		: peopleWithUrgency.filter(p => !p.isStakeholder)
+	)
+
+	const isSelectedStakeholder = $derived(selectedPerson ? stakeholderNames.has(selectedPerson) : false)
+
+	const stakeholderProfile = $derived(
+		selectedPerson && isSelectedStakeholder
+			? buildStakeholderProfile(selectedPerson, opportunities, deliverables, links, meetingData.lastDiscussed[selectedPerson] ?? null)
+			: null
+	)
+
+	const talkingPoints = $derived(stakeholderProfile ? buildTalkingPoints(stakeholderProfile) : [])
 
 	const agenda: MeetingAgenda | null = $derived(
 		selectedPerson
@@ -344,17 +365,25 @@
 			<h2 class="meeting-title">Meeting Prep</h2>
 			<p class="meeting-subtitle">Select a person to build an agenda</p>
 
+			<div class="role-filter">
+				<button class="role-filter-btn" class:active={roleFilter === 'all'} onclick={() => roleFilter = 'all'}>All</button>
+				<button class="role-filter-btn" class:active={roleFilter === 'team'} onclick={() => roleFilter = 'team'}>Team</button>
+				<button class="role-filter-btn" class:active={roleFilter === 'stakeholders'} onclick={() => roleFilter = 'stakeholders'}>Stakeholders</button>
+			</div>
+
 			<div class="person-list">
-			{#each peopleWithUrgency as person}
+			{#each filteredPeople as person}
 				<button
 					class="person-card"
 					class:selected={selectedPerson === person.name}
+					class:stakeholder={person.isStakeholder}
 					class:urgent={person.urgency.overdueCommitments > 0}
 					class:attention={person.urgency.score < 0 && person.urgency.overdueCommitments === 0}
 					onclick={() => selectPerson(person.name)}
 				>
 					<span class="person-name">
 						{person.name}
+						{#if person.isStakeholder}<span class="stakeholder-badge">stakeholder</span>{/if}
 						<span class="item-count-badge">{person.itemCount}</span>
 						{#if person.urgency.overdueCommitments > 0}
 							<span class="urgency-badge overdue">{person.urgency.overdueCommitments} overdue</span>
@@ -422,6 +451,18 @@
 
 			{#if entityGroups.length === 0}
 				<p class="empty-hint">Nothing to discuss — all clear with {selectedPerson}.</p>
+			{/if}
+
+			<!-- Talking points for stakeholders -->
+			{#if talkingPoints.length > 0}
+				<section class="talking-points-section">
+					<h3 class="section-heading">Talking points</h3>
+					<ul class="talking-points-list">
+						{#each talkingPoints as point}
+							<li>{point}</li>
+						{/each}
+					</ul>
+				</section>
 			{/if}
 
 			<!-- Entity-grouped agenda -->
@@ -715,6 +756,55 @@
 		color: var(--c-text-muted);
 	}
 
+	.role-filter {
+		display: flex;
+		gap: 1px;
+		background: var(--c-border);
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+		margin-top: var(--sp-xs);
+	}
+
+	.role-filter-btn {
+		flex: 1;
+		padding: var(--sp-3xs) var(--sp-xs);
+		font: inherit;
+		font-size: var(--fs-xs);
+		border: none;
+		background: var(--c-surface);
+		color: var(--c-text-muted);
+		cursor: pointer;
+		transition: background var(--tr-fast), color var(--tr-fast);
+	}
+
+	.role-filter-btn:hover {
+		background: var(--c-hover);
+	}
+
+	.role-filter-btn.active {
+		background: var(--c-accent);
+		color: var(--c-bg);
+		font-weight: var(--fw-medium);
+	}
+
+	.talking-points-section {
+		background: var(--c-surface-alt);
+		border-radius: var(--radius-sm);
+		padding: var(--sp-sm) var(--sp-md);
+	}
+
+	.talking-points-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2xs);
+		font-size: var(--fs-sm);
+		color: var(--c-text);
+		line-height: 1.4;
+	}
+
 	.person-list {
 		display: flex;
 		flex-direction: column;
@@ -743,6 +833,15 @@
 	.person-card.selected {
 		border-color: var(--c-accent);
 		background: color-mix(in srgb, var(--c-accent) var(--opacity-subtle), var(--c-surface));
+	}
+
+	.person-card.stakeholder {
+		border-left: 3px solid var(--c-warm);
+	}
+
+	.person-card.stakeholder.selected {
+		border-color: var(--c-accent);
+		border-left-color: var(--c-warm);
 	}
 
 	.person-name {
@@ -796,6 +895,17 @@
 		padding: 1px var(--sp-xs);
 		border-radius: var(--radius-sm);
 		color: var(--c-text-muted);
+	}
+
+	.stakeholder-badge {
+		font-size: var(--fs-2xs);
+		background: var(--c-warm-bg);
+		color: var(--c-warm);
+		padding: 1px var(--sp-xs);
+		border-radius: var(--radius-sm);
+		margin-left: var(--sp-xs);
+		font-weight: var(--fw-medium);
+		letter-spacing: 0.02em;
 	}
 
 	/* ── Agenda ── */
@@ -1216,7 +1326,7 @@
 	}
 
 	.verdict-input {
-		font-family: var(--font);
+		font-family: var(--font-reading);
 		font-size: var(--fs-xs);
 		color: var(--c-text);
 		background: transparent;

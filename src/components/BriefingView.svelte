@@ -6,14 +6,16 @@
 		CELL_QUESTIONS,
 		PERSPECTIVES,
 		STAGES,
+		ORIGIN_TYPES,
+		PERSPECTIVE_LABELS,
 		defaultHorizon,
 		stageLabel,
-		linksForDeliverable,
 	} from '../lib/types'
-	import { agingLevel, daysInStage } from '../lib/queries'
+	import { agingLevel, daysInStage, boardHealth, buildCfd, leadTimeStats } from '../lib/queries'
+	import uPlot from 'uplot'
+	import 'uplot/dist/uPlot.min.css'
 	import type { BoardData } from '../lib/store'
 	import type { MeetingData } from '../lib/meeting'
-	import { collectPeople } from '../lib/meeting'
 	import {
 		diffBoard,
 		deduplicateItems,
@@ -43,6 +45,7 @@
 		onMarkSeen: (snapshot: BoardSnapshot) => void
 		onSelectOpportunity: (id: string) => void
 		onSelectDeliverable: (id: string) => void
+		onSwitchView: (view: 'pipeline' | 'deliverables') => void
 		onParkOpportunity: (id: string, parkUntil?: string) => void
 	}
 
@@ -58,6 +61,7 @@
 		onMarkSeen,
 		onSelectOpportunity,
 		onSelectDeliverable,
+		onSwitchView,
 		onParkOpportunity,
 	}: Props = $props()
 
@@ -95,70 +99,205 @@
 	let editDesc = $state(boardDescription)
 	let subView: 'news' | 'overview' = $state('news')
 
-	const activeOpps = $derived(opportunities.filter(o => !o.discontinuedAt))
-	const boardSummary = $derived(() => {
-		const counts = STAGES.map(s => {
-			const n = activeOpps.filter(o => o.stage === s.key).length
-			return n > 0 ? `${n} ${s.label}` : null
-		}).filter(Boolean)
-		return `${activeOpps.length} opportunities (${counts.join(', ')}), ${deliverables.length} deliverables`
-	})
+	// ── Board health dashboard ──
+	const health = $derived(boardHealth(opportunities, deliverables, links))
+	const consentPct = $derived(health.totalCells > 0 ? Math.round((health.scoredCells / health.totalCells) * 100) : 0)
+	const cfd = $derived(buildCfd(opportunities))
+	const leadTime = $derived(leadTimeStats(opportunities))
 
-	// ── Overview derived data ──
+	interface CfdInsight { icon: string; text: string; tone: 'neutral' | 'good' | 'warn' }
 
-	type OvHealth = 'green' | 'amber' | 'red'
-	const ovOpps = $derived(activeOpps.map(o => {
-		const signals = { positive: 0, uncertain: 0, negative: 0, none: 0 }
-		for (const p of PERSPECTIVES) {
-			const score = o.signals[o.stage]?.[p]?.score ?? 'none'
-			signals[score]++
+	const cfdInsights = $derived.by((): CfdInsight[] => {
+		if (cfd.length < 2) return []
+		const insights: CfdInsight[] = []
+		const first = cfd[0]
+		const last = cfd[cfd.length - 1]
+
+		// WIP = items that entered explore but haven't reached decompose
+		const wipStart = first.explore - first.decompose
+		const wipEnd = last.explore - last.decompose
+		if (wipEnd > wipStart + 1) {
+			insights.push({ icon: '▲', text: `Work in progress grew from ${wipStart} to ${wipEnd}`, tone: 'warn' })
+		} else if (wipEnd < wipStart - 1) {
+			insights.push({ icon: '▼', text: `Work in progress shrank from ${wipStart} to ${wipEnd}`, tone: 'good' })
+		} else if (wipEnd > 0) {
+			insights.push({ icon: '─', text: `Work in progress is stable at ${wipEnd}`, tone: 'neutral' })
 		}
-		const health: OvHealth = signals.negative > 0 ? 'red' : (signals.none > 0 || signals.uncertain > 0) ? 'amber' : 'green'
-		return {
-			id: o.id, title: o.title, stage: o.stage, horizon: o.horizon,
-			aging: agingLevel(o), days: daysInStage(o), health,
-		}
-	}))
 
-	const ovByStage = $derived(STAGES.map(s => ({
-		stage: s,
-		opps: ovOpps.filter(o => o.stage === s.key)
-			.sort((a, b) => {
-				const agingOrder = { stale: 0, aging: 1, fresh: 2 }
-				return agingOrder[a.aging] - agingOrder[b.aging]
-			}),
-	})).filter(g => g.opps.length > 0))
-
-	const activeDeliverables = $derived(deliverables.filter(d => d.status === 'active'))
-	const ovDels = $derived(activeDeliverables.map(d => {
-		const dLinks = linksForDeliverable(links, d.id)
-		const oppTitles = dLinks
-			.map(l => opportunities.find(o => o.id === l.opportunityId)?.title)
-			.filter((t): t is string => !!t)
-		return {
-			id: d.id, title: d.title, size: d.size,
-			linkCount: dLinks.length, orphan: dLinks.length === 0,
-			oppTitles,
+		// Throughput: items that reached decompose in the period
+		const throughput = last.decompose - first.decompose
+		if (throughput > 0) {
+			insights.push({ icon: '✓', text: `${throughput} item${throughput !== 1 ? 's' : ''} reached Decompose`, tone: 'good' })
+		} else if (last.explore > 0) {
+			insights.push({ icon: '⏸', text: 'No items reached Decompose in this period', tone: 'warn' })
 		}
-	}))
 
-	const ovStakeholders = $derived(() => {
-		const people = collectPeople(opportunities, deliverables)
-		const result: { name: string; oppCount: number }[] = []
-		for (const [, person] of people) {
-			if (!person.roles.has('stakeholder') && !person.isCommitmentTarget) continue
-			result.push({ name: person.name, oppCount: person.opportunityIds.length })
-		}
-		// Also include consumers on deliverables
-		for (const d of deliverables) {
-			for (const consumer of d.extraConsumers) {
-				if (!result.some(r => r.name === consumer)) {
-					const person = people.get(consumer)
-					result.push({ name: consumer, oppCount: person?.opportunityIds.length ?? 0 })
-				}
+		// Arrival rate: new items entering explore
+		const arrivals = last.explore - first.explore
+		if (arrivals > 0 && throughput >= 0) {
+			if (arrivals > throughput + 2) {
+				insights.push({ icon: '⚠', text: `Intake (${arrivals}) outpaces output (${throughput}) — pipeline is widening`, tone: 'warn' })
+			} else if (throughput > arrivals + 2) {
+				insights.push({ icon: '✓', text: `Output (${throughput}) exceeds intake (${arrivals}) — pipeline is draining`, tone: 'good' })
 			}
 		}
-		return result.sort((a, b) => b.oppCount - a.oppCount)
+
+		// Bottleneck: which stage band is thickest at the end?
+		const bands = [
+			{ stage: 'Explore', count: last.explore - last.sketch },
+			{ stage: 'Sketch', count: last.sketch - last.validate },
+			{ stage: 'Validate', count: last.validate - last.decompose },
+		].filter(b => b.count > 0)
+		if (bands.length > 0) {
+			const biggest = bands.reduce((a, b) => b.count > a.count ? b : a)
+			const total = last.explore - last.decompose
+			if (total > 2 && biggest.count >= total * 0.5) {
+				insights.push({ icon: '◉', text: `${biggest.stage} holds ${biggest.count} of ${total} in-progress — potential bottleneck`, tone: 'warn' })
+			}
+		}
+
+		return insights
+	})
+
+	let cfdEl = $state<HTMLDivElement | null>(null)
+	let cfdChart: uPlot | null = null
+
+	/** Resolve a CSS custom property to its computed value */
+	function resolveColor(prop: string): string {
+		return getComputedStyle(document.documentElement).getPropertyValue(prop).trim()
+	}
+
+	$effect(() => {
+		const data = cfd
+		const el = cfdEl
+		if (!el || data.length < 2) {
+			cfdChart?.destroy()
+			cfdChart = null
+			return
+		}
+
+		// uPlot data: cumulative series (explore >= sketch >= validate >= decompose)
+		const xs = data.map(p => p.ts / 1000) // uPlot uses seconds
+		const exploreVals = data.map(p => p.explore)
+		const sketchVals = data.map(p => p.sketch)
+		const validateVals = data.map(p => p.validate)
+		const decomposeVals = data.map(p => p.decompose)
+
+		const colors = {
+			explore: resolveColor('--c-stage-explore'),
+			sketch: resolveColor('--c-stage-sketch'),
+			validate: resolveColor('--c-stage-validate'),
+			decompose: resolveColor('--c-stage-decompose'),
+		}
+
+		const ghostColor = resolveColor('--c-text-ghost')
+		const borderColor = resolveColor('--c-border')
+
+		function areaSeries(label: string, color: string): uPlot.Series {
+			return {
+				label,
+				stroke: color,
+				width: 1.5,
+				fill: color + 'cc',
+				points: { show: false },
+			}
+		}
+
+		// Tooltip plugin: shows date + per-stage counts on hover
+		const tooltipEl = document.createElement('div')
+		tooltipEl.className = 'bh-cfd-tooltip'
+		tooltipEl.style.display = 'none'
+		el.appendChild(tooltipEl)
+
+		const stageNames = ['Explore', 'Sketch', 'Validate', 'Decompose']
+		const stageColorValues = [colors.explore, colors.sketch, colors.validate, colors.decompose]
+
+		const tooltipPlugin: uPlot.Plugin = {
+			hooks: {
+				setCursor(u) {
+					const idx = u.cursor.idx
+					if (idx == null || idx < 0 || idx >= data.length) {
+						tooltipEl.style.display = 'none'
+						return
+					}
+					const pt = data[idx]
+					const d = new Date(pt.ts)
+					const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+					const counts = [pt.explore, pt.sketch, pt.validate, pt.decompose]
+					const rows = stageNames.map((name, i) => {
+						const band = i === 0 ? counts[i] - counts[1] :
+							i < 3 ? counts[i] - counts[i + 1] : counts[i]
+						return `<span style="color:${stageColorValues[i]}">●</span> ${name}: ${band}`
+					}).join('<br>')
+					tooltipEl.innerHTML = `<strong>${dateStr}</strong> · ${pt.explore} total<br>${rows}`
+					tooltipEl.style.display = 'block'
+
+					// Position near cursor
+					const left = u.cursor.left! + u.over.offsetLeft
+					const chartW = u.over.clientWidth
+					const flip = left > chartW * 0.65
+					tooltipEl.style.top = '4px'
+					tooltipEl.style.left = flip ? '' : `${left + 12}px`
+					tooltipEl.style.right = flip ? `${chartW - left + 12}px` : ''
+				},
+			},
+		}
+
+		const opts: uPlot.Options = {
+			width: el.clientWidth,
+			height: 160,
+			plugins: [tooltipPlugin],
+			cursor: { show: true, x: true, y: false },
+			legend: { show: false },
+			axes: [
+				{
+					stroke: ghostColor,
+					grid: { show: false },
+					ticks: { show: false },
+					values: (_u, vals) => vals.map(v => {
+						const d = new Date(v * 1000)
+						return `${d.getMonth() + 1}/${d.getDate()}`
+					}),
+					font: '10px sans-serif',
+				},
+				{
+					stroke: ghostColor,
+					grid: { stroke: borderColor, width: 0.5 },
+					ticks: { show: false },
+					size: 32,
+					font: '10px sans-serif',
+				},
+			],
+			series: [
+				{},
+				areaSeries('Explore', colors.explore),
+				areaSeries('Sketch', colors.sketch),
+				areaSeries('Validate', colors.validate),
+				areaSeries('Decompose', colors.decompose),
+			],
+			bands: [
+				{ series: [1, 2], fill: colors.explore + 'cc' },
+				{ series: [2, 3], fill: colors.sketch + 'cc' },
+				{ series: [3, 4], fill: colors.validate + 'cc' },
+			],
+		}
+
+		// Destroy previous instance before creating new
+		cfdChart?.destroy()
+		cfdChart = new uPlot(opts, [xs, exploreVals, sketchVals, validateVals, decomposeVals], el)
+
+		const ro = new ResizeObserver(() => {
+			if (cfdChart && el.clientWidth > 0) {
+				cfdChart.setSize({ width: el.clientWidth, height: 160 })
+			}
+		})
+		ro.observe(el)
+
+		return () => {
+			ro.disconnect()
+			cfdChart?.destroy()
+			cfdChart = null
+		}
 	})
 
 	function handleClick(item: AnyBriefingItem) {
@@ -254,7 +393,7 @@
 			<h2 class="bf-product-name">{boardName}</h2>
 			<span class="bf-toggle">
 				<button class="bf-toggle-btn" class:active={subView === 'news'} onclick={() => subView = 'news'}>News</button>
-				<button class="bf-toggle-btn" class:active={subView === 'overview'} onclick={() => subView = 'overview'}>Overview</button>
+				<button class="bf-toggle-btn" class:active={subView === 'overview'} onclick={() => subView = 'overview'}>Board health</button>
 			</span>
 		</div>
 		<input
@@ -267,55 +406,152 @@
 		/>
 	</div>
 
-	{#if subView === 'overview'}
-		<!-- Overview: inventory snapshot -->
-		<section class="ov-section">
-			<h3 class="ov-section-title">Opportunities <span class="ov-count">{activeOpps.length}</span></h3>
-			{#if ovByStage.length === 0}
-				<p class="ov-empty">No active opportunities</p>
-			{:else}
-				{#each ovByStage as group (group.stage.key)}
-					<h4 class="ov-stage-label" style="--stage-color: var(--c-stage-{group.stage.key})">{group.stage.label} <span class="ov-count">{group.opps.length}</span></h4>
-					{#each group.opps as opp (opp.id)}
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<div class="ov-row" role="button" tabindex="0" onclick={() => onSelectOpportunity(opp.id)}>
-							<span class="ov-health ov-health-{opp.health}" title="{opp.health === 'green' ? 'All clear' : opp.health === 'red' ? 'Has objections' : 'Needs attention'}">●</span>
-							<span class="ov-title">{opp.title}</span>
-							{#if opp.horizon}<span class="ov-pill ov-horizon">{opp.horizon}</span>{/if}
-							{#if opp.aging !== 'fresh'}<span class="ov-aging ov-aging-{opp.aging}">{opp.days}d</span>{/if}
-						</div>
-					{/each}
-				{/each}
-			{/if}
-		</section>
-
-		<section class="ov-section">
-			<h3 class="ov-section-title">Deliverables <span class="ov-count">{ovDels.length}</span></h3>
-			{#if ovDels.length === 0}
-				<p class="ov-empty">No active deliverables</p>
-			{:else}
-				{#each ovDels as d (d.id)}
-					<!-- svelte-ignore a11y_click_events_have_key_events -->
-					<div class="ov-row" role="button" tabindex="0" onclick={() => onSelectDeliverable(d.id)}>
-						<span class="ov-title">{d.title}</span>
-						{#if d.size}<span class="ov-pill">{d.size}</span>{/if}
-						{#if d.orphan}<span class="ov-pill ov-orphan">orphan</span>{/if}
-						{#if d.oppTitles.length > 0}<span class="ov-meta">← {d.oppTitles.join(', ')}</span>{/if}
+	{#snippet healthDashboard()}
+		<div class="bh-grid">
+			<button class="bh-card bh-card-nav" onclick={() => onSwitchView('pipeline')}>
+				<span class="bh-label">Pipeline</span>
+				<span class="bh-value">{health.totalOpps}</span>
+				{#if health.totalOpps > 0}
+					<div class="bh-bar">
+						{#each STAGES as s}
+							{@const count = health.stageCounts.find(sc => sc.stage === s.key)?.count ?? 0}
+							{#if count > 0}
+								<span class="bh-bar-seg bh-stage-{s.key}" style="flex:{count}" title="{count} {s.label}">{count} {s.label[0]}</span>
+							{/if}
+						{/each}
 					</div>
-				{/each}
-			{/if}
-		</section>
-
-		{#if ovStakeholders().length > 0}
-			<section class="ov-section">
-				<h3 class="ov-section-title">Stakeholders <span class="ov-count">{ovStakeholders().length}</span></h3>
-				<div class="ov-chips">
-					{#each ovStakeholders() as person (person.name)}
-						<span class="ov-chip">{person.name}{#if person.oppCount > 0}<span class="ov-chip-count">{person.oppCount}</span>{/if}</span>
-					{/each}
+				{/if}
+				{#if health.totalOpps > 0}
+					<span class="bh-aging-row">
+						{#if health.freshCount > 0}<span class="bh-aging-badge bh-aging-fresh">{health.freshCount} fresh</span>{/if}
+						{#if health.agingCount > 0}<span class="bh-aging-badge bh-aging-aging">{health.agingCount} aging</span>{/if}
+						{#if health.staleCount > 0}<span class="bh-aging-badge bh-aging-stale">{health.staleCount} stale</span>{/if}
+					</span>
+				{/if}
+			</button>
+			<div class="bh-card">
+				<span class="bh-label">Consent coverage</span>
+				<div class="bh-arc-row">
+					<svg class="bh-arc" viewBox="0 0 36 36">
+						<circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--c-border)" stroke-width="3" />
+						{#if consentPct > 0}
+							<circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--c-accent)" stroke-width="3"
+								stroke-dasharray="{consentPct} {100 - consentPct}"
+								stroke-dashoffset="25" stroke-linecap="round" />
+						{/if}
+						<text x="18" y="20.5" text-anchor="middle" font-size="10" font-weight="bold" fill="var(--c-text)">{consentPct}%</text>
+					</svg>
+					<div class="bh-arc-detail">
+						{#if health.readyCount > 0}
+							<button class="bh-nav bh-flag" style="color:var(--c-green)" onclick={() => onSwitchView('pipeline')}>{health.readyCount} ready</button>
+						{/if}
+						{#if health.incompleteCount > 0}
+							<button class="bh-nav bh-flag bh-flag-warn" onclick={() => onSwitchView('pipeline')}>{health.incompleteCount} need input</button>
+						{/if}
+						{#if health.urgentCount > 0}
+							<button class="bh-nav bh-flag bh-flag-alert" onclick={() => onSwitchView('pipeline')}>{health.urgentCount} objection{health.urgentCount !== 1 ? 's' : ''}</button>
+						{/if}
+					</div>
 				</div>
-			</section>
-		{/if}
+				{#if health.totalOpps > 0}
+					<div class="bh-persp-rows">
+						{#each health.perspectiveBreakdown as pb}
+							<div class="bh-persp-row">
+								<span class="bh-persp-label">{PERSPECTIVE_LABELS[pb.perspective]}</span>
+								<span class="bh-persp-bar">
+									{#if pb.scored > 0}<span class="bh-persp-seg bh-persp-scored" style="flex:{pb.scored}" title="{pb.scored} scored">{pb.scored}</span>{/if}
+									{#if pb.unheard > 0}<span class="bh-persp-seg bh-persp-unheard" style="flex:{pb.unheard}" title="{pb.unheard} unheard">{pb.unheard}</span>{/if}
+								</span>
+								{#if pb.objections > 0}
+									<span class="bh-persp-flag">✗{pb.objections}</span>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+			<div class="bh-card">
+				<span class="bh-label">Commitments</span>
+				<span class="bh-value">{health.totalCommitments}</span>
+				{#if health.overdueCommitments > 0}
+					<button class="bh-nav bh-flag bh-flag-alert" onclick={() => onSwitchView('pipeline')}>{health.overdueCommitments} overdue</button>
+				{/if}
+				{#if health.dueSoonCommitments > 0}
+					<button class="bh-nav bh-flag bh-flag-warn" onclick={() => onSwitchView('pipeline')}>{health.dueSoonCommitments} due this week</button>
+				{/if}
+				{#if health.totalCommitments > 0 && health.overdueCommitments === 0 && health.dueSoonCommitments === 0}
+					<span class="bh-detail">all on track</span>
+				{/if}
+			</div>
+			<button class="bh-card bh-card-nav" onclick={() => onSwitchView('deliverables')}>
+				<span class="bh-label">Deliverables</span>
+				<span class="bh-value">{health.totalDeliverables}</span>
+				<span class="bh-detail">avg {health.avgLinksPerDeliverable} links each</span>
+				{#if health.orphanDeliverables > 0}
+					<span class="bh-flag bh-flag-warn">{health.orphanDeliverables} orphan{health.orphanDeliverables !== 1 ? 's' : ''}</span>
+				{/if}
+			</button>
+			{#if health.originCounts.length > 0}
+				<div class="bh-card bh-card-wide">
+					<span class="bh-label">Origin balance</span>
+					<div class="bh-bar">
+						{#each health.originCounts as o}
+							{@const label = ORIGIN_TYPES.find(t => t.key === o.origin)?.label ?? o.origin}
+							<span class="bh-bar-seg bh-origin-{o.origin}" style="flex:{o.count}" title="{o.count} {label}">{o.count} {label}</span>
+						{/each}
+					</div>
+				</div>
+			{/if}
+			{#if leadTime.stageAvg.length > 0}
+				{@const maxDays = Math.max(...leadTime.stageAvg.map(x => x.avgDays), 1)}
+				<div class="bh-card bh-card-wide">
+					<span class="bh-label">Lead time</span>
+					<span class="bh-detail">avg days per stage from entry to now</span>
+					<div class="bh-lead-row">
+						<span class="bh-lead-stat">
+							<span class="bh-lead-num">{leadTime.medianTotalDays}d</span>
+							<span class="bh-detail">median</span>
+						</span>
+						<div class="bh-lead-bars">
+							{#each leadTime.stageAvg as s}
+								<div class="bh-lead-bar-row" title="{s.avgDays}d avg in {stageLabel(s.stage)} ({s.count} opps)">
+									<span class="bh-lead-label">{stageLabel(s.stage)[0]}</span>
+									<div class="bh-lead-track">
+										<div class="bh-lead-fill bh-stage-{s.stage}" style="width:{Math.round((s.avgDays / maxDays) * 100)}%"></div>
+									</div>
+									<span class="bh-lead-days">{s.avgDays}d</span>
+								</div>
+							{/each}
+						</div>
+					</div>
+				</div>
+			{/if}
+			{#if cfd.length > 1}
+				<div class="bh-card bh-card-wide">
+					<span class="bh-label">Flow</span>
+					<div class="bh-cfd" bind:this={cfdEl}></div>
+					<div class="bh-cfd-legend">
+						{#each STAGES as s}
+							<span class="bh-cfd-key"><span class="bh-cfd-dot bh-stage-{s.key}"></span>{s.label}</span>
+						{/each}
+					</div>
+					{#if cfdInsights.length > 0}
+						<div class="bh-cfd-insights">
+							{#each cfdInsights as insight}
+								<span class="bh-cfd-insight bh-cfd-insight-{insight.tone}">
+									<span class="bh-cfd-insight-icon">{insight.icon}</span>
+									{insight.text}
+								</span>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{/snippet}
+
+	{#if subView === 'overview'}
+		{@render healthDashboard()}
 	{:else}
 	<!-- News feed with age bands -->
 	{#snippet wireItem(item: AnyBriefingItem, muted: boolean)}
@@ -354,10 +590,11 @@
 			<p class="bf-empty-text">All caught up — nothing new since your last check.</p>
 			{#if !snapshot}
 				<p class="bf-empty-hint">This is your first visit. Changes will show up here next time.</p>
-			{:else}
-				<p class="bf-empty-hint">{boardSummary()}</p>
 			{/if}
 		</div>
+		{#if health.totalOpps > 0 || health.totalDeliverables > 0}
+			{@render healthDashboard()}
+		{/if}
 	{:else}
 		<div class="bf-header">
 			<span class="bf-summary">{feed.total} item{feed.total === 1 ? '' : 's'} since {snapshot ? timeAgo(snapshot.takenAt) : 'first visit'}</span>
@@ -561,148 +798,320 @@
 		color: var(--c-bg);
 	}
 
-	/* --- Overview sections --- */
-	.ov-section {
+	/* --- Board health dashboard --- */
+	.bh-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: var(--sp-sm);
+	}
+
+	.bh-card {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: var(--sp-3xs);
 		background: var(--c-surface);
 		border-radius: var(--radius-md);
 		padding: var(--sp-sm) var(--sp-md);
 		box-shadow: var(--shadow-sm);
 	}
 
-	.ov-section-title {
+	.bh-card-wide {
+		grid-column: 1 / -1;
+	}
+
+	.bh-label {
 		font-size: var(--fs-xs);
 		font-weight: var(--fw-medium);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: var(--c-text-muted);
-		margin: 0 0 var(--sp-2xs);
-		display: flex;
-		align-items: center;
-		gap: var(--sp-xs);
 	}
 
-	.ov-count {
-		font-size: var(--fs-2xs);
-		color: var(--c-text-ghost);
-		font-weight: normal;
-	}
-
-	.ov-empty {
-		font-size: var(--fs-sm);
-		color: var(--c-text-ghost);
-		font-style: italic;
-		margin: 0;
-		padding: var(--sp-xs) 0;
-	}
-
-	.ov-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-xs);
-		padding: var(--sp-2xs) var(--sp-xs);
-		border-radius: var(--radius-sm);
-		font-size: var(--fs-sm);
-		cursor: pointer;
-		transition: background var(--tr-fast);
-	}
-
-	.ov-row:hover {
-		background: var(--c-surface-alt);
-	}
-
-	.ov-title {
-		flex: 1;
-		color: var(--c-text);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.ov-stage-label {
-		font-size: var(--fs-sm);
+	.bh-value {
+		font-size: var(--fs-2xl);
 		font-weight: var(--fw-bold);
 		color: var(--c-text);
-		margin: var(--sp-xs) 0 0;
-		padding: var(--sp-2xs) var(--sp-xs);
-		border-left: 3px solid var(--stage-color);
-		display: flex;
-		align-items: baseline;
-		gap: var(--sp-xs);
+		line-height: 1;
 	}
 
-	.ov-health {
-		font-size: var(--fs-2xs);
-		flex-shrink: 0;
-	}
-
-	.ov-health-green { color: var(--c-green-signal); }
-	.ov-health-amber { color: var(--c-warm); }
-	.ov-health-red { color: var(--c-red); }
-
-	.ov-pill {
+	.bh-detail {
 		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-		background: var(--c-bg-hover);
-		padding: 0.1rem 0.3rem;
+		color: var(--c-text-ghost);
+	}
+
+	/* Clickable card that navigates to another view */
+	.bh-card-nav {
+		cursor: pointer;
+		border: 1px solid transparent;
+		font: inherit;
+		text-align: left;
+		transition: border-color var(--tr-fast);
+	}
+	.bh-card-nav:hover {
+		border-color: var(--c-border-strong);
+	}
+	.bh-card-nav:focus-visible {
+		outline: 2px solid var(--c-accent);
+		outline-offset: 2px;
+	}
+
+	/* Inline navigable flags (commitment overdue, etc.) */
+	.bh-nav {
+		background: none;
+		border: none;
+		padding: 0;
+		font: inherit;
+		color: inherit;
+		cursor: pointer;
+		text-decoration: none;
+	}
+	.bh-nav:hover {
+		text-decoration: underline;
+		text-decoration-color: var(--c-text-ghost);
+		text-underline-offset: 2px;
+	}
+	.bh-nav:focus-visible {
+		outline: 2px solid var(--c-accent);
+		outline-offset: 2px;
 		border-radius: var(--radius-sm);
-		white-space: nowrap;
 	}
 
-	.ov-horizon {
-		color: var(--c-accent);
-	}
-
-	.ov-orphan {
-		color: var(--c-warm);
-	}
-
-	.ov-aging {
+	.bh-flag {
 		font-size: var(--fs-xs);
 		font-weight: var(--fw-medium);
-		white-space: nowrap;
 	}
 
-	.ov-aging-aging {
+	.bh-flag-warn {
 		color: var(--c-warm);
 	}
 
-	.ov-aging-stale {
+	.bh-flag-alert {
 		color: var(--c-red);
 	}
 
-	.ov-meta {
+	.bh-aging-row {
+		display: flex;
+		gap: var(--sp-sm);
+		flex-wrap: wrap;
+	}
+	.bh-aging-badge {
 		font-size: var(--fs-xs);
-		color: var(--c-text-ghost);
+		font-weight: var(--fw-medium);
+	}
+	.bh-aging-fresh { color: var(--c-green-signal); }
+	.bh-aging-aging { color: var(--c-warm); }
+	.bh-aging-stale { color: var(--c-red); }
+
+	.bh-bar {
+		display: flex;
+		gap: 2px;
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+		font-size: var(--fs-xs);
+		margin-top: var(--sp-3xs);
+	}
+
+	.bh-bar-seg {
+		padding: var(--sp-3xs) var(--sp-xs);
+		color: white;
+		text-align: center;
 		white-space: nowrap;
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		max-width: 12rem;
 	}
 
-	.ov-chips {
+	.bh-origin-demand { background: var(--c-stage-validate); }
+	.bh-origin-supply { background: var(--c-stage-sketch); }
+	.bh-origin-incident { background: var(--c-red); }
+	.bh-origin-debt { background: var(--c-warm); }
+
+	/* Stage colors for bars and fills */
+	.bh-stage-explore { background: var(--c-stage-explore); }
+	.bh-stage-sketch { background: var(--c-stage-sketch); }
+	.bh-stage-validate { background: var(--c-stage-validate); }
+	.bh-stage-decompose { background: var(--c-stage-decompose); }
+
+	/* Consent arc */
+	.bh-arc-row {
 		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2xs);
+		align-items: center;
+		gap: var(--sp-sm);
+	}
+	.bh-arc {
+		width: 56px;
+		height: 56px;
+		flex-shrink: 0;
+	}
+	.bh-arc-detail {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3xs);
 	}
 
-	.ov-chip {
+	/* Per-perspective breakdown rows */
+	.bh-persp-rows {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3xs);
+		margin-top: var(--sp-xs);
+	}
+	.bh-persp-row {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-xs);
+	}
+	.bh-persp-label {
 		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+		width: 5.5em;
+		flex-shrink: 0;
+	}
+	.bh-persp-bar {
+		display: flex;
+		flex: 1;
+		gap: 1px;
+		border-radius: var(--radius-xs);
+		overflow: hidden;
+		height: 14px;
+	}
+	.bh-persp-seg {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 9px;
+		font-weight: var(--fw-medium);
+		color: white;
+		min-width: 14px;
+	}
+	.bh-persp-scored { background: var(--c-accent); }
+	.bh-persp-unheard { background: var(--c-border); color: var(--c-text-muted); }
+	.bh-persp-flag {
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-bold);
+		color: var(--c-red);
+		flex-shrink: 0;
+	}
+
+	/* Lead time */
+	.bh-lead-row {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-md);
+	}
+	.bh-lead-stat {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		flex-shrink: 0;
+	}
+	.bh-lead-num {
+		font-size: var(--fs-xl);
+		font-weight: var(--fw-bold);
 		color: var(--c-text);
-		background: var(--c-bg-hover);
-		padding: 0.15rem var(--sp-xs);
-		border-radius: var(--radius-sm);
-		display: inline-flex;
+		line-height: 1;
+	}
+	.bh-lead-bars {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
+	.bh-lead-bar-row {
+		display: flex;
 		align-items: center;
 		gap: var(--sp-2xs);
+		font-size: var(--fs-xs);
+	}
+	.bh-lead-label {
+		width: 1em;
+		color: var(--c-text-muted);
+		font-weight: var(--fw-medium);
+	}
+	.bh-lead-track {
+		flex: 1;
+		height: 6px;
+		background: var(--c-border);
+		border-radius: 3px;
+		overflow: hidden;
+	}
+	.bh-lead-fill {
+		height: 100%;
+		border-radius: 3px;
+		transition: width var(--tr-normal);
+	}
+	.bh-lead-days {
+		color: var(--c-text-ghost);
+		min-width: 2.5em;
+		text-align: right;
 	}
 
-	.ov-chip-count {
-		font-size: var(--fs-2xs);
+	/* CFD chart */
+	.bh-cfd {
+		width: 100%;
+		border-radius: var(--radius-sm);
+		position: relative;
+	}
+	.bh-cfd :global(.uplot) {
+		width: 100% !important;
+	}
+	.bh-cfd :global(.u-wrap) {
+		width: 100% !important;
+	}
+	.bh-cfd :global(.bh-cfd-tooltip) {
+		position: absolute;
+		z-index: 10;
+		background: var(--c-surface);
+		border: 1px solid var(--c-border);
+		border-radius: var(--radius-sm);
+		padding: var(--sp-3xs) var(--sp-2xs);
+		font-size: var(--fs-xs);
+		line-height: 1.5;
+		color: var(--c-text);
+		box-shadow: var(--shadow-sm);
+		pointer-events: none;
+		white-space: nowrap;
+	}
+	.bh-cfd-legend {
+		display: flex;
+		gap: var(--sp-sm);
+		justify-content: center;
+		margin-top: var(--sp-3xs);
+	}
+	.bh-cfd-key {
+		display: flex;
+		align-items: center;
+		gap: 3px;
+		font-size: var(--fs-xs);
 		color: var(--c-text-ghost);
 	}
+	.bh-cfd-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 2px;
+		display: inline-block;
+	}
+	.bh-cfd-insights {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		margin-top: var(--sp-3xs);
+	}
+	.bh-cfd-insight {
+		display: flex;
+		align-items: baseline;
+		gap: var(--sp-3xs);
+		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+		line-height: 1.4;
+	}
+	.bh-cfd-insight-icon {
+		flex-shrink: 0;
+		width: 1.1em;
+		text-align: center;
+	}
+	.bh-cfd-insight-warn { color: var(--c-warm); }
+	.bh-cfd-insight-good { color: var(--c-green-signal); }
 
 	/* --- Empty state --- */
 	.bf-empty {
@@ -721,7 +1130,7 @@
 
 	.bf-empty-text {
 		font-size: var(--fs-md);
-		color: var(--c-text);
+		color: var(--c-text-muted);
 		margin: 0;
 	}
 

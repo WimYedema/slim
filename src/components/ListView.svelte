@@ -746,8 +746,8 @@
 	.horizon-tag {
 		font-size: var(--fs-2xs);
 		font-weight: var(--fw-medium);
-		margin-left: 4px;
-		padding: 0 3px;
+		margin-left: var(--sp-xs);
+		padding: 0 var(--sp-xs);
 		border-radius: var(--radius-sm);
 		color: var(--c-text-soft);
 	}

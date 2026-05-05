@@ -30,6 +30,7 @@
 <div class="bd-container">
 	<div class="bd-header">
 		<h2 class="bd-title">What's on your plate?</h2>
+		<p class="bd-subtitle">Opportunities are goals or problems worth investigating. Deliverables are the concrete work items that serve them.</p>
 		<p class="bd-hint">
 			<code># Title</code> = board name · <code>## Heading</code> = opportunity · <code>- Bullet</code> = deliverable · <code>#sketch</code> = stage · <code>#request</code> = origin · <code>@Name</code> = person
 		</p>
@@ -129,6 +130,12 @@
 		margin: 0 0 var(--sp-xs);
 	}
 
+	.bd-subtitle {
+		font-size: var(--fs-sm);
+		color: var(--c-text-muted);
+		margin: 0 0 var(--sp-sm);
+	}
+
 	.bd-hint {
 		font-size: var(--fs-2xs);
 		color: var(--c-text-ghost);
@@ -190,8 +197,9 @@
 	}
 
 	.bd-preview-empty {
-		color: var(--c-text-ghost);
+		color: var(--c-text-muted);
 		font-size: var(--fs-sm);
+		font-style: italic;
 		text-align: center;
 		padding: var(--sp-xl);
 	}

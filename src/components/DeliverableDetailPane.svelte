@@ -38,9 +38,11 @@
 	let dropReasonInput = $state('')
 
 	let editTitle = $state(deliverable.title)
+	let editNotes = $state(deliverable.notes)
 
-	// Keep editTitle in sync when deliverable prop changes
+	// Keep edit fields in sync when deliverable prop changes
 	$effect(() => { editTitle = deliverable.title })
+	$effect(() => { editNotes = deliverable.notes })
 
 	const dLinks = $derived(linksForDeliverable(links, deliverable.id))
 
@@ -172,6 +174,17 @@
 	{:else}
 		<button class="btn-ghost ddp-add-detail" onclick={() => showExternalFields = true}>+ add external details</button>
 	{/if}
+
+	<label class="ddp-field">
+		<span class="ddp-label">Notes</span>
+		<textarea
+			class="ddp-notes"
+			placeholder="Notes…"
+			bind:value={editNotes}
+			onblur={() => { if (editNotes !== deliverable.notes) onUpdate({ ...deliverable, notes: editNotes }) }}
+			rows="2"
+		></textarea>
+	</label>
 
 	<!-- Linked opportunities -->
 	<div class="ddp-section">
@@ -390,6 +403,28 @@
 		border-bottom-color: var(--c-accent);
 	}
 
+	.ddp-notes {
+		font: inherit;
+		font-size: var(--fs-xs);
+		color: var(--c-text);
+		background: transparent;
+		border: 1px solid color-mix(in srgb, var(--c-border) var(--opacity-strong), transparent);
+		border-radius: var(--radius-sm);
+		padding: var(--sp-xs);
+		resize: vertical;
+		min-height: 2.4em;
+		transition: border-color var(--tr-fast);
+	}
+
+	.ddp-notes:focus {
+		outline: none;
+		border-color: var(--c-border);
+	}
+
+	.ddp-notes::placeholder {
+		color: var(--c-text-ghost);
+	}
+
 	/* Kind picker */
 	.ddp-kind-picker {
 		display: flex;
@@ -503,7 +538,7 @@
 
 	.ddp-empty {
 		font-size: var(--fs-xs);
-		color: var(--c-text-faint);
+		color: var(--c-text-muted);
 		font-style: italic;
 		margin: 0;
 	}
