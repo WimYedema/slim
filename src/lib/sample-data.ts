@@ -379,18 +379,36 @@ export function createSampleDeliverables(opps: Opportunity[]): {
 } {
 	const webhooks = opps.find((o) => o.title === 'Webhooks API')!
 	const sso = opps.find((o) => o.title === 'SSO login for enterprise')!
+	const DAY = 86_400_000
+	const now = Date.now()
 
 	const eventBus = createDeliverable('Webhook event bus')
 	eventBus.externalUrl = 'https://jira.example.com/PROD-142'
 	eventBus.size = 'L'
 	eventBus.certainty = 4
 	eventBus.extraContributors = ['Alice', 'Bob']
+	eventBus.estimate = {
+		mu: 2.08,
+		sigma: 0.35,
+		n: 5,
+		unit: 'days',
+		snappedValue: '8d',
+		estimatedAt: now - 2 * DAY,
+	}
 
 	const retryDlq = createDeliverable('Webhook retry & DLQ')
 	retryDlq.externalUrl = 'https://jira.example.com/PROD-143'
 	retryDlq.size = 'M'
 	retryDlq.certainty = 3
 	retryDlq.extraContributors = ['DevOps team', 'Bob']
+	retryDlq.estimate = {
+		mu: 1.1,
+		sigma: 0.55,
+		n: 4,
+		unit: 'days',
+		snappedValue: '3d',
+		estimatedAt: now - 2 * DAY,
+	}
 
 	const partnerDash = createDeliverable('Partner dashboard')
 	partnerDash.size = 'XL'
@@ -402,11 +420,27 @@ export function createSampleDeliverables(opps: Opportunity[]): {
 	saml.size = 'S'
 	saml.certainty = 5
 	saml.extraContributors = ['Alice']
+	saml.estimate = {
+		mu: 0,
+		sigma: 0.15,
+		n: 3,
+		unit: 'days',
+		snappedValue: '1d',
+		estimatedAt: now - 3 * DAY,
+	}
 
 	const oidc = createDeliverable('OIDC integration')
 	oidc.size = 'S'
 	oidc.certainty = 4
 	oidc.extraContributors = ['Alice']
+	oidc.estimate = {
+		mu: 0.92,
+		sigma: 0.5,
+		n: 3,
+		unit: 'days',
+		snappedValue: '2½d',
+		estimatedAt: now - 3 * DAY,
+	}
 
 	const webhookDocs = createDeliverable('Webhook docs & SDK examples')
 	webhookDocs.size = 'XS'
