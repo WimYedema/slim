@@ -405,7 +405,12 @@ export interface BoardHealth {
 	/** Perspectives with at least one negative score */
 	objectionCount: number
 	/** Per-perspective breakdown at current stage */
-	perspectiveBreakdown: { perspective: Perspective; scored: number; unheard: number; objections: number }[]
+	perspectiveBreakdown: {
+		perspective: Perspective
+		scored: number
+		unheard: number
+		objections: number
+	}[]
 	/** Consent readiness: how many opps are ready / incomplete / urgent */
 	readyCount: number
 	incompleteCount: number
@@ -521,7 +526,8 @@ export function boardHealth(
 		dueSoonCommitments,
 		totalDeliverables: activeDels.length,
 		orphanDeliverables,
-		avgLinksPerDeliverable: activeDels.length > 0 ? Math.round((totalLinks / activeDels.length) * 10) / 10 : 0,
+		avgLinksPerDeliverable:
+			activeDels.length > 0 ? Math.round((totalLinks / activeDels.length) * 10) / 10 : 0,
 		originCounts,
 	}
 }
@@ -628,7 +634,10 @@ export function leadTimeStats(opportunities: Opportunity[]): LeadTimeStats {
 	const active = opportunities.filter((o) => !o.discontinuedAt)
 	const stageKeys: Stage[] = ['explore', 'sketch', 'validate', 'decompose']
 	const stageDurations: Record<Stage, number[]> = {
-		explore: [], sketch: [], validate: [], decompose: [],
+		explore: [],
+		sketch: [],
+		validate: [],
+		decompose: [],
 	}
 	const totalDays: number[] = []
 	const DAY = 86_400_000
@@ -658,15 +667,14 @@ export function leadTimeStats(opportunities: Opportunity[]): LeadTimeStats {
 		.filter((s) => s.count > 0)
 
 	const sortedTotals = [...totalDays].sort((a, b) => a - b)
-	const median = sortedTotals.length > 0
-		? sortedTotals[Math.floor(sortedTotals.length / 2)]
-		: 0
+	const median = sortedTotals.length > 0 ? sortedTotals[Math.floor(sortedTotals.length / 2)] : 0
 
 	return {
 		stageAvg,
-		avgTotalDays: totalDays.length > 0
-			? Math.round((totalDays.reduce((a, b) => a + b, 0) / totalDays.length) * 10) / 10
-			: 0,
+		avgTotalDays:
+			totalDays.length > 0
+				? Math.round((totalDays.reduce((a, b) => a + b, 0) / totalDays.length) * 10) / 10
+				: 0,
 		medianTotalDays: Math.round(median * 10) / 10,
 	}
 }
