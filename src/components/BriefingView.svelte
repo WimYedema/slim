@@ -487,6 +487,9 @@
 				<span class="bh-label">Deliverables</span>
 				<span class="bh-value">{health.totalDeliverables}</span>
 				<span class="bh-detail">avg {health.avgLinksPerDeliverable} links each</span>
+				{#if health.estimatedDeliverables > 0}
+					<span class="bh-flag bh-flag-ok">⚡ {health.estimatedDeliverables} estimated</span>
+				{/if}
 				{#if health.orphanDeliverables > 0}
 					<span class="bh-flag bh-flag-warn">{health.orphanDeliverables} orphan{health.orphanDeliverables !== 1 ? 's' : ''}</span>
 				{/if}

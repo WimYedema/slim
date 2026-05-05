@@ -23,6 +23,7 @@ import {
 	nextStage,
 	type Opportunity,
 	type OpportunityDeliverableLink,
+	opportunityEffort,
 	originLabel,
 	pacingSummary,
 	perspectiveAssignment,
@@ -762,5 +763,56 @@ describe('effectiveCertainty', () => {
 		const del = createDeliverable('Test')
 		del.certainty = 3
 		expect(effectiveCertainty(del)).toBe(3)
+	})
+})
+
+describe('opportunityEffort', () => {
+	it('returns null when no linked deliverables', () => {
+		const opp = createOpportunity('Test')
+		expect(opportunityEffort(opp.id, [], [])).toBeNull()
+	})
+
+	it('returns null when linked deliverables have no estimates', () => {
+		const opp = createOpportunity('Test')
+		const del = createDeliverable('Work')
+		const links: OpportunityDeliverableLink[] = [
+			{ opportunityId: opp.id, deliverableId: del.id, coverage: 'full' },
+		]
+		expect(opportunityEffort(opp.id, [del], links)).toBeNull()
+	})
+
+	it('sums full-coverage deliverable medians', () => {
+		const opp = createOpportunity('Test')
+		const del1 = createDeliverable('A')
+		del1.estimate = mkEstimate(0, 0.5) // median = e^0 = 1
+		const del2 = createDeliverable('B')
+		del2.estimate = mkEstimate(Math.log(3), 0.3) // median = 3
+		const links: OpportunityDeliverableLink[] = [
+			{ opportunityId: opp.id, deliverableId: del1.id, coverage: 'full' },
+			{ opportunityId: opp.id, deliverableId: del2.id, coverage: 'full' },
+		]
+		expect(opportunityEffort(opp.id, [del1, del2], links)).toBeCloseTo(4)
+	})
+
+	it('halves partial-coverage median', () => {
+		const opp = createOpportunity('Test')
+		const del = createDeliverable('Shared')
+		del.estimate = mkEstimate(Math.log(10), 0.3) // median = 10
+		const links: OpportunityDeliverableLink[] = [
+			{ opportunityId: opp.id, deliverableId: del.id, coverage: 'partial' },
+		]
+		expect(opportunityEffort(opp.id, [del], links)).toBeCloseTo(5)
+	})
+
+	it('ignores deliverables without estimates', () => {
+		const opp = createOpportunity('Test')
+		const del1 = createDeliverable('Estimated')
+		del1.estimate = mkEstimate(Math.log(2), 0.4) // median = 2
+		const del2 = createDeliverable('Not estimated')
+		const links: OpportunityDeliverableLink[] = [
+			{ opportunityId: opp.id, deliverableId: del1.id, coverage: 'full' },
+			{ opportunityId: opp.id, deliverableId: del2.id, coverage: 'full' },
+		]
+		expect(opportunityEffort(opp.id, [del1, del2], links)).toBeCloseTo(2)
 	})
 })

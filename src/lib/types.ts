@@ -374,6 +374,7 @@ export {
 	inheritedPeople,
 	linksForDeliverable,
 	linksForOpportunity,
+	opportunityEffort,
 	perspectiveAssignment,
 	perspectiveOwner,
 	perspectiveWeight,

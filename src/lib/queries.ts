@@ -424,6 +424,7 @@ export interface BoardHealth {
 	dueSoonCommitments: number
 	/** Deliverable stats */
 	totalDeliverables: number
+	estimatedDeliverables: number
 	orphanDeliverables: number
 	avgLinksPerDeliverable: number
 	/** Origin balance: count per origin type */
@@ -499,11 +500,13 @@ export function boardHealth(
 
 	const activeDels = deliverables.filter((d) => d.status === 'active')
 	let orphanDeliverables = 0
+	let estimatedDeliverables = 0
 	let totalLinks = 0
 	for (const d of activeDels) {
 		const count = links.filter((l) => l.deliverableId === d.id).length
 		totalLinks += count
 		if (count === 0) orphanDeliverables++
+		if (d.estimate) estimatedDeliverables++
 	}
 
 	const originCounts = ORIGIN_TYPES.map((o) => ({
@@ -528,6 +531,7 @@ export function boardHealth(
 		overdueCommitments,
 		dueSoonCommitments,
 		totalDeliverables: activeDels.length,
+		estimatedDeliverables,
 		orphanDeliverables,
 		avgLinksPerDeliverable:
 			activeDels.length > 0 ? Math.round((totalLinks / activeDels.length) * 10) / 10 : 0,
@@ -713,4 +717,26 @@ export function effectiveSize(del: Deliverable): TShirtSize | null {
 export function effectiveCertainty(del: Deliverable): Certainty | null {
 	if (del.estimate) return certaintyFromEstimate(del.estimate)
 	return del.certainty
+}
+
+// ── Effort aggregation ──
+
+/** Sum of linked deliverable effort medians (in days) for an opportunity. */
+export function opportunityEffort(
+	oppId: string,
+	deliverables: Deliverable[],
+	links: OpportunityDeliverableLink[],
+): number | null {
+	const oppLinks = linksForOpportunity(links, oppId)
+	if (oppLinks.length === 0) return null
+	let total = 0
+	let hasEstimate = false
+	for (const link of oppLinks) {
+		const del = deliverables.find((d) => d.id === link.deliverableId)
+		if (!del?.estimate) continue
+		hasEstimate = true
+		const median = Math.exp(del.estimate.mu)
+		total += link.coverage === 'full' ? median : median * 0.5
+	}
+	return hasEstimate ? total : null
 }
