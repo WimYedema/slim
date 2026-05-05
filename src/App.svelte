@@ -31,9 +31,11 @@
 	import { opportunitiesToCsv, csvToOpportunities } from './lib/csv'
 	import { mergeBoards, formatMergeStats } from './lib/merge'
 	import { boardNames } from './lib/queries'
+	import { generateEstimationRoom, generateSyncKeys, publishEstimationRequest, queryVerdicts, applyVerdicts } from './lib/sync'
 	import { parseImportText, materialize } from './lib/import-parser'
 	import { createSampleOpportunities, createSampleDeliverables, createSampleMeetingData } from './lib/sample-data'
 	import BoardPicker from './components/BoardPicker.svelte'
+	import EstimationPanel from './components/EstimationPanel.svelte'
 
 	type ViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'meetings'
 	type ContributorViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'assignments'
@@ -56,6 +58,7 @@
 	let deliverables: Deliverable[] = $state(saved?.deliverables ?? [])
 	let links: OpportunityDeliverableLink[] = $state(saved?.links ?? [])
 	let customHorizons: string[] = $state(saved?.customHorizons ?? [])
+	let estimationRoom: string | undefined = $state(saved?.estimationRoom)
 	let meetingData: MeetingData = $state(savedMeetings)
 	let briefingSnapshot: BoardSnapshot | null = $state(
 		saved?.briefingSnapshot ?? null
@@ -138,7 +141,7 @@
 
 	$effect(() => {
 		if (showWelcome || showBrainDump || !activeBoardId) return
-		saveBoard({ opportunities, deliverables, links, customHorizons, briefingSnapshot: briefingSnapshot ?? undefined }, activeBoardId)
+		saveBoard({ opportunities, deliverables, links, customHorizons, briefingSnapshot: briefingSnapshot ?? undefined, estimationRoom }, activeBoardId)
 	})
 
 	$effect(() => {
@@ -518,7 +521,7 @@
 	function switchBoard(id: string) {
 		// Save current board first (effect may not have fired yet)
 		if (activeBoardId) {
-			saveBoard({ opportunities, deliverables, links, customHorizons, briefingSnapshot: briefingSnapshot ?? undefined }, activeBoardId)
+			saveBoard({ opportunities, deliverables, links, customHorizons, briefingSnapshot: briefingSnapshot ?? undefined, estimationRoom }, activeBoardId)
 			saveMeetingData(meetingData, activeBoardId)
 		}
 		// Load new board
@@ -530,6 +533,7 @@
 		links = data?.links ?? []
 		customHorizons = data?.customHorizons ?? []
 		briefingSnapshot = data?.briefingSnapshot ?? null
+		estimationRoom = data?.estimationRoom
 		meetingData = loadMeetingData(id)
 		selectedId = null
 		selectedDeliverableId = null
@@ -539,7 +543,7 @@
 	function newBoard() {
 		// Save current board
 		if (activeBoardId) {
-			saveBoard({ opportunities, deliverables, links, customHorizons, briefingSnapshot: briefingSnapshot ?? undefined }, activeBoardId)
+			saveBoard({ opportunities, deliverables, links, customHorizons, briefingSnapshot: briefingSnapshot ?? undefined, estimationRoom }, activeBoardId)
 			saveMeetingData(meetingData, activeBoardId)
 		}
 		// Create empty board
@@ -552,6 +556,7 @@
 		deliverables = []
 		links = []
 		customHorizons = []
+		estimationRoom = undefined
 		briefingSnapshot = null
 		meetingData = { lastDiscussed: {}, records: [], snapshots: {} }
 		selectedId = null
@@ -592,6 +597,75 @@
 		meetingData = createSampleMeetingData()
 		selectedId = null
 		selectedDeliverableId = null
+	}
+
+	// ── Estimation room (Slim ↔ Skatting bridge) ──
+
+	let estimationBusy = $state(false)
+	let estimationMessage = $state('')
+	let estimationError = $state('')
+
+	async function createEstimationAndPublish() {
+		const room = generateEstimationRoom()
+		estimationRoom = room
+		await publishEstimation(room)
+	}
+
+	async function publishEstimation(room?: string) {
+		const code = room ?? estimationRoom
+		if (!code) return
+		estimationBusy = true
+		estimationError = ''
+		try {
+			const keys = generateSyncKeys()
+			const request = {
+				type: 'estimation-request' as const,
+				deliverables: deliverables.map((d) => ({
+					id: d.id,
+					title: d.title,
+					kind: 'delivery' as const,
+				})),
+				unit: 'days' as const,
+				boardName: activeBoardEntry?.name,
+				timestamp: Date.now(),
+			}
+			await publishEstimationRequest(code, keys, request)
+			estimationMessage = `Published ${deliverables.length} deliverables`
+			setTimeout(() => (estimationMessage = ''), 3000)
+		} catch {
+			estimationError = 'Failed to publish'
+		} finally {
+			estimationBusy = false
+		}
+	}
+
+	async function pullEstimationVerdicts() {
+		if (!estimationRoom) return
+		estimationBusy = true
+		estimationError = ''
+		try {
+			const result = await queryVerdicts(estimationRoom)
+			if (!result) {
+				estimationMessage = 'No verdicts yet'
+				setTimeout(() => (estimationMessage = ''), 3000)
+				return
+			}
+			pushUndo('Pull estimates')
+			const count = applyVerdicts(deliverables, result)
+			deliverables = [...deliverables] // trigger reactivity
+			estimationMessage = count > 0 ? `Applied ${count} estimates` : 'No new estimates'
+			setTimeout(() => (estimationMessage = ''), 3000)
+		} catch {
+			estimationError = 'Failed to pull verdicts'
+		} finally {
+			estimationBusy = false
+		}
+	}
+
+	function disconnectEstimation() {
+		estimationRoom = undefined
+		estimationMessage = ''
+		estimationError = ''
 	}
 
 	// ── Import / Export ──
@@ -994,6 +1068,17 @@
 				onSelectOpportunity={toggleOpportunity}
 				onSelectDeliverable={toggleDeliverable}
 				bind:orderedIds={delViewOrderedIds}
+			/>
+			<EstimationPanel
+				roomCode={estimationRoom}
+				deliverableCount={deliverables.length}
+				busy={estimationBusy}
+				message={estimationMessage}
+				error={estimationError}
+				onCreateAndPublish={createEstimationAndPublish}
+				onRepublish={() => publishEstimation()}
+				onPullVerdicts={pullEstimationVerdicts}
+				onDisconnect={disconnectEstimation}
 			/>
 		</div>
 		{@render detailSidebar()}
