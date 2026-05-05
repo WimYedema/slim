@@ -10,6 +10,8 @@
 		STAGES,
 		TSHIRT_SIZES,
 		inheritedPeople as inheritedPeopleForDeliverable,
+		effectiveSize,
+		effectiveCertainty,
 	} from '../lib/types'
 	import MemberPicker from './MemberPicker.svelte'
 
@@ -116,28 +118,36 @@
 			<button class="ddp-kind-btn" class:active={deliverable.kind === 'delivery'} onclick={() => setKind('delivery')} title="Build something">Delivery</button>
 			<button class="ddp-kind-btn" class:active={deliverable.kind === 'discovery'} onclick={() => setKind('discovery')} title="Learn something (spike, study, review)">Discovery</button>
 		</div>
-		<div class="ddp-size-picker">
+		<div class="ddp-size-picker" class:has-estimate={!!deliverable.estimate}>
 			{#each TSHIRT_SIZES as size}
 				<button
 					class="ddp-size-btn"
-					class:active={deliverable.size === size}
+					class:active={effectiveSize(deliverable) === size}
 					onclick={() => setSize(deliverable.size === size ? null : size)}
 				>{size}</button>
 			{/each}
 		</div>
-		<div class="ddp-certainty-picker">
+		<div class="ddp-certainty-picker" class:has-estimate={!!deliverable.estimate}>
 			{#each [1, 2, 3, 4, 5] as level}
 				<button
 					class="ddp-cert-btn"
-					class:active={deliverable.certainty != null && level <= deliverable.certainty}
+					class:active={effectiveCertainty(deliverable) != null && level <= effectiveCertainty(deliverable)!}
 					onclick={() => setCertainty(deliverable.certainty === level ? null : level as Certainty)}
 					title="Confidence ~{level * 20}%"
 				></button>
 			{/each}
-			<span class="ddp-cert-label">{deliverable.certainty != null ? `~${deliverable.certainty * 20}%` : ''}</span>
+			<span class="ddp-cert-label">{effectiveCertainty(deliverable) != null ? `~${effectiveCertainty(deliverable)! * 20}%` : ''}</span>
 		</div>
 		<span class="ddp-summary-links">{dLinks.length} link{dLinks.length !== 1 ? 's' : ''}{#if dLinks.length > 0}{@const fullCount = dLinks.filter((l) => l.coverage === 'full').length} · {fullCount} full{/if}</span>
 	</div>
+
+	{#if deliverable.estimate}
+		<div class="ddp-estimate-info">
+			<span class="ddp-estimate-icon">⚡</span>
+			<span class="ddp-estimate-value">{deliverable.estimate.snappedValue}</span>
+			<span class="ddp-estimate-meta">{deliverable.estimate.n} estimator{deliverable.estimate.n !== 1 ? 's' : ''} · {new Date(deliverable.estimate.estimatedAt).toLocaleDateString()}</span>
+		</div>
+	{/if}
 
 	{#if hasExternalData || showExternalFields}
 		<!-- External URL -->
@@ -513,6 +523,35 @@
 		color: var(--c-text-muted);
 		margin-left: 2px;
 		min-width: 3em;
+	}
+
+	.has-estimate .ddp-size-btn.active,
+	.has-estimate .ddp-cert-btn.active {
+		border-color: var(--c-accent);
+	}
+
+	.ddp-estimate-info {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+		padding: var(--sp-2) var(--sp-3);
+		background: var(--c-accent-bg, oklch(0.95 0.02 250));
+		border-radius: var(--radius-sm);
+		font-size: var(--fs-sm);
+		margin: 0 var(--sp-3);
+	}
+
+	.ddp-estimate-icon {
+		font-size: var(--fs-base);
+	}
+
+	.ddp-estimate-value {
+		font-weight: var(--fw-semibold);
+	}
+
+	.ddp-estimate-meta {
+		color: var(--c-text-muted);
+		font-size: var(--fs-xs);
 	}
 
 	/* External dependency */

@@ -14,6 +14,8 @@
 		SIZE_ROW_HEIGHT,
 		UNESTIMATED_ROW_HEIGHT,
 		inheritedPeople,
+		effectiveSize,
+		effectiveCertainty,
 	} from '../lib/types'
 
 	interface Props {
@@ -557,8 +559,9 @@
 						{/if}
 						{#each orderedRows as deliverable, ri (deliverable.id)}
 							{@const status = rowStatus(deliverable.id)}
-							{@const h = rowHeight(deliverable.size) * vZoom}
+							{@const h = rowHeight(effectiveSize(deliverable)) * vZoom}
 							{@const lev = leverageScore(deliverable.id)}
+							{@const cert = effectiveCertainty(deliverable)}
 							<tr
 								class:dragging-row={dragRowId === deliverable.id}
 								class:drag-over-row={dropTargetRow === deliverable.id}
@@ -588,15 +591,16 @@
 											<span class="matrix-row-badge partial-badge" title="All links partial — none fully covered">partial only</span>
 										{/if}
 										{#if lev > 0}<span class="leverage-score" title="Leverage score: opportunity value ÷ size. Higher = do first.">▴{lev.toFixed(1)}</span>{/if}
+										{#if deliverable.estimate}<span class="matrix-row-badge estimate-badge" title="Estimated: {deliverable.estimate.snappedValue} ({deliverable.estimate.n} estimators)">⚡</span>{/if}
 									</td>
 									<td class="matrix-size-cell">
-										<button class="btn-ghost size-btn" onclick={() => cycleSize(deliverable)} title="Click to cycle size">
-											{deliverable.size ?? '—'}
+										<button class="btn-ghost size-btn" class:from-estimate={!!deliverable.estimate} onclick={() => cycleSize(deliverable)} title="{deliverable.estimate ? 'Estimated: ' + deliverable.estimate.snappedValue : 'Click to cycle size'}">
+											{effectiveSize(deliverable) ?? '—'}
 										</button>
 									</td>
 									<td class="matrix-certainty-cell">
-										<button class="btn-ghost certainty-btn" onclick={() => cycleCertainty(deliverable)} title="Confidence: {deliverable.certainty ? '~' + deliverable.certainty * 20 + '%' : 'unset'}" aria-label="Confidence: {deliverable.certainty ? '~' + deliverable.certainty * 20 + '%' : 'unset'}">
-											{deliverable.certainty ? '~' + deliverable.certainty * 20 + '%' : '–'}
+										<button class="btn-ghost certainty-btn" class:from-estimate={!!deliverable.estimate} onclick={() => cycleCertainty(deliverable)} title="Confidence: {cert ? '~' + cert * 20 + '%' : 'unset'}" aria-label="Confidence: {cert ? '~' + cert * 20 + '%' : 'unset'}">
+											{cert ? '~' + cert * 20 + '%' : '–'}
 										</button>
 									</td>
 									{#each orderedCols as opp (opp.id)}
@@ -1044,6 +1048,16 @@
 	.discovery-badge {
 		color: var(--c-text-muted);
 		background: var(--c-neutral-bg);
+	}
+
+	.estimate-badge {
+		font-size: var(--fs-xs);
+		margin-left: var(--sp-sm);
+	}
+
+	.from-estimate {
+		color: var(--c-accent);
+		font-style: italic;
 	}
 
 	.row-orphan .matrix-del-name {
