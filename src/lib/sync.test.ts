@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { BoardData } from './store'
-import { applyScores, isMigrationNotice, type ScoreSubmission } from './sync'
-import { createOpportunity } from './types'
+import {
+	applyScores,
+	applyVerdicts,
+	generateEstimationRoom,
+	isMigrationNotice,
+	type ScoreSubmission,
+	type VerdictResult,
+} from './sync'
+import { createDeliverable, createOpportunity } from './types'
 
 function board(opps = [createOpportunity('Test')]): BoardData {
 	return { opportunities: opps, deliverables: [], links: [] }
@@ -194,5 +201,133 @@ describe('isMigrationNotice', () => {
 
 	it('returns false when newRoomCode is missing', () => {
 		expect(isMigrationNotice({ migrated: true })).toBe(false)
+	})
+})
+
+// ── Estimation room ──
+
+describe('generateEstimationRoom', () => {
+	it('generates an 8-character string', () => {
+		const room = generateEstimationRoom()
+		expect(room).toHaveLength(8)
+	})
+
+	it('contains only consonant-vowel pairs', () => {
+		const room = generateEstimationRoom()
+		expect(room).toMatch(
+			/^[bdfghjkmnprstvz][aeiou]{1}[bdfghjkmnprstvz][aeiou]{1}[bdfghjkmnprstvz][aeiou]{1}[bdfghjkmnprstvz][aeiou]{1}$/,
+		)
+	})
+
+	it('generates different codes', () => {
+		const codes = new Set(Array.from({ length: 20 }, () => generateEstimationRoom()))
+		expect(codes.size).toBeGreaterThan(15)
+	})
+})
+
+// ── Bridge: apply verdicts ──
+
+describe('applyVerdicts', () => {
+	const mkResult = (verdicts: VerdictResult['verdicts']): VerdictResult => ({
+		type: 'verdict-result',
+		verdicts,
+		timestamp: Date.now(),
+	})
+
+	it('applies verdict to matching deliverable', () => {
+		const del = createDeliverable('API endpoint')
+		const result = mkResult([
+			{
+				externalId: del.id,
+				title: 'API endpoint',
+				mu: 1.1,
+				sigma: 0.4,
+				n: 4,
+				snappedValue: '3d',
+				unit: 'days',
+				estimatedAt: Date.now(),
+			},
+		])
+		const count = applyVerdicts([del], result)
+		expect(count).toBe(1)
+		expect(del.estimate).toBeDefined()
+		expect(del.estimate!.mu).toBe(1.1)
+		expect(del.estimate!.sigma).toBe(0.4)
+		expect(del.estimate!.n).toBe(4)
+		expect(del.estimate!.unit).toBe('days')
+	})
+
+	it('skips verdicts for unknown deliverable IDs', () => {
+		const del = createDeliverable('Test')
+		const result = mkResult([
+			{
+				externalId: 'unknown-id',
+				title: 'Unknown',
+				mu: 1,
+				sigma: 0.5,
+				n: 3,
+				snappedValue: '3d',
+				unit: 'days',
+				estimatedAt: Date.now(),
+			},
+		])
+		const count = applyVerdicts([del], result)
+		expect(count).toBe(0)
+		expect(del.estimate).toBeUndefined()
+	})
+
+	it('replaces older estimate with newer one', () => {
+		const del = createDeliverable('Test')
+		del.estimate = {
+			mu: 0.5,
+			sigma: 0.3,
+			n: 2,
+			unit: 'days',
+			snappedValue: '2d',
+			estimatedAt: 1000,
+		}
+		const result = mkResult([
+			{
+				externalId: del.id,
+				title: 'Test',
+				mu: 1.5,
+				sigma: 0.6,
+				n: 5,
+				snappedValue: '5d',
+				unit: 'days',
+				estimatedAt: 2000,
+			},
+		])
+		const count = applyVerdicts([del], result)
+		expect(count).toBe(1)
+		expect(del.estimate!.mu).toBe(1.5)
+		expect(del.estimate!.n).toBe(5)
+	})
+
+	it('keeps newer existing estimate over older verdict', () => {
+		const del = createDeliverable('Test')
+		del.estimate = {
+			mu: 0.5,
+			sigma: 0.3,
+			n: 2,
+			unit: 'days',
+			snappedValue: '2d',
+			estimatedAt: 5000,
+		}
+		const result = mkResult([
+			{
+				externalId: del.id,
+				title: 'Test',
+				mu: 1.5,
+				sigma: 0.6,
+				n: 5,
+				snappedValue: '5d',
+				unit: 'days',
+				estimatedAt: 2000,
+			},
+		])
+		const count = applyVerdicts([del], result)
+		expect(count).toBe(0)
+		expect(del.estimate!.mu).toBe(0.5) // unchanged
 	})
 })

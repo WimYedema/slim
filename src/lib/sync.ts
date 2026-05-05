@@ -13,10 +13,17 @@
 import { finalizeEvent, generateSecretKey, getPublicKey, SimplePool } from 'nostr-tools'
 import type { SubCloser } from 'nostr-tools/abstract-pool'
 import { bytesToHex, hexToBytes } from 'nostr-tools/utils'
-import { computeDTag, decrypt, deriveRoomKey, encrypt } from './crypto'
+import {
+	computeBridgeDTag,
+	computeDTag,
+	decrypt,
+	deriveBridgeKey,
+	deriveRoomKey,
+	encrypt,
+} from './crypto'
 import { expirationTag, RELAY_URLS, type SyncKeys } from './samen/nostr-config'
 import type { BoardData } from './store'
-import type { CellSignal, Perspective, Stage } from './types'
+import type { CellSignal, DeliverableEstimate, Perspective, Stage } from './types'
 
 // Re-export SyncKeys so existing consumers don't break
 export type { SyncKeys } from './samen/nostr-config'
@@ -337,6 +344,146 @@ export async function subscribeScores(
 	}
 }
 
+// --- Estimation room (Slim ↔ Skatting bridge) ---
+
+const CONSONANTS = 'bdfghjkmnprstvz'
+const VOWELS = 'aeiou'
+
+/** Generate a 4-syllable room code matching Skatting's format (~28 bits entropy). */
+export function generateEstimationRoom(): string {
+	let id = ''
+	for (let i = 0; i < 4; i++) {
+		id += CONSONANTS[Math.floor(Math.random() * CONSONANTS.length)]
+		id += VOWELS[Math.floor(Math.random() * VOWELS.length)]
+	}
+	return id
+}
+
+// --- Bridge types ---
+
+/** Estimation request pushed from Slim → Skatting via bridge channel. */
+export interface EstimationRequest {
+	type: 'estimation-request'
+	deliverables: {
+		id: string
+		title: string
+		kind: 'delivery' | 'discovery'
+	}[]
+	unit: 'days' | 'points'
+	boardName?: string
+	timestamp: number
+}
+
+/** Verdict result published from Skatting → Slim via bridge channel. */
+export interface VerdictResult {
+	type: 'verdict-result'
+	verdicts: {
+		externalId: string
+		title: string
+		mu: number
+		sigma: number
+		n: number
+		snappedValue: string
+		unit: string
+		estimatedAt: number
+	}[]
+	timestamp: number
+}
+
+/** Bridge expiration: 7 days (estimation sessions are transient). */
+function bridgeExpirationTag(): [string, string] {
+	return ['expiration', String(Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60)]
+}
+
+// --- Bridge publishing ---
+
+/** Publish an estimation request to the bridge channel. */
+export async function publishEstimationRequest(
+	estimationRoom: string,
+	keys: SyncKeys,
+	request: EstimationRequest,
+): Promise<void> {
+	const [bridgeKey, dTag] = await Promise.all([
+		deriveBridgeKey(estimationRoom),
+		computeBridgeDTag(estimationRoom, 'request'),
+	])
+	const ciphertext = await encrypt(bridgeKey, JSON.stringify(request))
+	const sk = hexToBytes(keys.secretKeyHex)
+
+	const event = finalizeEvent(
+		{
+			kind: KIND_BOARD_STATE,
+			created_at: Math.floor(Date.now() / 1000),
+			tags: [['d', dTag], bridgeExpirationTag()],
+			content: ciphertext,
+		},
+		sk,
+	)
+
+	const pool = new SimplePool()
+	try {
+		await Promise.any(pool.publish(RELAY_URLS, event))
+	} finally {
+		pool.close(RELAY_URLS)
+	}
+}
+
+// --- Bridge querying ---
+
+/** Query verdict results from the bridge channel. */
+export async function queryVerdicts(estimationRoom: string): Promise<VerdictResult | null> {
+	const [bridgeKey, dTag] = await Promise.all([
+		deriveBridgeKey(estimationRoom),
+		computeBridgeDTag(estimationRoom, 'verdicts'),
+	])
+
+	const pool = new SimplePool()
+	try {
+		const event = await pool.get(RELAY_URLS, {
+			kinds: [KIND_BOARD_STATE],
+			'#d': [dTag],
+		})
+		if (!event) return null
+
+		const plaintext = await decrypt(bridgeKey, event.content)
+		const data: unknown = JSON.parse(plaintext)
+		if (!isVerdictResult(data)) return null
+		return data as VerdictResult
+	} catch {
+		return null
+	} finally {
+		pool.close(RELAY_URLS)
+	}
+}
+
+/** Apply verdict results to deliverables — mutates in place, returns count of applied verdicts. */
+export function applyVerdicts(
+	deliverables: { id: string; estimate?: DeliverableEstimate }[],
+	result: VerdictResult,
+): number {
+	let applied = 0
+	const delMap = new Map(deliverables.map((d) => [d.id, d]))
+
+	for (const v of result.verdicts) {
+		const del = delMap.get(v.externalId)
+		if (!del) continue
+		// Apply if no existing estimate or new one is more recent
+		if (!del.estimate || v.estimatedAt > del.estimate.estimatedAt) {
+			del.estimate = {
+				mu: v.mu,
+				sigma: v.sigma,
+				n: v.n,
+				unit: v.unit === 'days' ? 'days' : 'points',
+				snappedValue: v.snappedValue,
+				estimatedAt: v.estimatedAt,
+			}
+			applied++
+		}
+	}
+
+	return applied
+}
+
 // --- Validation ---
 
 function isBoardData(v: unknown): v is BoardData {
@@ -359,4 +506,14 @@ export function isMigrationNotice(v: unknown): v is MigrationNotice {
 	if (typeof v !== 'object' || v === null) return false
 	const obj = v as Record<string, unknown>
 	return obj.migrated === true && typeof obj.newRoomCode === 'string'
+}
+
+function isVerdictResult(v: unknown): v is VerdictResult {
+	if (typeof v !== 'object' || v === null) return false
+	const obj = v as Record<string, unknown>
+	return (
+		obj.type === 'verdict-result' &&
+		Array.isArray(obj.verdicts) &&
+		typeof obj.timestamp === 'number'
+	)
 }
