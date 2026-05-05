@@ -1,9 +1,11 @@
 import {
 	type AgingLevel,
 	type CellSignal,
+	type Certainty,
 	type Commitment,
 	type ConsentStatus,
 	type Deliverable,
+	type DeliverableEstimate,
 	type HorizonPressure,
 	type Opportunity,
 	type OpportunityDeliverableLink,
@@ -16,6 +18,7 @@ import {
 	type Score,
 	STAGES,
 	type Stage,
+	type TShirtSize,
 } from './types'
 
 // ── Stage navigation ──
@@ -677,4 +680,37 @@ export function leadTimeStats(opportunities: Opportunity[]): LeadTimeStats {
 				: 0,
 		medianTotalDays: Math.round(median * 10) / 10,
 	}
+}
+
+// ── Estimation display helpers ──
+
+/** Derive a T-shirt size from a log-normal estimate (days median). */
+export function sizeFromEstimate(est: DeliverableEstimate): TShirtSize {
+	const median = Math.exp(est.mu)
+	if (median < 0.5) return 'XS'
+	if (median < 2) return 'S'
+	if (median < 5) return 'M'
+	if (median < 13) return 'L'
+	return 'XL'
+}
+
+/** Derive a certainty score (1-5) from a log-normal sigma. */
+export function certaintyFromEstimate(est: DeliverableEstimate): Certainty {
+	if (est.sigma < 0.2) return 5
+	if (est.sigma < 0.4) return 4
+	if (est.sigma < 0.6) return 3
+	if (est.sigma < 0.9) return 2
+	return 1
+}
+
+/** Get the effective size: estimated (derived) or manual. */
+export function effectiveSize(del: Deliverable): TShirtSize | null {
+	if (del.estimate) return sizeFromEstimate(del.estimate)
+	return del.size
+}
+
+/** Get the effective certainty: estimated (derived) or manual. */
+export function effectiveCertainty(del: Deliverable): Certainty | null {
+	if (del.estimate) return certaintyFromEstimate(del.estimate)
+	return del.certainty
 }

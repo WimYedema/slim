@@ -284,6 +284,22 @@ export type DeliverableKind = 'delivery' | 'discovery'
 /** Lifecycle state of a deliverable */
 export type DeliverableStatus = 'active' | 'done' | 'dropped'
 
+/** Log-normal estimation result from Skatting (Estimate) */
+export interface DeliverableEstimate {
+	/** Log-normal location parameter */
+	mu: number
+	/** Log-normal spread parameter */
+	sigma: number
+	/** Number of estimators */
+	n: number
+	/** Estimation unit */
+	unit: 'days' | 'points'
+	/** Human-readable snapped value (e.g. "3d", "M") */
+	snappedValue: string
+	/** When this verdict was produced */
+	estimatedAt: number
+}
+
 export interface Deliverable {
 	id: string
 	title: string
@@ -311,6 +327,8 @@ export interface Deliverable {
 	externalDependency: string
 	/** Free-text notes (technical context, design constraints, etc.) */
 	notes: string
+	/** Estimation result from Skatting, if available */
+	estimate?: DeliverableEstimate
 }
 
 export type Coverage = 'full' | 'partial'
@@ -346,9 +364,12 @@ export const SIZE_ROW_HEIGHT: Record<TShirtSize, number> = { XS: 18, S: 28, M: 4
 export const UNESTIMATED_ROW_HEIGHT = 40
 
 export {
+	certaintyFromEstimate,
 	commitmentUrgency,
 	consentStatus,
 	currentStageScores,
+	effectiveCertainty,
+	effectiveSize,
 	formatDaysLeft,
 	inheritedPeople,
 	linksForDeliverable,
@@ -357,6 +378,7 @@ export {
 	perspectiveOwner,
 	perspectiveWeight,
 	scoreClass,
+	sizeFromEstimate,
 	stageConsent,
 	stageLabel,
 	ternaryPosition,

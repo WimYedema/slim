@@ -83,6 +83,8 @@ export interface BoardData {
 	briefingSnapshot?: BoardSnapshot
 	/** Name of the room owner (included in published board for rejoin detection) */
 	ownerName?: string
+	/** Syllable room code linking this board to a Skatting estimation room */
+	estimationRoom?: string
 }
 
 export function saveBoard(data: BoardData, id?: string): void {

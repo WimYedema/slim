@@ -3,6 +3,7 @@ import {
 	agingLevel,
 	type CellSignal,
 	cellHasSignal,
+	certaintyFromEstimate,
 	commitmentUrgency,
 	consentStatus,
 	createDeliverable,
@@ -11,6 +12,8 @@ import {
 	currentStageScores,
 	daysInStage,
 	defaultHorizon,
+	effectiveCertainty,
+	effectiveSize,
 	formatDaysLeft,
 	inheritedPeople,
 	isFutureHorizon,
@@ -28,6 +31,7 @@ import {
 	prevStage,
 	type Score,
 	scoreClass,
+	sizeFromEstimate,
 	stageConsent,
 	stageIndex,
 	stageLabel,
@@ -679,5 +683,84 @@ describe('boardNames', () => {
 
 	it('returns empty for empty board', () => {
 		expect(boardNames([], [])).toEqual([])
+	})
+})
+
+// ── Estimation display helpers ──
+
+const mkEstimate = (mu: number, sigma: number) => ({
+	mu,
+	sigma,
+	n: 3,
+	unit: 'days' as const,
+	snappedValue: '3d',
+	estimatedAt: Date.now(),
+})
+
+describe('sizeFromEstimate', () => {
+	it('maps median < 0.5 days to XS', () => {
+		expect(sizeFromEstimate(mkEstimate(Math.log(0.3), 0.3))).toBe('XS')
+	})
+	it('maps median ~1 day to S', () => {
+		expect(sizeFromEstimate(mkEstimate(Math.log(1), 0.3))).toBe('S')
+	})
+	it('maps median ~3 days to M', () => {
+		expect(sizeFromEstimate(mkEstimate(Math.log(3), 0.3))).toBe('M')
+	})
+	it('maps median ~8 days to L', () => {
+		expect(sizeFromEstimate(mkEstimate(Math.log(8), 0.3))).toBe('L')
+	})
+	it('maps median ~20 days to XL', () => {
+		expect(sizeFromEstimate(mkEstimate(Math.log(20), 0.3))).toBe('XL')
+	})
+})
+
+describe('certaintyFromEstimate', () => {
+	it('maps very low sigma to certainty 5', () => {
+		expect(certaintyFromEstimate(mkEstimate(1, 0.1))).toBe(5)
+	})
+	it('maps low sigma to certainty 4', () => {
+		expect(certaintyFromEstimate(mkEstimate(1, 0.3))).toBe(4)
+	})
+	it('maps medium sigma to certainty 3', () => {
+		expect(certaintyFromEstimate(mkEstimate(1, 0.5))).toBe(3)
+	})
+	it('maps high sigma to certainty 2', () => {
+		expect(certaintyFromEstimate(mkEstimate(1, 0.8))).toBe(2)
+	})
+	it('maps very high sigma to certainty 1', () => {
+		expect(certaintyFromEstimate(mkEstimate(1, 1.2))).toBe(1)
+	})
+})
+
+describe('effectiveSize', () => {
+	it('returns estimated size when estimate exists', () => {
+		const del = createDeliverable('Test')
+		del.size = 'XL'
+		del.estimate = mkEstimate(Math.log(1), 0.3)
+		expect(effectiveSize(del)).toBe('S') // estimate wins over manual XL
+	})
+	it('falls back to manual size when no estimate', () => {
+		const del = createDeliverable('Test')
+		del.size = 'M'
+		expect(effectiveSize(del)).toBe('M')
+	})
+	it('returns null when neither exists', () => {
+		const del = createDeliverable('Test')
+		expect(effectiveSize(del)).toBeNull()
+	})
+})
+
+describe('effectiveCertainty', () => {
+	it('returns estimated certainty when estimate exists', () => {
+		const del = createDeliverable('Test')
+		del.certainty = 1
+		del.estimate = mkEstimate(1, 0.3)
+		expect(effectiveCertainty(del)).toBe(4) // estimate wins over manual 1
+	})
+	it('falls back to manual certainty when no estimate', () => {
+		const del = createDeliverable('Test')
+		del.certainty = 3
+		expect(effectiveCertainty(del)).toBe(3)
 	})
 })
