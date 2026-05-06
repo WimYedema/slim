@@ -1,119 +1,214 @@
-# Samen — Shared Team Identity
+# Samen — Room Protocol & Shared Infrastructure
 
-**Samen** (Dutch: together) is a lightweight team roster tool that provides shared identity across a family of loosely coupled planning tools. It replaces freeform name entry with a stable, reusable team registry persisted over Nostr.
+**Samen** (Dutch: together) is the shared protocol layer for an ecosystem of loosely coupled agile tools. It provides three capabilities that no individual tool should own: **team identity**, **cross-tool event routing**, and **data availability**.
 
-## Problem
+## The Ecosystem
 
-Both **Slim** (planning) and **Skatting** (estimation) suffer from freeform name entry:
+A family of small, focused tools that share data through a common protocol. Each tool serves one role's core workflow, deployed as a single static HTML file with zero infrastructure.
 
-| App | Pain |
-|---|---|
-| **Slim** | Contributors must type their name exactly as the PO spelled it to see their assignments. "Alice" ≠ "alice ". No autocomplete, no registry. Meetings, commitments, signal owners — all keyed by brittle string matching. |
-| **Skatting** | Name entered at join time. Conflict resolution by peer-ID tiebreak. No memory of "who is on this team" — only "who joined this session". |
+| Tool | Language | Meaning | Domain | Status |
+|---|---|---|---|---|
+| **Slim** | Dutch | Smart / lean | Pre-sprint planning (PO) | Shipping |
+| **Skatting** | Frisian | Estimation | Effort estimation (team) | Shipping |
+| **Samen** | Dutch | Together | Room protocol & shared infra | Protocol exists, UI not wired |
+| **Bouwen** | Dutch | To build | Architecture & decomposition (tech lead) | Concept |
 
-Names appear in many places with no shared source of truth:
+Each tool is independently deployable and independently useful. Tools discover each other's data through the room — not through direct integration. A team can use one tool, two, or all of them.
 
-| Location | Type | Dedup |
-|---|---|---|
-| `PersonLink.name` | Object with UUID | Per-opportunity, not global |
-| `Deliverable.extraContributors` | `string[]` | Simple includes check |
-| `Commitment.to` | `string` | None |
-| `CellSignal.owner` | `string` | None |
-| `SyncState.contributorName` | `string` | None |
-| `MeetingData.snapshots` | `Record<string, …>` | Case-sensitive key |
+```
+                    ┌─────────────────────┐
+                    │       Samen         │
+                    │  (protocol layer)   │
+                    │                     │
+                    │  identity · events  │
+                    │  availability       │
+                    └──────────┬──────────┘
+                               │ typed events (Nostr)
+            ┌──────────┬───────┴───────┬──────────┐
+            │          │               │          │
+      ┌─────▼────┐ ┌───▼─────┐ ┌──────▼───┐ ┌────▼─────┐
+      │   Slim   │ │Skatting │ │ Bouwen   │ │Connectors│
+      │          │ │         │ │          │ │          │
+      │ what+why │ │ how big │ │   how    │ │Jira, etc.│
+      └──────────┘ └─────────┘ └──────────┘ └──────────┘
+```
 
-All matching is case-insensitive but not whitespace-normalized. The same person can appear as "Sarah", "sarah", "Sarah " — three distinct entries.
+### What qualifies as a separate tool
+
+A new standalone tool is justified when:
+1. It owns data that doesn't belong in any existing tool
+2. Its core interaction is fundamentally different (not just a filtered list)
+3. Someone would use it without ever opening any other tool in the family
+
+A filtered view of existing data belongs inside an existing tool, not as a new app.
+
+## Problems Samen Solves
+
+### 1. Identity fragmentation
+
+Both Slim and Skatting suffer from freeform name entry. The same person appears as "Sarah", "sarah", "Sarah " — three distinct entries. Names are scattered across `PersonLink.name`, `CellSignal.owner`, `Commitment.to`, `Deliverable.extraContributors`, and `MeetingData.snapshots` with no shared registry.
+
+Samen provides a **stable team roster** with canonical names, persistent member IDs (UUIDs), and multi-device support.
+
+### 2. Point-to-point bridges don't scale
+
+The current Slim→Skatting bridge is hardcoded: Slim publishes an `estimation-request` event, Skatting knows to look for it. Adding a third tool (Bouwen) means building two more point-to-point bridges. At N tools, that's N×(N-1)/2 bridges.
+
+Samen defines a **typed event envelope** that any tool can publish and any tool can subscribe to. Tools don't need to know about each other — they need to agree on event schemas.
+
+### 3. Data lives only in the browser
+
+localStorage is a cache, not a persistence layer. Clearing browser data, switching devices, or reinstalling the browser loses everything. Today's workaround — manual JSON/CSV export — is fragile and rarely done.
+
+Samen makes **Nostr relays the source of truth** and localStorage the cache. All important state is published to multiple relays. Any device with the room code can reconstruct the full room state.
 
 ## Design Principles
 
-### Unix philosophy
+### Protocol, not application
 
-Samen is one tool in a family of small, focused tools with clearly defined interfaces:
-
-| Tool | Language | Meaning | Domain |
-|---|---|---|---|
-| **Slim** | Dutch | Smart / lean | Pre-sprint planning |
-| **Skatting** | Frisian | Estimation | Planning poker |
-| **Samen** | Dutch | Together | Team identity |
-
-Each tool is independently deployable as a single static HTML file. Tools share data through typed objects in a Nostr room, encrypted with keys derived from a shared room code. The room code is the "pipe" — the interface between tools.
-
-### Separation of concerns
-
-The team roster is not Slim's concern and not Skatting's concern. A PO might compose a team before ever opening Slim. A facilitator might create the team from Skatting. The roster is a peer concept to all tools — owned by none, consumed by all.
-
-### Protocol, not gatekeeper
-
-Samen is a **protocol and shared module**, not a mandatory separate app. Every tool in the family ships with full roster read/write capability. A user can create a team, join a team, and manage members without leaving the tool they are already in.
-
-The standalone Samen app is one surface for the same operations — a convenience for dedicated team management, not a prerequisite. Think of it like `git`: the protocol is the shared layer, and there are many UIs (CLI, GitHub, GitKraken) that all speak the same protocol.
+Samen is primarily a **protocol and shared TypeScript module**, not a mandatory separate app. Every tool in the family embeds the Samen module and ships with full read/write capability. A user can create a team, join a team, and manage members without leaving the tool they are already in.
 
 ```
-Samen = protocol  (types + roster CRUD + Nostr sync)
-      + shared module  (pure TypeScript, copied into each tool)
-      + optional standalone app  (dedicated team management UI)
-      + inline integration  (create/join/pick — from within each tool)
+Samen = protocol   (event envelope + schemas + identity)
+      + module     (pure TypeScript, embedded in each tool)
+      + dashboard  (optional standalone UI — room management, diagnostics)
 ```
 
-### Seamless, not separate
+### Serverless, but durable
 
-Samen may be a separate app/repo, but to the user it should feel like one product. Three mechanisms make this work:
+No server, no database, no accounts. Data flows through Nostr relays (public infrastructure) encrypted with keys derived from a shared room code. But "serverless" does not mean "ephemeral":
 
-1. **Shared localStorage** — when tools are on the same origin, identity and cached rosters flow between them automatically. No re-entry.
-2. **Deep links with context** — `samen.html?room=xyz` pre-fills everything. Same for `slim.html?room=xyz` and `skatting.html?room=xyz`. No "enter your room code" prompt.
-3. **Consistent visual design** — shared CSS design tokens (`--c-*`, `--fs-*`, `--sp-*`). The member picker in Skatting, the people autocomplete in Slim, and the roster in Samen all look and feel the same.
+- **Multi-relay redundancy** — publish to 2+ relays; query from all; one relay down is invisible to the user
+- **Relay is source of truth** — localStorage is a cache that accelerates startup, not the canonical store
+- **Reconstruct from room code** — any device with the room code can rebuild the full room state from relays
+- **NIP-40 expiration** — events carry TTL tags; compliant relays auto-delete stale data; non-compliant relays still hold only ciphertext
 
 ### Incremental adoption
 
-Tools work without Samen. If a roster exists for a room code, the tool uses it. If not, it falls back to freeform name entry. No big-bang migration.
+Tools work without Samen. If a roster exists for a room code, the tool uses it. If not, it falls back to freeform name entry. If relay data is unavailable, localStorage cache fills in. No big-bang migration, no hard dependencies.
+
+### Seamless, not separate
+
+To the user, the ecosystem should feel like one product. Three mechanisms:
+
+1. **Shared localStorage** — when tools are on the same origin, identity and cached rosters flow automatically
+2. **Deep links with context** — `?room=xyz` on any tool pre-fills everything; no "enter your room code" prompt
+3. **Consistent visual design** — shared CSS design tokens (`--c-*`, `--fs-*`, `--sp-*`)
 
 ## Architecture
 
-### The room code contract
+### Team code as anchor
 
-All tools in the family derive encryption keys from the same room code using HKDF-SHA256, but with different salt/info parameters — producing independent keys per tool:
+A team uses multiple rooms over time — several Slim boards, transient Skatting sessions, a Bouwen workspace. Rather than organizing these in a hierarchy (a "workspace" room that owns child rooms), the model is flat: one **team code** anchors identity and discovery, and each tool-specific room references it.
 
-| Tool | HKDF salt | HKDF info | d-tag suffix |
+```
+Team "Platform Squad" (team code T)
+  → Roster lives here (identity, member list)
+  → Event bus lives here (cross-tool messages)
+  → Room index lives here (convenience, not authority)
+
+Slim board "Q3 Planning" (room code A, teamCode: T)
+Slim board "Platform Roadmap" (room code C, teamCode: T)
+Skatting sessions (transient, teamCode: T)
+Bouwen workspace (room code F, teamCode: T)
+```
+
+**Why flat, not hierarchical:**
+
+1. **No single point of failure.** Each room is independent and self-contained. Corrupting one room doesn't affect others.
+2. **Encryption isolation.** Each room has its own HKDF-derived key. Compromising the Q3 board doesn't expose the Platform Roadmap. A hierarchical model pressures you to derive child keys from the parent — convenient but dangerous.
+3. **Backward compatible.** Rooms without `teamCode` work exactly as today. Adding a team is opt-in enrichment.
+4. **No coordination bottleneck.** Any tool can create a room and tag it with the team code. No parent record needs to be updated first.
+
+The **team code is the roster's room code**. The Samen roster already has its own room code — that code is promoted to "the team code." It's what you share with teammates ("our team code is `keteteri`"). Tool-specific room codes are internal details that tools generate and manage.
+
+### Room codes
+
+Every room code is a universal access token. Knowing it grants read/write access to everything in that room. All encryption keys are derived from it via HKDF-SHA256.
+
+Each tool derives its own independent key using distinct HKDF parameters — same room code, different keys. Samen derives a separate key for cross-tool data (roster, event bus).
+
+| Channel | HKDF salt | HKDF info | d-tag pattern | Room code |
+|---|---|---|---|---|
+| Roster (Samen) | `samen-team-tool` | `samen-roster-v1` | `<hash>-roster` | Team code |
+| Event bus (Samen) | `samen-team-tool` | `samen-events-v1` | `<hash>-events` | Team code |
+| Room index (Samen) | `samen-team-tool` | `samen-rooms-v1` | `<hash>-rooms` | Team code |
+| Slim board | `slim-planning-tool` | `slim-room-v1` | `<hash>` | Board room code |
+| Slim scores | `slim-planning-tool` | `slim-room-v1` | `<hash>-<pubkey[:8]>` (kind 30079) | Board room code |
+| Skatting room | `estimate-p2p-tool` | `skatting-room-v1` | `<hash>` | Session room code |
+| Skatting prep | `estimate-p2p-tool` | `skatting-room-v1` | `<hash>-<pubkey[:8]>` (kind 30079) | Session room code |
+| Bridge (estimation) | `slim-estimate-bridge` | `bridge-v1` | `<hash>-request`, `<hash>-verdicts` | Bridge room code |
+
+Where `<hash>` = `SHA-256(roomCode)[0:16 hex]`.
+
+**Room code format:** syllable codes (e.g. `keteteri`) for team codes — human-friendly, shareable verbally. Tool-specific room codes may use any format (Slim currently uses UUIDs for estimation bridge rooms).
+
+### Nostr as persistence layer
+
+All tools use Nostr kind 30078/30079 (parameterized replaceable events). These events are stored by relays and survive indefinitely (unless NIP-40 expiration is set). This means:
+
+- **Relays are the source of truth**, not localStorage
+- **localStorage is a cache** — accelerates startup, provides offline fallback, but is never the only copy
+- **Any device with the room code can reconstruct state** — clearing browser data is recoverable
+- **Multi-relay redundancy** — publish to 2+ relays; query from all; single relay failure is invisible
+
+```
+┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+│   Slim   │  │ Skatting │  │  Bouwen  │  │Dashboard │
+└────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘
+     │publish      │publish      │publish      │read
+     │query        │query        │query        │
+     └─────────────┴──────┬──────┴─────────────┘
+                          │
+              ┌───────────▼───────────┐
+              │   Nostr relays (2+)   │
+              │                       │
+              │  kind 30078/30079     │
+              │  AES-256-GCM          │
+              │  NIP-40 expiration    │
+              └───────────────────────┘
+```
+
+### Data availability model
+
+**Clearing browser cache should never mean data loss.** The availability strategy has three tiers:
+
+| Tier | Mechanism | Latency | Scope |
 |---|---|---|---|
-| Slim | `slim-planning-tool` | `slim-room-v1` | _(bare)_ |
-| Skatting | `estimate-p2p-tool` | `skatting-room-v1` | _(bare)_ |
-| **Samen** | `samen-team-tool` | `samen-roster-v1` | `-roster` |
+| **L1: localStorage** | Cached state from last session | Instant | Single browser, single origin |
+| **L2: Nostr relays** | Encrypted events on 2+ public relays | 1–3s | Any device with room code |
+| **L3: Manual export** | JSON/CSV download | User-initiated | Offline backup |
 
-Same room code → three independent encryption keys. Any app that knows the room code can read the roster, but cannot read another app's data.
+**Startup sequence** (every tool, every launch):
+1. Load L1 cache → render immediately (stale data is better than loading spinner)
+2. Query L2 relays in background → merge newer data → update cache
+3. If L1 is empty (new device, cleared cache), block on L2 query → reconstruct from relays
 
-### Nostr event layout
+**Publish discipline** — every state change that matters must be published to relays, not just cached locally:
+- Roster mutations → publish immediately
+- Board state changes → publish on explicit "sync" or on a debounced auto-publish
+- Estimation results → publish on reveal
+- Event bus messages → publish immediately
 
-All tools use Nostr kind 30078 (parameterized replaceable events) with d-tags derived from the room code hash:
+### Multi-device support
 
-```
-d-tag = SHA-256(roomCode)[0:16 hex]     — base hash
-d-tag + "-roster"                        — Samen roster
-d-tag + "-scores-" + pubkey[0:8]         — Slim score submissions (kind 30079)
-d-tag + "-prep-" + pubkey[0:8]           — Skatting prep signals (kind 30079)
-```
-
-### Data flow
-
-Every tool reads and writes the roster directly. The standalone Samen app is just another peer.
+A person uses Slim on their laptop and Skatting on their phone. Each device generates its own Nostr keypair. Samen ties multiple keypairs to one identity:
 
 ```
-┌──────────┐   ┌───────────┐   ┌──────────┐   ┌──────────┐
-│   Slim   │   │  Skatting  │   │  Samen   │   │  Future  │
-│ planning │   │ estimation │   │  (app)   │   │  tools   │
-└────┬─────┘   └─────┬─────┘   └────┬─────┘   └────┬─────┘
-     │               │              │              │
-     │  read/write   │  read/write  │  read/write  │
-     └───────────────┴──────┬───────┴──────────────┘
-                            │
-                     ┌──────▼──────┐
-                     │ Nostr relay  │
-                     │ (encrypted)  │
-                     │              │
-                     │  kind 30078  │
-                     │  d: hash     │
-                     │    -roster   │
-                     └─────────────┘
+TeamMember {
+  id: "uuid-123"                    // Stable — survives device changes
+  displayName: "Alice"              // Canonical — the single source of truth
+  publicKeys: ["abc...", "def..."]  // One per device
+}
 ```
+
+**First use from a new device:**
+1. Open any tool, enter room code
+2. Tool queries roster from relay → shows member list
+3. User picks themselves ("I am Alice") → device's pubkey added to Alice's `publicKeys` array
+4. Roster updated on relay — all other devices see the new pubkey on next sync
+
+**Identity caching** — `localStorage['samen-identity']` stores `{ memberId, displayName, publicKeyHex }`. On same-origin deployments, this cache is shared across tools. On cross-origin, each origin caches independently but the relay is the source of truth.
 
 ## Data Model
 
@@ -121,13 +216,29 @@ Every tool reads and writes the roster directly. The standalone Samen app is jus
 
 ```typescript
 interface TeamSpace {
-  roomCode: string        // Shared secret — HKDF seed
+  roomCode: string        // Team code — the shared anchor for all tools
   name: string            // Team display name, e.g. "Platform Squad"
   members: TeamMember[]   // The roster
+  rooms: RoomRef[]        // Known tool-specific rooms (convenience index)
   createdAt: number       // Epoch ms
   updatedAt: number       // Epoch ms — bumped on any mutation
 }
 ```
+
+### RoomRef
+
+```typescript
+interface RoomRef {
+  roomCode: string        // Tool-specific room code
+  tool: string            // 'slim' | 'skatting' | 'bouwen' | etc.
+  label: string           // Human-readable, e.g. "Q3 Planning"
+  createdBy: string       // TeamMember.id
+  createdAt: number       // Epoch ms
+  active: boolean         // false = archived / completed
+}
+```
+
+**Room index is a convenience, not authority.** Any tool can create a room without updating the index. The index helps discovery ("show me all boards for this team") but is not required. Tools that don't know the team code still work — they just can't be discovered through the index.
 
 ### TeamMember
 
@@ -149,184 +260,240 @@ interface TeamMember {
 - **`publicKeys` is an array.** Supports multi-device. A member joins from a new device → matched by name → pubkey added to the array.
 - **`role` is simple.** Owner can manage the roster. Members can add themselves and update their own info.
 
+### Event envelope
+
+All cross-tool messages use a common envelope. Tools publish events they produce; tools subscribe to event types they understand. No tool needs to know which other tool published an event.
+
+```typescript
+interface SamenEvent {
+  type: string            // Namespaced: 'slim:deliverables', 'skatting:verdicts', 'bouwen:dependencies'
+  version: number         // Schema version — receivers ignore versions they don't understand
+  payload: unknown        // Type-specific, defined per event type
+  publishedBy: string     // TeamMember.id (or anonymous if no roster)
+  publishedAt: number     // Epoch ms
+}
+```
+
+**Namespacing convention:** `<tool>:<noun>`. The tool prefix prevents collisions. A tool only needs to understand event types it cares about — unknown types are silently ignored.
+
+**Current event types** (already implemented as bridge messages, to be migrated to this envelope):
+
+| Type | Producer | Consumer(s) | Payload |
+|---|---|---|---|
+| `slim:estimation-request` | Slim | Skatting | Deliverables to estimate, unit, board name |
+| `skatting:verdicts` | Skatting | Slim | Estimation results per deliverable |
+| `slim:board-summary` | Slim | Dashboard, Bouwen | Opportunity/deliverable counts, pipeline health |
+| `bouwen:dependencies` | Bouwen | Slim | Deliverable dependency graph |
+
+**Extensibility:** a new tool or connector adds new event types. Existing tools ignore types they don't subscribe to. No coordination required — just publish to the room.
+
 ## User Flows
 
-All flows work from **any tool** — Samen, Slim, or Skatting. The tool you happen to be in can create, join, and manage teams inline.
+All flows work from **any tool** — Slim, Skatting, or the Samen dashboard. The tool you happen to be in can create, join, and manage teams inline.
 
-### Create a team (from any tool)
-
-```
-From Skatting:                          From Slim:                       From Samen app:
-─────────────                           ──────────                       ──────────────
-1. SessionLobby → "Create session"      1. SyncPanel → "Create room"     1. Home → "Create team"
-2. "Create team for this room" toggle   2. "Create team" toggle           2. Enter team name
-3. Enter team name + your name          3. Enter team name + your name   3. Enter your name
-4. Room code generated                  4. Room code generated           4. Room code generated
-5. Roster published to Nostr            5. Roster published to Nostr     5. Roster published
-6. Share room code with team            6. Share room code               6. Share room code
-```
-
-The room code is the same one the tool already generates. Creating a team is a checkbox/toggle — not a separate workflow.
-
-### Join a team (from any tool)
+### Create a team
 
 ```
-1. User enters room code (in any tool's join flow)
-2. Tool queries Nostr for roster event alongside its own data
+From any tool:
+1. "Create team" → enter team name + your name
+2. Team code generated (syllable code, e.g. "keteteri")
+3. Roster published to relay
+4. Share team code with teammates
+5. Tool-specific room created and registered in room index
+```
+
+The team code is what you share. The tool-specific room code is an internal detail.
+
+### Join a team
+
+```
+1. User enters team code (in any tool's join/create flow)
+2. Tool queries relay for roster
 3. If roster exists:
-   a. Shows team name + member list
-   b. User picks themselves (matched by localStorage pubkey) or adds themselves
-   c. Roster updated, identity now stable
+   a. Shows team name + member list + known rooms
+   b. User picks themselves (matched by cached identity or pubkey) or adds themselves
+   c. Roster updated on relay, identity cached locally
+   d. Tool opens/creates the relevant tool-specific room
 4. If no roster exists:
    a. Falls back to freeform name entry (current behavior)
    b. User can optionally create a roster from here
 ```
 
-### Example: Skatting session with team
+### Open an existing room
 
 ```
-Facilitator (Alice):                    Participant (Bob):
-────────────────────                    ─────────────────
-1. Create session                       1. Enter room code
-2. ✓ "Create team" → "Platform Squad"   2. Sees: "Platform Squad" (2 members)
-3. Shares room code                     3. Picks himself or types "Bob"
-4. Sees Bob join (roster name, no       4. Roster updated, joins session
-   conflict possible)                   5. Next time: auto-recognized
+1. User opens any tool with a cached team
+2. Tool shows room index: "Q3 Planning", "Platform Roadmap", etc.
+3. User picks a room → tool decrypts with that room's code
+4. Or creates a new room → registered in room index automatically
 ```
 
-### Example: Slim contributor with existing team
+The room index is a convenience. A user with a direct room code can always bypass it.
+
+### New device / cleared cache
 
 ```
-PO (Alice):                              Contributor (Bob):
-───────────                              ───────────────────
-1. SyncPanel → room already has team     1. Enters room code
-2. Add person to opportunity →           2. Sees roster → picks "Bob"
-   dropdown shows roster members         3. Sees his assigned cells
-3. Picks "Bob" (not typing "bob")        4. No name mismatch possible
+1. User opens any tool on new device
+2. Enter team code
+3. Tool queries relay → finds roster + room index + all room state
+4. "Pick yourself" from member list → device pubkey added to member
+5. Room index shows available rooms → pick one to open
+6. localStorage populated from relay data — back to normal
 ```
 
-### Manage team (from any tool or standalone app)
+No data loss. No import/export. The team code is all you need.
+
+### Manage team
 
 ```
 Any tool with an active team shows a "Team" section:
   - Member list with roles
-  - Add member (enter name)
+  - Room index (all tool-specific rooms for this team)
+  - Add member (enter name or invite with team code)
   - Remove member (owner only)
   - Rename member (owner or self)
-  - Copy invite link / room code
-  - Link to standalone Samen app for full management
+  - Copy invite link / team code
+  - Archive/remove rooms from index
 ```
 
 ## Module Structure
 
-### Shared module (the protocol)
+### Shared module (embedded in every tool)
 
-The core of Samen is ~200 lines of pure TypeScript with no UI framework dependency. This module is copied into every tool:
+The core of Samen is pure TypeScript with no UI framework dependency. Each tool embeds a copy:
 
 ```
 src/lib/samen/
-  types.ts         — TeamSpace, TeamMember interfaces
-  roster.ts        — CRUD: createTeamSpace, addMember, removeMember, renameMember, findMemberByPubkey
-  roster-sync.ts   — Nostr: publishRoster, queryRoster (full read/write)
-  crypto.ts        — deriveRosterKey, computeDTag (samen-specific HKDF params)
+  types.ts          — TeamSpace, TeamMember, RoomRef, SamenEvent, SamenIdentity
+  roster.ts         — CRUD: createTeamSpace, addMember, removeMember, renameMember, findMemberByPubkey
+  rooms.ts          — Room index: addRoom, removeRoom, archiveRoom, findRoomsByTool
+  roster-sync.ts    — Nostr: publishRoster, queryRoster (kind 30078, roster key)
+  rooms-sync.ts     — Nostr: publishRoomIndex, queryRoomIndex (kind 30078, rooms key)
+  roster-store.ts   — localStorage: cachedRoster, cachedRoomIndex, identity (cross-tool cache)
+  events.ts         — Event bus: publishEvent, queryEvents, subscribeEvents (kind 30078, events key)
+  crypto.ts         — deriveRosterKey, deriveEventsKey, deriveRoomsKey, computeDTag
+  nostr-config.ts   — Relay URLs, expiration defaults
 ```
 
-Every tool ships with full read/write capability. No tool is privileged. The shared module depends only on `nostr-tools` (already a dependency in Slim and Skatting) and the Web Crypto API.
+### Samen dashboard (optional standalone app)
 
-### Standalone Samen app (optional, deep-link target)
-
-A dedicated Svelte 5 app for full team management. Serves as the "Manage team →" deep-link target from other tools. Not a prerequisite — all CRUD also works inline.
-
-Supports URL parameters for seamless navigation:
-- `samen.html?room=xyz` — opens specific team (no room code prompt)
-- `samen.html` — shows recent teams list or create/join
-
-Same stack: Svelte 5 + Vite + vite-plugin-singlefile.
+A dedicated Svelte 5 app for room management. Not a prerequisite — all CRUD works inline in any tool. Useful as:
+- Room diagnostic surface (relay health, event log, active tools)
+- Team management UI when no tool is open
+- Room index browser (see all rooms for this team across tools)
+- Deep-link target from tools ("Manage team →")
 
 ```
 samen/
-  index.html          — entry point + CSS design tokens (shared palette)
+  index.html
   src/
-    main.ts           — mount point
-    App.svelte         — root state, routing by URL params
+    App.svelte         — root state, URL routing
     components/
-      Home.svelte      — recent teams, create new, enter room code
-      TeamView.svelte  — member list, add/remove, rename, invite link
-      JoinView.svelte  — "pick yourself" or add as new member
+      Home.svelte      — recent teams, create/join
+      TeamView.svelte  — roster management
+      RoomView.svelte  — event log, relay health, active tools
     lib/
       samen/           — shared module (same files as above)
-      store.ts         — localStorage: cached roster, recent teams
+      store.ts         — localStorage: recent teams
 ```
 
-### In-tool integration (Slim, Skatting)
+### Integration in existing tools
 
 Each tool adds:
 
-1. **`src/lib/samen/`** — shared module copy (types + CRUD + Nostr sync + crypto)
-2. **Member picker component** — dropdown of roster members with freeform fallback. Reused across all add-person surfaces in that tool.
-3. **Team section in settings/sync panel** — inline member list, add/remove, invite link. Links to standalone app for full management.
+1. **`src/lib/samen/`** — shared module (via git subtree)
+2. **Member picker component** — dropdown of roster members with freeform fallback
+3. **Team section in settings/sync panel** — inline roster management
+4. **Event bus subscription** — subscribe to event types the tool understands
 
-## Deployment Model
+### Code sharing via git subtree
 
-### Repos and origins
+The shared module lives in a dedicated **samen-protocol** repo — just the TypeScript source, tests, and a README. No build step, no npm publish. Each consuming tool (Slim, Skatting, Bouwen, Samen dashboard) pulls it in via `git subtree` at `src/lib/samen/`.
 
-Each tool has its own repo and its own GitHub Pages deployment. Samen is no different:
+**Why subtree over alternatives:**
 
-```
-username.github.io/slim/        ← slim repo
-username.github.io/skatting/    ← skatting repo
-username.github.io/samen/       ← samen repo
-```
+| Approach | Verdict |
+|---|---|
+| **Git submodule** | Requires `--recursive` on clone, detached HEAD confusion, CI footguns. Not worth it for ~10 files. |
+| **npm package** | Build/publish ceremony for pure TypeScript that doesn't need compilation. Overkill. |
+| **Monorepo** | Forces all tools into one repo. Loses independent deployability. |
+| **Copy-paste** | Versions drift silently. Bug fixes don't propagate. |
+| **Git subtree** | Code is part of the repo — `git clone` just works. Pull updates when ready. Push back edits from any tool. Degrades to copy-paste if abandoned. |
 
-All three are on the **same origin** (`username.github.io`). This means localStorage is shared — identity, cached rosters, and recent teams flow between them without user action.
+**Setup (one-time per consuming repo):**
 
-### Same-origin UX (GitHub Pages, same domain)
-
-```
-Day 1 (Skatting):
-  Create session → ✓ "Create team: Platform Squad" → share room code
-  localStorage: samen-identity = { id: "...", name: "Alice" }
-  localStorage: samen-roster-{hash} = { ... cached roster ... }
-
-Day 2 (Slim):
-  Enter room code → "Welcome back, Alice" (from localStorage)
-  Team roster loaded (from localStorage cache, refreshed from Nostr)
-  No setup. No re-entry.
-
-Day 5 (Samen app — "Manage team →" link from Skatting):
-  samen.html?room=xyz → already identified → full roster management
-  Browser back → returns to Skatting
-  Feels like a settings page, not a different app.
+```bash
+git remote add samen git@github.com:<user>/samen-protocol.git
+git subtree add --prefix=src/lib/samen samen main --squash
 ```
 
-### Cross-origin UX (custom domains, forks, different orgs)
+**Pull updates from samen-protocol:**
+
+```bash
+git subtree pull --prefix=src/lib/samen samen main --squash
+```
+
+**Push changes back (after editing samen code in-place):**
+
+```bash
+git subtree push --prefix=src/lib/samen samen main
+```
+
+**Conventions:**
+- The samen-protocol repo is the source of truth. Prefer editing there directly when possible.
+- Use `--squash` on pull to keep consuming repos' history clean.
+- If you edit samen code inside a tool (quick fix during development), push it back before the next pull from another tool.
+- CI in each tool runs the samen tests (`src/lib/samen/*.test.ts`) as part of its own test suite — no separate CI for the protocol repo needed.
+
+## Deployment & Cross-Origin
+
+### Same origin (GitHub Pages, same domain)
+
+```
+username.github.io/slim/
+username.github.io/skatting/
+username.github.io/samen/
+```
+
+All on the same origin → localStorage shared → identity flows automatically:
+
+```
+Day 1 (Skatting): Create session → ✓ "Create team" → share room code
+  localStorage: samen-identity = { memberId, displayName, publicKeyHex }
+
+Day 2 (Slim): Enter room code → "Welcome back, Alice" (from localStorage)
+  Roster loaded from cache, refreshed from relay in background
+
+Day 5 (Samen dashboard): samen/?room=xyz → already identified → full management
+```
+
+### Cross-origin (custom domains, forks)
 
 ```
 slim.example.com
 skatting.example.com
-samen.example.com
 ```
 
-Different origins. localStorage is not shared. But the design degrades gracefully:
+Different origins → localStorage not shared. Degrades gracefully:
 
 | Feature | Same origin | Cross-origin |
 |---|---|---|
-| Auto-identity ("Welcome back") | Automatic | User enters room code once per origin |
+| Auto-identity ("Welcome back") | Automatic | User picks themselves from roster once per origin |
 | Cached roster (offline) | Shared across tools | Each origin caches independently |
-| Roster data (Nostr) | Works | Works — Nostr is the source of truth |
-| Deep links (`?room=xyz`) | Works | Works — skips room code entry |
+| Roster data (relay) | Works | Works — relay is source of truth |
+| Deep links (`?room=xyz`) | Works | Works |
 
-**Nostr is the source of truth, not localStorage.** localStorage is a cache and convenience layer. Cross-origin means one extra room-code entry per origin, once. After that, identity is cached locally.
+One extra "pick yourself" prompt per origin. After that, identity is cached locally and refreshed from relay.
 
-### localStorage keys (per-origin)
+### localStorage keys
 
 | Key | Written by | Read by | Content |
 |---|---|---|---|
-| `samen-identity` | First tool where user identifies | All tools | `{ memberId, displayName, publicKeyHex }` |
-| `samen-roster-{hash}` | Any tool that queries/mutates roster | All tools | Cached `TeamSpace` object |
-| `samen-recent-teams` | Any tool | All tools | `[{ roomCode, name, lastUsed }]` |
+| `samen-identity` | First tool where user identifies | All tools on same origin | `{ memberId, displayName, publicKeyHex }` |
+| `samen-roster-{hash}` | Any tool that queries/mutates roster | All tools on same origin | Cached `TeamSpace` (includes room index) |
+| `samen-recent-teams` | Any tool | All tools on same origin | `[{ teamCode, name, lastUsed }]` |
 
-These keys use the `samen-` prefix to avoid collision with each tool's own localStorage keys (`slim-board`, `estimate-sessions`, etc.).
+Prefixed `samen-` to avoid collision with tool-specific keys (`slim-board`, `estimate-sessions`, etc.).
 
 ## Integration Points
 
@@ -334,24 +501,33 @@ These keys use the `samen-` prefix to avoid collision with each tool's own local
 
 | Area | Change |
 |---|---|
-| `SyncPanel.svelte` | "Create room" gains a "Create team" toggle. Contributor join queries roster → member picker. |
-| `CardDetail.svelte` — add person | Autocomplete from roster members (fallback to freeform). |
-| `DeliverableDetailPane.svelte` — add contributor/consumer | Autocomplete from roster members. |
-| `store.ts` | Cache last-known roster in `localStorage['slim-roster']`. |
-| New: `src/lib/samen/` | Shared module copy — types, roster CRUD, Nostr sync, crypto. |
+| `SyncPanel.svelte` | "Create room" gains "Create team" toggle. Contributor join queries roster → member picker. |
+| `CardDetail.svelte` | Add person → autocomplete from roster (freeform fallback). |
+| `DeliverableDetailPane.svelte` | Add contributor/consumer → autocomplete from roster. |
+| Event bus | Subscribe to `skatting:verdicts` → apply estimation results to deliverables. Replace hardcoded bridge query. |
+| Event bus | Publish `slim:estimation-request` via Samen envelope instead of direct bridge event. |
 | New: member picker component | Dropdown of roster members with freeform fallback. Reused across all add-person surfaces. |
-| New: team section in SyncPanel | Member list, add/remove when owner, link to standalone app. |
 
 ### Skatting
 
 | Area | Change |
 |---|---|
-| `SessionLobby.svelte` | "Create session" gains a "Create team" toggle. Join flow queries roster → member picker. |
-| `session-controller.ts` — name conflicts | Roster members identified by UUID — no name conflicts possible. |
-| `session-store.ts` | Store `teamRoomCode?: string` alongside saved sessions. |
-| `ParticipantsList.svelte` | Show roster role (owner/member) alongside participant info. |
-| New: `src/lib/samen/` | Shared module copy — types, roster CRUD, Nostr sync, crypto. |
-| New: team section in sidebar | Member list, manage team inline. |
+| `SessionLobby.svelte` | Join flow queries roster → member picker with freeform fallback. |
+| `session-controller.ts` | Roster-identified members skip name-conflict resolution. |
+| Event bus | Subscribe to `slim:estimation-request` via Samen envelope. Replace hardcoded bridge query. |
+| Event bus | Publish `skatting:verdicts` via Samen envelope instead of direct bridge event. |
+
+### External integrations (future)
+
+The event bus enables connectors that bridge to existing trackers:
+
+| Level | Mechanism | Effort |
+|---|---|---|
+| **Bookmarklet** | Scrape Jira board → copy structured data to clipboard → paste into Slim BrainDump | Low |
+| **URL import** | Slim/Bouwen accept a Jira/Linear issue URL, fetch public API, pull title + description | Medium |
+| **Samen connector** | Room-level API token. Connector publishes `jira:stories` events; tools subscribe. Bidirectional sync via event bus. | High |
+
+Level 1 (bookmarklet) works today with no protocol changes. Level 3 requires the event bus to be stable.
 
 ## Security & Confidentiality
 
@@ -474,80 +650,74 @@ For teams handling sensitive data:
 - [ ] Use relays that support NIP-42 auth for write-side access control
 - [ ] Review CSP headers if deploying behind a reverse proxy
 
-## Open Questions
+## Design Decisions
 
-1. **Roster write authority.** Who can publish roster updates?
-   - **Option A**: Owner only. Simple, matches PO/creator model. Other members must ask the owner to add them.
-   - **Option B**: Any member. Last-write-wins on Nostr replaceable events. Risk of accidental overwrites.
-   - **Option C**: Self-registration. Any member can add *themselves* (knowing the room code = trust). Only the owner can remove others or change roles.
-   - **Leaning**: Option C for v1. Knowing the room code is the trust boundary. Self-registration from any tool. Owner can curate.
+### Flat rooms, not hierarchical workspaces
 
-2. **Multi-device identity.** A member uses Slim on laptop and Skatting on phone. Each device has its own Nostr keypair.
-   - On first use from new device: query roster → can't find pubkey → prompt "Pick yourself from the roster" → add pubkey to `publicKeys` array.
-   - Requires the member to have the room code on the new device.
+Each tool-specific room is independent and carries a `teamCode` reference back to the team. No parent-child key derivation, no workspace record that must be updated before creating a room. The team code provides identity and discovery; room codes provide encryption isolation.
 
-3. **Room code format.** Skatting uses syllable codes (`keteteri`), Slim uses UUIDs. Samen should pick one.
-   - **Leaning**: Syllable codes for team rooms (human-friendly, shareable verbally). Tools keep their own formats for tool-specific room codes.
+The room index (stored on the team code) is a **convenience, not authority**. Tools can create rooms without updating it. The index helps the Samen dashboard and other tools answer "what rooms exist for this team?" but is not required for any room to function.
 
-4. **Roster conflicts.** Two people add a member at the same time → two competing roster events on Nostr.
-   - Nostr replaceable events: last event (by `created_at`) wins.
-   - Samen could detect stale reads and prompt retry.
-   - For small teams (3–12) this is unlikely in practice.
+### Roster write authority
 
-5. **Offline.** Nostr relays down? All tools cache the last-known roster in localStorage. Refreshed whenever a relay query succeeds.
+**Self-registration (Option C):** any member can add *themselves* (knowing the room code = trust). Only the owner can remove others or change roles. Knowing the room code is the trust boundary. Owner can curate.
+
+### Room code format
+
+Syllable codes (e.g. `keteteri`) for team rooms — human-friendly, shareable verbally. Matches Skatting's existing format. Tools may use their own formats internally (Slim uses UUIDs for estimation rooms), but the team room code is always a syllable code.
+
+### Roster conflicts
+
+Two people add a member at the same time → two competing roster events on Nostr. Nostr replaceable events: last event (by `created_at`) wins. For small teams (3–12) this is unlikely in practice. Samen can detect stale reads and prompt retry.
+
+### Event bus vs. direct queries
+
+The current bridge uses direct Nostr queries — Slim publishes to a known d-tag, Skatting queries that d-tag. This works for two tools but doesn't scale. The event bus adds a thin envelope (type + version + identity) around the same Nostr mechanism. Migration path: wrap existing bridge messages in `SamenEvent` envelopes, keep the same d-tags and encryption.
 
 ## Implementation Plan
 
-### Phase 1: Fix name handling in Slim (immediate pain relief)
+### Phase 1: Event envelope & schema (the foundation)
 
-Improve people management within Slim before introducing the Samen protocol. This phase delivers value without any cross-tool dependency.
+Define the protocol that all tools will speak. This is the API contract — changes here are expensive later.
 
-- [ ] Build a board-wide people registry: derive a deduplicated list from all `PersonLink`, `extraContributors`, `extraConsumers`, `Commitment.to`, and `CellSignal.owner` entries
-- [ ] Add a member picker component: dropdown with autocomplete from the registry, freeform fallback for new names
-- [ ] Wire member picker into `CardDetail.svelte` (add person), `DeliverableDetailPane.svelte` (add contributor/consumer), and `Commitment.to` field
-- [ ] Normalize names on entry: trim whitespace, consistent casing strategy
-- [ ] Contributor join flow (`SyncPanel.svelte`): show known people from the board as suggestions instead of blind text input
+- [ ] Define `SamenEvent` interface in `src/lib/samen/types.ts`
+- [ ] Define event type registry: `slim:estimation-request`, `skatting:verdicts` (migrate existing bridge)
+- [ ] Implement `publishEvent` and `queryEvents` in `src/lib/samen/events.ts`
+- [ ] Unit tests for envelope serialization, encryption round-trip
+- [ ] Migrate Slim→Skatting bridge to use Samen envelope (backward-compatible: accept both old and new format)
 
-This phase uses only data already in the board — no Nostr, no new persistence, no protocol. It fixes the "Alice" vs "alice " problem immediately.
+### Phase 2: Identity — wire the existing roster
 
-### Phase 2: Introduce Samen protocol in Slim
+The roster module exists and is tested. Wire it into both tools.
 
-Upgrade from a board-local registry to a persistent, shared team roster on Nostr.
+- [ ] Slim: member picker component (autocomplete from roster, freeform fallback)
+- [ ] Slim: wire member picker into `CardDetail.svelte`, `DeliverableDetailPane.svelte`, `Commitment.to`
+- [ ] Slim: "Create team" toggle in `SyncPanel.svelte`, team section with roster management
+- [ ] Skatting: copy `src/lib/samen/` module, query roster on join, member picker in lobby
+- [ ] Skatting: skip name-conflict resolution for roster-identified members
+- [ ] Both: cache identity and roster in localStorage, refresh from relay on startup
 
-- [ ] Implement shared module in `src/lib/samen/`: types, roster CRUD, crypto, Nostr sync
-- [ ] Unit tests for roster CRUD, crypto, and round-trip publish/query
-- [ ] `SyncPanel.svelte`: "Create room" gains a "Create team" toggle — creates roster alongside board
-- [ ] `SyncPanel.svelte`: contributor join queries roster → member picker auto-populated from team
-- [ ] Board-wide people registry (phase 1) merges with roster data: roster members shown first, board-only names shown as "not in team"
-- [ ] Cache roster in `localStorage['samen-roster-{hash}']`
-- [ ] Cache local identity in `localStorage['samen-identity']`
-- [ ] Team section in SyncPanel: member list, add/remove (owner), invite link
+### Phase 3: Data availability hardening
 
-### Phase 3: Adapt Skatting
+Make relay-as-source-of-truth robust enough that clearing localStorage is a non-event.
 
-Port the Samen module into Skatting and wire it into the existing session flow.
+- [ ] Publish to 2+ relays on every state change (not just roster — board state, estimation results)
+- [ ] Startup: L1 cache → render → L2 relay query → merge newer data → update cache
+- [ ] New device flow: block on relay query → reconstruct room state → "pick yourself" from roster
+- [ ] Relay health monitoring: detect when a relay is down, warn user, ensure at least one relay is reachable
+- [ ] NIP-40 expiration: set appropriate TTLs (30 days for persistent state, 7 days for transient sessions)
 
-- [ ] Copy shared module into `src/lib/samen/`
-- [ ] `SessionLobby.svelte`: "Create session" gains a "Create team" toggle
-- [ ] `SessionLobby.svelte`: join flow queries roster → member picker with freeform fallback
-- [ ] Session controller: skip name-conflict resolution for roster-identified members
-- [ ] Sidebar: team section with member list, manage team inline
-- [ ] Cache roster in localStorage alongside saved sessions
-- [ ] Room code format: adopt syllable codes for team rooms (align with Skatting's existing format)
+### Phase 4: Samen dashboard (optional)
 
-### Phase 4: Standalone Samen app (optional)
-
-Dedicated team management surface. Not blocking phases 2–3.
+Standalone room management UI. Not blocking phases 1–3.
 
 - [ ] Scaffold Svelte 5 + Vite + vite-plugin-singlefile project
-- [ ] Build Home → Create / Join flow
-- [ ] Build TeamView with member list, add/remove, rename, invite link
-- [ ] Recent teams list from localStorage
-- [ ] Deep links: `samen.html?room=xyz` opens specific team
+- [ ] Room view: roster, event log, relay health, active tools
+- [ ] Create/join flow, recent teams list
+- [ ] Deep links: `samen/?room=xyz`
 
-### Phase 5: Cross-tool enrichment (future)
+### Phase 5: External integrations
 
-- [ ] Samen app shows which tools a member is active in
-- [ ] Slim shows estimation history for a person (from Skatting)
-- [ ] Skatting shows planning context for a ticket (from Slim)
-- [ ] Shared CSS design token package (or documented palette) for visual consistency across tools
+- [ ] Jira bookmarklet: scrape board view → clipboard in Slim import format
+- [ ] URL-based import: accept issue URLs, fetch via public API
+- [ ] Samen connector pattern: room-level API tokens, bidirectional sync via event bus

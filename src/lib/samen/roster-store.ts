@@ -14,7 +14,11 @@ function rosterCacheKey(roomCode: string): string {
 export function loadCachedRoster(roomCode: string): TeamSpace | null {
 	try {
 		const raw = localStorage.getItem(rosterCacheKey(roomCode))
-		return raw ? JSON.parse(raw) : null
+		if (!raw) return null
+		const data = JSON.parse(raw) as TeamSpace
+		// Backfill rooms array for caches written before room index existed
+		if (!data.rooms) data.rooms = []
+		return data
 	} catch {
 		return null
 	}

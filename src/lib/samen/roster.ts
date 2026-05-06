@@ -3,7 +3,7 @@
  * No Nostr, no side effects. Operates on TeamSpace objects.
  */
 
-import type { TeamMember, TeamSpace } from './types'
+import type { RoomRef, TeamMember, TeamSpace } from './types'
 
 /** Create a new TeamSpace with the creator as owner. */
 export function createTeamSpace(
@@ -26,6 +26,7 @@ export function createTeamSpace(
 				lastSeenAt: now,
 			},
 		],
+		rooms: [],
 		createdAt: now,
 		updatedAt: now,
 	}
@@ -109,4 +110,59 @@ export function findMemberByName(team: TeamSpace, name: string): TeamMember | un
 /** Get all display names from the roster, sorted alphabetically. */
 export function rosterNames(team: TeamSpace): string[] {
 	return team.members.map((m) => m.displayName).sort((a, b) => a.localeCompare(b))
+}
+
+// --- Room index ---
+
+/** Register a tool-specific room in the team's room index. Returns the updated TeamSpace. */
+export function addRoom(
+	team: TeamSpace,
+	roomCode: string,
+	tool: string,
+	label: string,
+	createdBy: string,
+): TeamSpace {
+	const existing = team.rooms.find((r) => r.roomCode === roomCode)
+	if (existing) return team
+	const ref: RoomRef = {
+		roomCode,
+		tool,
+		label,
+		createdBy,
+		createdAt: Date.now(),
+		active: true,
+	}
+	return {
+		...team,
+		rooms: [...team.rooms, ref],
+		updatedAt: Date.now(),
+	}
+}
+
+/** Remove a room from the index by its room code. Returns the updated TeamSpace. */
+export function removeRoom(team: TeamSpace, roomCode: string): TeamSpace {
+	return {
+		...team,
+		rooms: team.rooms.filter((r) => r.roomCode !== roomCode),
+		updatedAt: Date.now(),
+	}
+}
+
+/** Archive a room (set active = false). Returns the updated TeamSpace. */
+export function archiveRoom(team: TeamSpace, roomCode: string): TeamSpace {
+	return {
+		...team,
+		rooms: team.rooms.map((r) => (r.roomCode === roomCode ? { ...r, active: false } : r)),
+		updatedAt: Date.now(),
+	}
+}
+
+/** Find rooms by tool name. */
+export function findRoomsByTool(team: TeamSpace, tool: string): RoomRef[] {
+	return team.rooms.filter((r) => r.tool === tool)
+}
+
+/** Find active rooms only. */
+export function activeRooms(team: TeamSpace): RoomRef[] {
+	return team.rooms.filter((r) => r.active)
 }

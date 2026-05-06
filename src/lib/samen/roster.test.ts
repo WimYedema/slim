@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
+	activeRooms,
 	addMember,
 	addPublicKey,
+	addRoom,
+	archiveRoom,
 	createTeamSpace,
 	findMemberByName,
 	findMemberByPubkey,
+	findRoomsByTool,
 	removeMember,
+	removeRoom,
 	renameMember,
 	rosterNames,
 	touchMember,
@@ -26,6 +31,7 @@ describe('createTeamSpace', () => {
 		expect(team.members[0].role).toBe('owner')
 		expect(team.members[0].publicKeys).toEqual(['pubkey-alice'])
 		expect(team.members[0].id).toBeTruthy()
+		expect(team.rooms).toEqual([])
 		expect(team.createdAt).toBeGreaterThan(0)
 		expect(team.updatedAt).toBe(team.createdAt)
 	})
@@ -138,5 +144,68 @@ describe('rosterNames', () => {
 		let team = addMember(makeTeam(), 'Charlie', 'pk-c')
 		team = addMember(team, 'Bob', 'pk-b')
 		expect(rosterNames(team)).toEqual(['Alice', 'Bob', 'Charlie'])
+	})
+})
+
+describe('addRoom', () => {
+	it('adds a room to the index', () => {
+		const team = makeTeam()
+		const updated = addRoom(team, 'board-abc', 'slim', 'Q3 Planning', team.members[0].id)
+		expect(updated.rooms).toHaveLength(1)
+		expect(updated.rooms[0].roomCode).toBe('board-abc')
+		expect(updated.rooms[0].tool).toBe('slim')
+		expect(updated.rooms[0].label).toBe('Q3 Planning')
+		expect(updated.rooms[0].active).toBe(true)
+	})
+
+	it('does not duplicate an existing room code', () => {
+		const team = makeTeam()
+		const first = addRoom(team, 'board-abc', 'slim', 'Q3 Planning', team.members[0].id)
+		const second = addRoom(first, 'board-abc', 'slim', 'Different Label', team.members[0].id)
+		expect(second.rooms).toHaveLength(1)
+		expect(second.rooms[0].label).toBe('Q3 Planning')
+	})
+})
+
+describe('removeRoom', () => {
+	it('removes a room by room code', () => {
+		const team = addRoom(makeTeam(), 'board-abc', 'slim', 'Q3', 'owner-id')
+		const updated = removeRoom(team, 'board-abc')
+		expect(updated.rooms).toHaveLength(0)
+	})
+
+	it('is a no-op for unknown room code', () => {
+		const team = addRoom(makeTeam(), 'board-abc', 'slim', 'Q3', 'owner-id')
+		const updated = removeRoom(team, 'nonexistent')
+		expect(updated.rooms).toHaveLength(1)
+	})
+})
+
+describe('archiveRoom', () => {
+	it('sets active to false', () => {
+		const team = addRoom(makeTeam(), 'board-abc', 'slim', 'Q3', 'owner-id')
+		const updated = archiveRoom(team, 'board-abc')
+		expect(updated.rooms[0].active).toBe(false)
+	})
+})
+
+describe('findRoomsByTool', () => {
+	it('filters rooms by tool', () => {
+		let team = addRoom(makeTeam(), 'board-1', 'slim', 'Board 1', 'id')
+		team = addRoom(team, 'session-1', 'skatting', 'Sprint 1', 'id')
+		team = addRoom(team, 'board-2', 'slim', 'Board 2', 'id')
+		expect(findRoomsByTool(team, 'slim')).toHaveLength(2)
+		expect(findRoomsByTool(team, 'skatting')).toHaveLength(1)
+		expect(findRoomsByTool(team, 'bouwen')).toHaveLength(0)
+	})
+})
+
+describe('activeRooms', () => {
+	it('excludes archived rooms', () => {
+		let team = addRoom(makeTeam(), 'board-1', 'slim', 'Active', 'id')
+		team = addRoom(team, 'board-2', 'slim', 'Will Archive', 'id')
+		team = archiveRoom(team, 'board-2')
+		expect(activeRooms(team)).toHaveLength(1)
+		expect(activeRooms(team)[0].label).toBe('Active')
 	})
 })

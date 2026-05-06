@@ -87,6 +87,7 @@ One runtime dependency: `nostr-tools` (P2P relay communication). No server, no d
 | `sync.ts` | Nostr relay pub/sub for P2P board sharing and score submission | `generateSyncKeys`, `publishBoard`, `queryBoard`, `publishScores`, `queryScores`, `applyScores` |
 | `merge.ts` | ID-based board merge with `updatedAt` conflict resolution | `mergeBoards`, `formatMergeStats`, `MergeResult` |
 | `csv.ts` | CSV import/export for opportunities | `opportunitiesToCsv`, `csvToOpportunities` |
+| `samen/` | Shared protocol module (git subtree) — team identity, room index, event bus, crypto | See [samen/README.md](../src/lib/samen/README.md) |
 
 ### Component responsibilities
 

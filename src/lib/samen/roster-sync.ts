@@ -7,7 +7,7 @@
 
 import { finalizeEvent, SimplePool } from 'nostr-tools'
 import { hexToBytes } from 'nostr-tools/utils'
-import { computeRosterDTag, decryptRoster, deriveRosterKey, encryptRoster } from './crypto'
+import { computeRosterDTag, decrypt, deriveRosterKey, encrypt } from './crypto'
 import { expirationTag, RELAY_URLS, type SyncKeys } from './nostr-config'
 import type { TeamSpace } from './types'
 
@@ -19,6 +19,7 @@ const KIND_ROSTER = 30078
 interface RosterPayload {
 	name: string
 	members: TeamSpace['members']
+	rooms: TeamSpace['rooms']
 	createdAt: number
 	updatedAt: number
 }
@@ -37,11 +38,12 @@ export async function publishRoster(
 	const payload: RosterPayload = {
 		name: team.name,
 		members: team.members,
+		rooms: team.rooms,
 		createdAt: team.createdAt,
 		updatedAt: team.updatedAt,
 	}
 
-	const ciphertext = await encryptRoster(rosterKey, JSON.stringify(payload))
+	const ciphertext = await encrypt(rosterKey, JSON.stringify(payload))
 	const sk = hexToBytes(keys.secretKeyHex)
 
 	const event = finalizeEvent(
@@ -77,7 +79,7 @@ export async function queryRoster(roomCode: string): Promise<TeamSpace | null> {
 		})
 		if (!event) return null
 
-		const plaintext = await decryptRoster(rosterKey, event.content)
+		const plaintext = await decrypt(rosterKey, event.content)
 		const data: unknown = JSON.parse(plaintext)
 		if (!isRosterPayload(data)) return null
 
@@ -86,6 +88,7 @@ export async function queryRoster(roomCode: string): Promise<TeamSpace | null> {
 			roomCode,
 			name: payload.name,
 			members: payload.members,
+			rooms: payload.rooms ?? [],
 			createdAt: payload.createdAt,
 			updatedAt: payload.updatedAt,
 		}
