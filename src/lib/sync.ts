@@ -22,7 +22,8 @@ import {
 	encrypt,
 } from './crypto'
 import { expirationTag, RELAY_URLS, type SyncKeys } from './samen/nostr-config'
-import { compoundRoomCode } from './samen/types'
+import { compoundRoomCode, parseRoomCode, sessionEventType, EVENT_ESTIMATION_REQUEST, EVENT_VERDICTS, type EstimationRequestPayload, type VerdictResultPayload } from './samen/types'
+import { createEvent, publishEvent, queryEventByType } from './samen/events'
 import type { BoardData } from './store'
 import type { CellSignal, DeliverableEstimate, Perspective, Stage } from './types'
 
@@ -399,12 +400,31 @@ function bridgeExpirationTag(): [string, string] {
 
 // --- Bridge publishing ---
 
-/** Publish an estimation request to the bridge channel. */
+/** Publish an estimation request to the bridge channel.
+ *  Compound room codes route through the SamenEvent bus; standalone codes use legacy bridge. */
 export async function publishEstimationRequest(
 	estimationRoom: string,
 	keys: SyncKeys,
 	request: EstimationRequest,
 ): Promise<void> {
+	const { teamCode, sessionCode } = parseRoomCode(estimationRoom)
+	if (teamCode) {
+		const payload: EstimationRequestPayload = {
+			deliverables: request.deliverables,
+			unit: request.unit,
+			boardName: request.boardName,
+		}
+		const event = createEvent(
+			sessionEventType(EVENT_ESTIMATION_REQUEST, sessionCode),
+			1,
+			payload,
+			'anonymous',
+		)
+		await publishEvent(teamCode, keys, event)
+		return
+	}
+
+	// Legacy bridge for standalone rooms
 	const [bridgeKey, dTag] = await Promise.all([
 		deriveBridgeKey(estimationRoom),
 		computeBridgeDTag(estimationRoom, 'request'),
@@ -432,8 +452,24 @@ export async function publishEstimationRequest(
 
 // --- Bridge querying ---
 
-/** Query verdict results from the bridge channel. */
+/** Query verdict results from the bridge channel.
+ *  Compound room codes query the SamenEvent bus; standalone codes use legacy bridge. */
 export async function queryVerdicts(estimationRoom: string): Promise<VerdictResult | null> {
+	const { teamCode, sessionCode } = parseRoomCode(estimationRoom)
+	if (teamCode) {
+		const eventType = sessionEventType(EVENT_VERDICTS, sessionCode)
+		const event = await queryEventByType(teamCode, eventType)
+		if (!event) return null
+		const payload = event.payload as VerdictResultPayload
+		if (!Array.isArray(payload?.verdicts)) return null
+		return {
+			type: 'verdict-result',
+			verdicts: payload.verdicts,
+			timestamp: event.publishedAt,
+		}
+	}
+
+	// Legacy bridge for standalone rooms
 	const [bridgeKey, dTag] = await Promise.all([
 		deriveBridgeKey(estimationRoom),
 		computeBridgeDTag(estimationRoom, 'verdicts'),
