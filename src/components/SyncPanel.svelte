@@ -42,6 +42,7 @@
 	import { publishRoster, queryRoster } from '../lib/samen/roster-sync'
 	import { loadCachedRoster, saveCachedRoster, clearCachedRoster, loadIdentity, saveIdentity } from '../lib/samen/roster-store'
 	import type { TeamSpace, SamenIdentity } from '../lib/samen/types'
+	import { checkRelayHealth, type RelayHealth } from '../lib/samen/nostr-config'
 
 	import MemberPicker from './MemberPicker.svelte'
 	import { boardNames } from '../lib/queries'
@@ -228,6 +229,25 @@
 				remoteBoard = result
 			}
 		})
+	}
+
+	// Background roster refresh on startup — keeps roster in sync across tools/devices
+	if (syncState) {
+		queryRoster(syncState.roomCode).then((roster) => {
+			if (roster && roster.updatedAt > (cachedRoster?.updatedAt ?? 0)) {
+				cachedRoster = roster
+				saveCachedRoster(roster)
+				rosterNames = roster.members.map(m => m.displayName)
+			}
+		}).catch(() => { /* non-fatal */ })
+	}
+
+	// Background relay health check — warn when relays are unreachable
+	let relayHealth = $state<RelayHealth[] | null>(null)
+	let allRelaysDown = $derived(relayHealth !== null && relayHealth.every(r => !r.reachable))
+
+	if (syncState) {
+		checkRelayHealth().then((h) => { relayHealth = h }).catch(() => { /* non-fatal */ })
 	}
 
 	// Track pending submissions for PO notification badge
@@ -695,6 +715,9 @@
 			{#if status}
 				<p class="sync-status">{status}</p>
 			{/if}
+			{#if allRelaysDown}
+				<p class="sync-status sync-warning">⚠ All relays unreachable — changes won't sync until connectivity is restored.</p>
+			{/if}
 		</div>
 	{/if}
 </div>
@@ -865,6 +888,11 @@
 		background: var(--c-bg);
 		border-radius: var(--radius-sm);
 		border: 1px solid var(--c-border);
+	}
+
+	.sync-warning {
+		color: var(--c-negative);
+		border-color: var(--c-negative);
 	}
 
 	.sync-section + .sync-section {

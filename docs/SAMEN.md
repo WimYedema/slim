@@ -701,11 +701,11 @@ The roster module exists and is tested. Wire it into both tools.
 
 Make relay-as-source-of-truth robust enough that clearing localStorage is a non-event.
 
-- [ ] Publish to 2+ relays on every state change (not just roster — board state, estimation results)
-- [ ] Startup: L1 cache → render → L2 relay query → merge newer data → update cache
-- [ ] New device flow: block on relay query → reconstruct room state → "pick yourself" from roster
-- [ ] Relay health monitoring: detect when a relay is down, warn user, ensure at least one relay is reachable
-- [ ] NIP-40 expiration: set appropriate TTLs (30 days for persistent state, 7 days for transient sessions)
+- [x] Publish to 2+ relays on every state change (already in place — all publish functions use `Promise.any(pool.publish(RELAY_URLS, event))`)
+- [x] Startup: L1 cache → render → L2 relay query → merge newer data → update cache (SyncPanel background roster refresh; contributor auto-loads board on init)
+- [x] New device flow: block on relay query → reconstruct room state → "pick yourself" from roster (SyncPanel auto-join from `?room=` URL; roster query + member picker on join)
+- [x] Relay health monitoring: detect when a relay is down, warn user, ensure at least one relay is reachable (`checkRelayHealth()` in samen module; SyncPanel shows warning when all relays unreachable)
+- [x] NIP-40 expiration: set appropriate TTLs (30 days for persistent state via `expirationTag()`, 7 days for transient sessions via `sessionExpirationTag()`)
 
 ### Phase 4: Samen dashboard (optional)
 

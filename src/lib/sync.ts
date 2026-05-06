@@ -21,7 +21,7 @@ import {
 	deriveRoomKey,
 	encrypt,
 } from './crypto'
-import { expirationTag, RELAY_URLS, type SyncKeys } from './samen/nostr-config'
+import { expirationTag, sessionExpirationTag, RELAY_URLS, type SyncKeys } from './samen/nostr-config'
 import { compoundRoomCode, parseRoomCode, sessionEventType, EVENT_ESTIMATION_REQUEST, EVENT_VERDICTS, type EstimationRequestPayload, type VerdictResultPayload } from './samen/types'
 import { createEvent, publishEvent, queryEventByType } from './samen/events'
 import type { BoardData } from './store'
@@ -393,11 +393,6 @@ export interface VerdictResult {
 	timestamp: number
 }
 
-/** Bridge expiration: 7 days (estimation sessions are transient). */
-function bridgeExpirationTag(): [string, string] {
-	return ['expiration', String(Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60)]
-}
-
 // --- Bridge publishing ---
 
 /** Publish an estimation request to the bridge channel.
@@ -436,7 +431,7 @@ export async function publishEstimationRequest(
 		{
 			kind: KIND_BOARD_STATE,
 			created_at: Math.floor(Date.now() / 1000),
-			tags: [['d', dTag], bridgeExpirationTag()],
+			tags: [['d', dTag], sessionExpirationTag()],
 			content: ciphertext,
 		},
 		sk,
