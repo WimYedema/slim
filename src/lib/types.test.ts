@@ -641,7 +641,7 @@ describe('wipNudge', () => {
 
 // ── Board names registry ──
 
-import { boardNames } from './queries'
+import { boardNames, mergeNames } from './queries'
 
 describe('boardNames', () => {
 	it('collects names from people, commitments, signals, and deliverables', () => {
@@ -684,6 +684,30 @@ describe('boardNames', () => {
 
 	it('returns empty for empty board', () => {
 		expect(boardNames([], [])).toEqual([])
+	})
+})
+
+describe('mergeNames', () => {
+	it('roster names come first, then board-only names', () => {
+		const result = mergeNames(['Alice', 'Bob'], ['Carol', 'Alice'])
+		expect(result.names).toEqual(['Alice', 'Bob', 'Carol'])
+	})
+
+	it('annotates board-only names when roster is non-empty', () => {
+		const result = mergeNames(['Alice'], ['Bob', 'Carol'])
+		expect(result.annotations.get('bob')).toBe('board only')
+		expect(result.annotations.get('carol')).toBe('board only')
+		expect(result.annotations.has('alice')).toBe(false)
+	})
+
+	it('no annotations when roster is empty', () => {
+		const result = mergeNames([], ['Alice', 'Bob'])
+		expect(result.annotations.size).toBe(0)
+	})
+
+	it('deduplicates case-insensitively', () => {
+		const result = mergeNames(['alice'], ['Alice', 'Bob'])
+		expect(result.names).toEqual(['alice', 'Bob'])
 	})
 })
 

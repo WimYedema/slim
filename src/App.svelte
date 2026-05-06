@@ -30,8 +30,9 @@
 	import { snapshotBoard, type BoardSnapshot } from './lib/briefing'
 	import { opportunitiesToCsv, csvToOpportunities } from './lib/csv'
 	import { mergeBoards, formatMergeStats } from './lib/merge'
-	import { boardNames } from './lib/queries'
+	import { boardNames, mergeNames } from './lib/queries'
 	import { generateEstimationRoom, generateSyncKeys, publishEstimationRequest, queryVerdicts, applyVerdicts } from './lib/sync'
+	import { rosterNames as getRosterNames } from './lib/samen/roster'
 	import { parseImportText, materialize } from './lib/import-parser'
 	import { createSampleOpportunities, createSampleDeliverables, createSampleMeetingData } from './lib/sample-data'
 	import BoardPicker from './components/BoardPicker.svelte'
@@ -351,7 +352,13 @@
 		selectedDeliverableId ? deliverables.find((d) => d.id === selectedDeliverableId) ?? null : null,
 	)
 
-	const knownNames = $derived(boardNames(opportunities, deliverables))
+	const mergedNames = $derived.by(() => {
+		const board = boardNames(opportunities, deliverables)
+		const roster = roomInfo?.roster ? getRosterNames(roomInfo.roster) : []
+		return mergeNames(roster, board)
+	})
+	const knownNames = $derived(mergedNames.names)
+	const nameAnnotations = $derived(mergedNames.annotations)
 
 	function addOpportunity(title: string) {
 		opportunities = [...opportunities, createOpportunity(title)]
@@ -789,6 +796,7 @@
 				{links}
 				allHorizons={allHorizons()}
 				{knownNames}
+				{nameAnnotations}
 				lens={view === 'pipeline' ? lens : null}
 				onUpdate={updateOpportunity}
 				onClose={() => (selectedId = null)}
@@ -807,6 +815,7 @@
 				{links}
 				{opportunities}
 				{knownNames}
+				{nameAnnotations}
 				onUpdate={updateDeliverable}
 				onRemove={removeDeliverable}
 				onLink={linkDeliverable}

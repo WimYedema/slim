@@ -21,6 +21,7 @@
 		links: OpportunityDeliverableLink[]
 		opportunities: Opportunity[]
 		knownNames?: string[]
+		nameAnnotations?: Map<string, string>
 		onUpdate: (deliverable: Deliverable) => void
 		onRemove: (id: string) => void
 		onLink: (opportunityId: string, deliverableId: string, coverage: 'full' | 'partial') => void
@@ -30,7 +31,7 @@
 		onSelectOpportunity: (id: string) => void
 	}
 
-	let { deliverable, links, opportunities, knownNames = [], onUpdate, onRemove, onLink, onUnlink, onUpdateCoverage, onClose, onSelectOpportunity }: Props = $props()
+	let { deliverable, links, opportunities, knownNames = [], nameAnnotations, onUpdate, onRemove, onLink, onUnlink, onUpdateCoverage, onClose, onSelectOpportunity }: Props = $props()
 
 	let linkingOpportunity = $state(false)
 	let addingContributor = $state(false)
@@ -257,6 +258,7 @@
 				{#if adding}
 					<MemberPicker
 						{knownNames}
+						annotations={nameAnnotations}
 						placeholder="Name…"
 						inputClass="ddp-chip-input"
 						onPick={(name) => { addPerson(name, group); setAdding(false) }}

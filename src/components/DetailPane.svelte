@@ -44,6 +44,7 @@
 		links: OpportunityDeliverableLink[]
 		allHorizons?: string[]
 		knownNames?: string[]
+		nameAnnotations?: Map<string, string>
 		onUpdate: (opportunity: Opportunity) => void
 		onClose: () => void
 		onAddDeliverable: (title: string) => Deliverable
@@ -55,7 +56,7 @@
 		lens?: Perspective | null
 	}
 
-	let { opportunity, deliverables, links, allHorizons = [], knownNames = [], lens = null, onUpdate, onClose, onAddDeliverable, onUpdateDeliverable, onLinkDeliverable, onUnlinkDeliverable, onUpdateLinkCoverage, onNavigateToDeliverable }: Props = $props()
+	let { opportunity, deliverables, links, allHorizons = [], knownNames = [], nameAnnotations, lens = null, onUpdate, onClose, onAddDeliverable, onUpdateDeliverable, onLinkDeliverable, onUnlinkDeliverable, onUpdateLinkCoverage, onNavigateToDeliverable }: Props = $props()
 
 	function updateSignalField(stage: Stage, perspective: Perspective, field: keyof CellSignal, value: string | Score) {
 		onUpdate({
@@ -414,6 +415,7 @@
 										{#if opportunity.people.length === 0 || isAdding}
 											<MemberPicker
 												{knownNames}
+												annotations={nameAnnotations}
 												placeholder="Name…"
 												inputClass="assign-name-input"
 												onPick={(name) => {
@@ -516,7 +518,7 @@
 		{/if}
 	</div>
 
-	<CommitmentsAndPeople {opportunity} {knownNames} {onUpdate} />
+	<CommitmentsAndPeople {opportunity} {knownNames} {nameAnnotations} {onUpdate} />
 
 	<label class="pane-field">
 		<span class="pane-label">Notes</span>

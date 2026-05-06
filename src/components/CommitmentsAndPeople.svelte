@@ -15,10 +15,11 @@
 	interface Props {
 		opportunity: Opportunity
 		knownNames?: string[]
+		nameAnnotations?: Map<string, string>
 		onUpdate: (opportunity: Opportunity) => void
 	}
 
-	let { opportunity, knownNames = [], onUpdate }: Props = $props()
+	let { opportunity, knownNames = [], nameAnnotations, onUpdate }: Props = $props()
 
 	// Commitment state
 	let showAddCommitment = $state(false)
@@ -142,6 +143,7 @@
 		<div class="people-add-row">
 			<MemberPicker
 				{knownNames}
+				annotations={nameAnnotations}
 				placeholder="Name…"
 				inputClass="people-name-input"
 				onPick={(name) => { addPersonWithRole(name, 'stakeholder'); addingPerson = false }}

@@ -321,6 +321,40 @@ export function boardNames(opportunities: Opportunity[], deliverables: Deliverab
 	return [...seen.values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
 }
 
+/** Merge roster names with board names. Roster names come first, then board-only names.
+ *  Returns { names, annotations } where annotations marks board-only entries. */
+export function mergeNames(
+	rosterNames: string[],
+	boardKnownNames: string[],
+): { names: string[]; annotations: Map<string, string> } {
+	const annotations = new Map<string, string>()
+	const seen = new Set<string>()
+	const result: string[] = []
+
+	// Roster names first (canonical)
+	for (const name of rosterNames) {
+		const lower = name.toLowerCase()
+		if (!seen.has(lower)) {
+			seen.add(lower)
+			result.push(name)
+		}
+	}
+
+	// Board-only names second
+	for (const name of boardKnownNames) {
+		const lower = name.toLowerCase()
+		if (!seen.has(lower)) {
+			seen.add(lower)
+			result.push(name)
+			if (rosterNames.length > 0) {
+				annotations.set(lower, 'board only')
+			}
+		}
+	}
+
+	return { names: result, annotations }
+}
+
 // ── Visualization ──
 
 // ── WIP limits ──
