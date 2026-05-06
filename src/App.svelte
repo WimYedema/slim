@@ -71,6 +71,7 @@
 	let showHelp = $state(false)
 	let showQuickAdd = $state(false)
 	let showDataMenu = $state(false)
+	let showEstimationPanel = $state(false)
 	let contributorInfo = $state(null as ContributorInfo | null)
 	let roomInfo = $state(null as RoomInfo | null)
 	let showRoomPanel = $state(false)
@@ -863,6 +864,34 @@
 				onOpenRoomPanel={() => { selectedId = null; selectedDeliverableId = null; showRoomPanel = true }}
 			/>
 			{#if !contributorInfo}
+			<div class="est-container">
+				{#if estimationRoom}
+					<button class="est-toggle est-active" onclick={() => showEstimationPanel = !showEstimationPanel} title="Estimation room active">
+						⚡ {estimationRoom}
+					</button>
+				{:else}
+					<button class="est-toggle" onclick={() => showEstimationPanel = !showEstimationPanel} title="Send deliverables for team estimation">
+						Estimate
+					</button>
+				{/if}
+				{#if showEstimationPanel}
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="est-backdrop" onclick={() => showEstimationPanel = false}></div>
+					<div class="est-panel">
+						<EstimationPanel
+							roomCode={estimationRoom}
+							deliverableCount={deliverables.length}
+							busy={estimationBusy}
+							message={estimationMessage}
+							error={estimationError}
+							onCreateAndPublish={createEstimationAndPublish}
+							onRepublish={() => publishEstimation()}
+							onPullVerdicts={pullEstimationVerdicts}
+							onDisconnect={() => { disconnectEstimation(); showEstimationPanel = false }}
+						/>
+					</div>
+				{/if}
+			</div>
 			<div class="data-menu-container">
 				<button class="action-btn" onclick={() => showDataMenu = !showDataMenu} title="Import, export, and data management">
 					Data ↕
@@ -1069,17 +1098,6 @@
 				onSelectDeliverable={toggleDeliverable}
 				bind:orderedIds={delViewOrderedIds}
 			/>
-			<EstimationPanel
-				roomCode={estimationRoom}
-				deliverableCount={deliverables.length}
-				busy={estimationBusy}
-				message={estimationMessage}
-				error={estimationError}
-				onCreateAndPublish={createEstimationAndPublish}
-				onRepublish={() => publishEstimation()}
-				onPullVerdicts={pullEstimationVerdicts}
-				onDisconnect={disconnectEstimation}
-			/>
 		</div>
 		{@render detailSidebar()}
 	</div>
@@ -1204,6 +1222,52 @@
 		color: var(--c-text-ghost);
 		font-weight: 400;
 		line-height: 1.2;
+	}
+
+	/* ── Estimation header controls ── */
+	.est-container {
+		position: relative;
+	}
+
+	.est-toggle {
+		background: none;
+		border: 1px solid var(--c-border-soft);
+		font: inherit;
+		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+		cursor: pointer;
+		padding: var(--sp-xs) var(--sp-sm);
+		border-radius: var(--radius-sm);
+		transition: background var(--tr-fast), color var(--tr-fast);
+	}
+
+	.est-toggle:hover {
+		background: var(--c-hover);
+		color: var(--c-text);
+	}
+
+	.est-toggle.est-active {
+		border-color: var(--c-accent);
+		color: var(--c-text);
+	}
+
+	.est-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 99;
+	}
+
+	.est-panel {
+		position: absolute;
+		top: 100%;
+		right: 0;
+		z-index: 100;
+		width: 320px;
+		margin-top: var(--sp-xs);
+		background: var(--c-surface);
+		border: 1px solid var(--c-border);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-lg);
 	}
 
 	.data-menu-container {

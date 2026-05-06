@@ -722,6 +722,118 @@ export function effectiveCertainty(del: Deliverable): Certainty | null {
 // ── Effort aggregation ──
 
 /** Sum of linked deliverable effort medians (in days) for an opportunity. */
+/** Format a median estimate as rounded days (e.g. "4d", "38d", "½d"). Takes raw mu (log-scale). */
+export function formatEstimateDays(mu: number): string {
+	return formatDays(Math.exp(mu))
+}
+
+/** Format a days value (already in linear scale) as rounded days. */
+export function formatDays(days: number): string {
+	if (days < 0.75) return '½d'
+	if (days < 1.5) return '1d'
+	return `${Math.round(days)}d`
+}
+
+/** Log-normal quantile: Q(p) = exp(mu + sigma * Φ⁻¹(p)). */
+export function lognormalQuantile(mu: number, sigma: number, p: number): number {
+	return Math.exp(mu + sigma * normInv(p))
+}
+
+/** Rational approximation of the standard normal inverse CDF (Abramowitz & Stegun 26.2.23). */
+function normInv(p: number): number {
+	if (p <= 0) return -Infinity
+	if (p >= 1) return Infinity
+	if (p === 0.5) return 0
+	const flip = p < 0.5
+	const pp = flip ? p : 1 - p
+	const t = Math.sqrt(-2 * Math.log(pp))
+	const c0 = 2.515517, c1 = 0.802853, c2 = 0.010328
+	const d1 = 1.432788, d2 = 0.189269, d3 = 0.001308
+	const x = t - (c0 + c1 * t + c2 * t * t) / (1 + d1 * t + d2 * t * t + d3 * t * t * t)
+	return flip ? -x : x
+}
+
+/** Box plot data for a single log-normal estimate. */
+export interface BoxPlotRow {
+	label: string
+	p10: number
+	p25: number
+	p50: number
+	p75: number
+	p90: number
+	coverage: 'full' | 'partial'
+}
+
+/**
+ * Fenton-Wilkinson approximation: combine independent log-normals into a single log-normal.
+ * Each entry has (mu, sigma, weight). Weight is 1 for full coverage, 0.5 for partial.
+ */
+export function combineLognormals(entries: Array<{ mu: number; sigma: number; weight: number }>): { mu: number; sigma: number } | null {
+	if (entries.length === 0) return null
+	// Mean and variance of the sum of scaled log-normals
+	let meanSum = 0
+	let varSum = 0
+	for (const e of entries) {
+		const w = e.weight
+		meanSum += w * Math.exp(e.mu + e.sigma * e.sigma / 2)
+		varSum += w * w * Math.exp(2 * e.mu + e.sigma * e.sigma) * (Math.exp(e.sigma * e.sigma) - 1)
+	}
+	// Match moments to a log-normal
+	const sigmaSquared = Math.log(1 + varSum / (meanSum * meanSum))
+	return {
+		mu: Math.log(meanSum) - sigmaSquared / 2,
+		sigma: Math.sqrt(sigmaSquared),
+	}
+}
+
+/**
+ * Build box plot data for an opportunity's linked deliverables + combined total.
+ * Returns null if no estimated deliverables are linked.
+ */
+export function opportunityBoxPlotData(
+	oppId: string,
+	deliverables: Deliverable[],
+	links: OpportunityDeliverableLink[],
+): { rows: BoxPlotRow[]; combined: BoxPlotRow } | null {
+	const oppLinks = linksForOpportunity(links, oppId)
+	const entries: Array<{ mu: number; sigma: number; weight: number }> = []
+	const rows: BoxPlotRow[] = []
+
+	for (const link of oppLinks) {
+		const del = deliverables.find((d) => d.id === link.deliverableId)
+		if (!del?.estimate) continue
+		const { mu, sigma } = del.estimate
+		const weight = link.coverage === 'full' ? 1 : 0.5
+		entries.push({ mu, sigma, weight })
+		rows.push({
+			label: del.title,
+			p10: lognormalQuantile(mu, sigma, 0.1) * weight,
+			p25: lognormalQuantile(mu, sigma, 0.25) * weight,
+			p50: lognormalQuantile(mu, sigma, 0.5) * weight,
+			p75: lognormalQuantile(mu, sigma, 0.75) * weight,
+			p90: lognormalQuantile(mu, sigma, 0.9) * weight,
+			coverage: link.coverage,
+		})
+	}
+
+	if (rows.length === 0) return null
+
+	const sum = combineLognormals(entries)
+	if (!sum) return null
+
+	const combined: BoxPlotRow = {
+		label: 'Total',
+		p10: lognormalQuantile(sum.mu, sum.sigma, 0.1),
+		p25: lognormalQuantile(sum.mu, sum.sigma, 0.25),
+		p50: lognormalQuantile(sum.mu, sum.sigma, 0.5),
+		p75: lognormalQuantile(sum.mu, sum.sigma, 0.75),
+		p90: lognormalQuantile(sum.mu, sum.sigma, 0.9),
+		coverage: 'full',
+	}
+
+	return { rows, combined }
+}
+
 export function opportunityEffort(
 	oppId: string,
 	deliverables: Deliverable[],
@@ -739,4 +851,105 @@ export function opportunityEffort(
 		total += link.coverage === 'full' ? median : median * 0.5
 	}
 	return hasEstimate ? total : null
+}
+
+/**
+ * Build box plot data for a set of opportunities (e.g. a horizon group).
+ * One row per opportunity (combining its deliverables), plus a horizon-wide combined total.
+ * Returns null if no estimated deliverables are linked to any of the opportunities.
+ */
+export function horizonBoxPlotData(
+	oppIds: string[],
+	opportunities: Opportunity[],
+	deliverables: Deliverable[],
+	links: OpportunityDeliverableLink[],
+): { rows: BoxPlotRow[]; combined: BoxPlotRow; estimatedCount: number; totalDeliverableCount: number } | null {
+	const allEntries: Array<{ mu: number; sigma: number; weight: number }> = []
+	const rows: BoxPlotRow[] = []
+	let totalDelCount = 0
+
+	for (const oppId of oppIds) {
+		const opp = opportunities.find((o) => o.id === oppId)
+		if (!opp) continue
+		const oppLinks = linksForOpportunity(links, oppId)
+		if (oppLinks.length === 0) continue
+		totalDelCount += oppLinks.length
+
+		const oppEntries: Array<{ mu: number; sigma: number; weight: number }> = []
+		let hasPartial = false
+		for (const link of oppLinks) {
+			const del = deliverables.find((d) => d.id === link.deliverableId)
+			if (!del?.estimate) continue
+			const weight = link.coverage === 'full' ? 1 : 0.5
+			if (link.coverage === 'partial') hasPartial = true
+			oppEntries.push({ mu: del.estimate.mu, sigma: del.estimate.sigma, weight })
+		}
+		if (oppEntries.length === 0) continue
+
+		const sum = combineLognormals(oppEntries)
+		if (!sum) continue
+
+		allEntries.push(...oppEntries)
+		rows.push({
+			label: opp.title,
+			p10: lognormalQuantile(sum.mu, sum.sigma, 0.1),
+			p25: lognormalQuantile(sum.mu, sum.sigma, 0.25),
+			p50: lognormalQuantile(sum.mu, sum.sigma, 0.5),
+			p75: lognormalQuantile(sum.mu, sum.sigma, 0.75),
+			p90: lognormalQuantile(sum.mu, sum.sigma, 0.9),
+			coverage: hasPartial ? 'partial' : 'full',
+		})
+	}
+
+	if (rows.length === 0) return null
+
+	const sum = combineLognormals(allEntries)
+	if (!sum) return null
+
+	const combined: BoxPlotRow = {
+		label: 'Total',
+		p10: lognormalQuantile(sum.mu, sum.sigma, 0.1),
+		p25: lognormalQuantile(sum.mu, sum.sigma, 0.25),
+		p50: lognormalQuantile(sum.mu, sum.sigma, 0.5),
+		p75: lognormalQuantile(sum.mu, sum.sigma, 0.75),
+		p90: lognormalQuantile(sum.mu, sum.sigma, 0.9),
+		coverage: 'full',
+	}
+
+	return { rows, combined, estimatedCount: rows.length, totalDeliverableCount: totalDelCount }
+}
+
+/**
+ * Board-wide effort summary: aggregate of all estimated deliverables.
+ * Returns null if no deliverables have estimates.
+ */
+export function boardEffortSummary(
+	deliverables: Deliverable[],
+	links: OpportunityDeliverableLink[],
+): { p25: number; p50: number; p75: number; estimatedCount: number; totalCount: number } | null {
+	const entries: Array<{ mu: number; sigma: number; weight: number }> = []
+	let estimatedCount = 0
+
+	for (const del of deliverables) {
+		if (!del.estimate) continue
+		estimatedCount++
+		// Find best coverage from any link (full > partial)
+		const delLinks = links.filter((l) => l.deliverableId === del.id)
+		const hasFull = delLinks.some((l) => l.coverage === 'full')
+		const weight = hasFull || delLinks.length === 0 ? 1 : 0.5
+		entries.push({ mu: del.estimate.mu, sigma: del.estimate.sigma, weight })
+	}
+
+	if (entries.length === 0) return null
+
+	const sum = combineLognormals(entries)
+	if (!sum) return null
+
+	return {
+		p25: lognormalQuantile(sum.mu, sum.sigma, 0.25),
+		p50: lognormalQuantile(sum.mu, sum.sigma, 0.5),
+		p75: lognormalQuantile(sum.mu, sum.sigma, 0.75),
+		estimatedCount,
+		totalCount: deliverables.length,
+	}
 }

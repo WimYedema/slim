@@ -12,6 +12,8 @@
 		SCORE_SYMBOL,
 		stageLabel,
 		linksForDeliverable,
+		opportunityEffort,
+		formatDays,
 	} from '../lib/types'
 	import { collectPeople, buildMeetingAgenda, personUrgency, completeMeeting, type MeetingAgenda, type MeetingData, type ChangeItem, type CommitmentItem, type UnscoredCell, type ConflictItem, type DeliverableItem } from '../lib/meeting'
 	import { collectStakeholders, buildStakeholderProfile, buildTalkingPoints } from '../lib/stakeholders'
@@ -476,6 +478,12 @@
 						<span class="entity-meta">
 							{#if group.type === 'opportunity' && group.stage}
 								<span class="stage-badge">{stageLabel(group.stage)}</span>
+							{/if}
+							{#if group.type === 'opportunity'}
+								{@const effort = opportunityEffort(group.id, deliverables, links)}
+								{#if effort !== null}
+									<span class="effort-tag" title="Estimated effort (median)">≈{formatDays(effort)}</span>
+								{/if}
 							{/if}
 							{#if group.role}
 								<span class="role-tag">{group.role}</span>
@@ -1231,6 +1239,15 @@
 	.stage-badge {
 		font-size: var(--fs-2xs);
 		background: var(--c-neutral-bg);
+		padding: 1px var(--sp-xs);
+		border-radius: var(--radius-sm);
+	}
+
+	.effort-tag {
+		font-size: var(--fs-2xs);
+		font-weight: var(--fw-semibold);
+		color: var(--c-accent);
+		background: var(--c-accent-bg, oklch(0.95 0.02 250));
 		padding: 1px var(--sp-xs);
 		border-radius: var(--radius-sm);
 	}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Opportunity, Deliverable, OpportunityDeliverableLink } from '../lib/types'
-	import { linksForOpportunity } from '../lib/types'
+	import { linksForOpportunity, opportunityBoxPlotData } from '../lib/types'
+	import EffortBoxPlot from './EffortBoxPlot.svelte'
 
 	interface Props {
 		opportunity: Opportunity
@@ -29,6 +30,8 @@
 
 	let showLinkPicker = $state(false)
 	let newDeliverableTitle = $state('')
+
+	const boxPlotData = $derived(opportunityBoxPlotData(opportunity.id, deliverables, links))
 
 	function addAndLink(title: string) {
 		const trimmed = title.trim()
@@ -107,6 +110,11 @@
 				{/if}
 			</div>
 		{/if}
+		{#if boxPlotData}
+			<div class="effort-chart">
+				<EffortBoxPlot rows={boxPlotData.rows} combined={boxPlotData.combined} />
+			</div>
+		{/if}
 	</div>
 {/if}
 
@@ -117,6 +125,12 @@
 		background: var(--c-bg);
 		border-radius: var(--radius-sm);
 		font-family: var(--font);
+	}
+
+	.effort-chart {
+		margin-top: var(--sp-sm);
+		padding-top: var(--sp-xs);
+		border-top: 1px solid var(--c-border);
 	}
 
 	.deliverables-header {

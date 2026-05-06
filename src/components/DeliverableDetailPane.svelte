@@ -7,6 +7,7 @@
 		type TShirtSize,
 		type Certainty,
 		linksForDeliverable,
+		formatEstimateDays,
 		STAGES,
 		TSHIRT_SIZES,
 		inheritedPeople as inheritedPeopleForDeliverable,
@@ -143,8 +144,7 @@
 
 	{#if deliverable.estimate}
 		<div class="ddp-estimate-info">
-			<span class="ddp-estimate-icon">⚡</span>
-			<span class="ddp-estimate-value">{deliverable.estimate.snappedValue}</span>
+			<span class="ddp-estimate-value">{formatEstimateDays(deliverable.estimate.mu)}</span>
 			<span class="ddp-estimate-meta">{deliverable.estimate.n} estimator{deliverable.estimate.n !== 1 ? 's' : ''} · {new Date(deliverable.estimate.estimatedAt).toLocaleDateString()}</span>
 		</div>
 	{/if}
@@ -532,17 +532,13 @@
 
 	.ddp-estimate-info {
 		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: var(--sp-2) var(--sp-3);
+		align-items: baseline;
+		gap: var(--sp-lg);
+		padding: var(--sp-xs) var(--sp-md);
 		background: var(--c-accent-bg, oklch(0.95 0.02 250));
 		border-radius: var(--radius-sm);
 		font-size: var(--fs-sm);
-		margin: 0 var(--sp-3);
-	}
-
-	.ddp-estimate-icon {
-		font-size: var(--fs-base);
+		margin: 0 var(--sp-md);
 	}
 
 	.ddp-estimate-value {

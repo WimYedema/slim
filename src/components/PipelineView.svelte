@@ -23,9 +23,12 @@
 		stageLabel,
 		wipLevel,
 		wipNudge,
+		horizonBoxPlotData,
+		formatDays,
 	} from '../lib/types'
 	import PipelineFunnel from './PipelineFunnel.svelte'
 	import OpportunityRow from './OpportunityRow.svelte'
+	import EffortBoxPlot from './EffortBoxPlot.svelte'
 
 	interface Props {
 		opportunities: Opportunity[]
@@ -786,6 +789,7 @@
 					{@const breakdown = horizonBreakdown(group.items.map(i => i.opp))}
 					{@const urgentCount = group.items.filter(i => i.bucket === 'urgent').length}
 					{@const attentionCount = group.items.filter(i => i.bucket === 'attention').length}
+					{@const hzBoxPlot = horizonBoxPlotData(group.items.map(i => i.opp.id), opportunities, deliverables, links)}
 					<section
 						class="pl-stage-group"
 						class:drop-target={dropTargetHorizon === group.horizon}
@@ -839,6 +843,9 @@
 										{/if}
 									</span>
 								{/if}
+								{#if hzBoxPlot && !zoomedGroup}
+									<span class="effort-estimate" title="Median estimate: {formatDays(hzBoxPlot.combined.p50)}\nLikely range (P25–P75): {formatDays(hzBoxPlot.combined.p25)} – {formatDays(hzBoxPlot.combined.p75)}\n{hzBoxPlot.estimatedCount} of {group.items.length} opportunities estimated">≈{formatDays(hzBoxPlot.combined.p50)}</span>
+								{/if}
 								{#if !zoomedGroup}
 									<span class="pl-zoom-hint" aria-hidden="true">⤢</span>
 								{/if}
@@ -877,6 +884,12 @@
 									</div>
 								{/each}
 							</div>
+							{#if zoomedGroup && hzBoxPlot}
+								<div class="hz-effort-chart">
+									<div class="hz-effort-header">Effort estimates <span class="hz-effort-coverage">{hzBoxPlot.estimatedCount} of {group.items.length} opportunities estimated</span></div>
+									<EffortBoxPlot rows={hzBoxPlot.rows} combined={hzBoxPlot.combined} />
+								</div>
+							{/if}
 						{/if}
 					</section>
 				{/if}
@@ -1553,6 +1566,33 @@
 	.effort-gap {
 		color: var(--c-warm);
 		font-style: italic;
+	}
+
+	.effort-estimate {
+		font-weight: var(--fw-semibold);
+		color: var(--c-accent);
+		background: var(--c-accent-bg, oklch(0.95 0.02 250));
+		padding: 1px 6px;
+		border-radius: var(--radius-sm);
+		font-size: var(--fs-xs);
+		cursor: default;
+	}
+
+	.hz-effort-chart {
+		margin-top: var(--sp-md);
+		padding-top: var(--sp-md);
+		border-top: 1px solid var(--c-border);
+	}
+
+	.hz-effort-header {
+		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+		margin-bottom: var(--sp-sm);
+	}
+
+	.hz-effort-coverage {
+		color: var(--c-text-ghost);
+		margin-left: var(--sp-sm);
 	}
 
 	/* --- Drag-drop --- */

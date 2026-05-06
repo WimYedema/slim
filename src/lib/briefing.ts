@@ -14,6 +14,7 @@ import {
 	stageLabel,
 	wipLevel,
 	wipNudge,
+	sizeFromEstimate,
 } from './types'
 
 // ── Snapshot ──
@@ -501,14 +502,27 @@ function diffDeliverables(prev: Deliverable[], curr: Deliverable[], now: number)
 
 		// Estimate received or updated
 		if (del.estimate && (!old.estimate || del.estimate.estimatedAt > old.estimate.estimatedAt)) {
+			const desc = `Estimated: ${del.estimate.snappedValue} (${del.estimate.n} estimators)`
+			// Check for size mismatch between manual and estimate-derived
+			const SIZES = ['XS', 'S', 'M', 'L', 'XL'] as const
+			let detail: string | undefined
+			if (del.size) {
+				const derived = sizeFromEstimate(del.estimate)
+				const manualIdx = SIZES.indexOf(del.size)
+				const derivedIdx = SIZES.indexOf(derived)
+				if (Math.abs(manualIdx - derivedIdx) >= 2) {
+					detail = `You sized ${del.size}, team estimated ${derived} — worth reviewing?`
+				}
+			}
 			items.push({
 				id: itemId(),
 				targetType: 'deliverable',
 				targetId: del.id,
 				targetTitle: del.title,
 				verb: 'estimate-received',
-				description: `Estimated: ${del.estimate.snappedValue} (${del.estimate.n} estimators)`,
-				tier: TIER_MAP['estimate-received'],
+				description: desc,
+				detail,
+				tier: detail ? 1 : TIER_MAP['estimate-received'],
 				timestamp: del.estimate.estimatedAt,
 			})
 		}

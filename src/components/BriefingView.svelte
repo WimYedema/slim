@@ -10,8 +10,9 @@
 		PERSPECTIVE_LABELS,
 		defaultHorizon,
 		stageLabel,
+		formatDays,
 	} from '../lib/types'
-	import { agingLevel, daysInStage, boardHealth, buildCfd, leadTimeStats } from '../lib/queries'
+	import { agingLevel, daysInStage, boardHealth, buildCfd, leadTimeStats, boardEffortSummary } from '../lib/queries'
 	import uPlot from 'uplot'
 	import 'uplot/dist/uPlot.min.css'
 	import type { BoardData } from '../lib/store'
@@ -102,6 +103,7 @@
 	// ── Board health dashboard ──
 	const health = $derived(boardHealth(opportunities, deliverables, links))
 	const consentPct = $derived(health.totalCells > 0 ? Math.round((health.scoredCells / health.totalCells) * 100) : 0)
+	const effortSummary = $derived(boardEffortSummary(deliverables, links))
 	const cfd = $derived(buildCfd(opportunities))
 	const leadTime = $derived(leadTimeStats(opportunities))
 
@@ -488,12 +490,20 @@
 				<span class="bh-value">{health.totalDeliverables}</span>
 				<span class="bh-detail">avg {health.avgLinksPerDeliverable} links each</span>
 				{#if health.estimatedDeliverables > 0}
-					<span class="bh-flag bh-flag-ok">⚡ {health.estimatedDeliverables} estimated</span>
+					<span class="bh-flag bh-flag-ok">{health.estimatedDeliverables} estimated</span>
 				{/if}
 				{#if health.orphanDeliverables > 0}
 					<span class="bh-flag bh-flag-warn">{health.orphanDeliverables} orphan{health.orphanDeliverables !== 1 ? 's' : ''}</span>
 				{/if}
 			</button>
+			{#if effortSummary}
+				<button class="bh-card bh-card-nav" onclick={() => onSwitchView('deliverables')}>
+					<span class="bh-label">Effort estimate</span>
+					<span class="bh-value">≈{formatDays(effortSummary.p50)}</span>
+					<span class="bh-detail">likely {formatDays(effortSummary.p25)} – {formatDays(effortSummary.p75)}</span>
+					<span class="bh-flag {effortSummary.estimatedCount < effortSummary.totalCount ? 'bh-flag-warn' : 'bh-flag-ok'}">{effortSummary.estimatedCount} of {effortSummary.totalCount} deliverables estimated</span>
+				</button>
+			{/if}
 			{#if health.originCounts.length > 0}
 				<div class="bh-card bh-card-wide">
 					<span class="bh-label">Origin balance</span>

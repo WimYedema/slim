@@ -8,6 +8,7 @@
 		type Certainty,
 		linksForDeliverable,
 		linksForOpportunity,
+		opportunityEffort,
 		STAGES,
 		stageIndex,
 		TSHIRT_SIZES,
@@ -16,6 +17,7 @@
 		inheritedPeople,
 		effectiveSize,
 		effectiveCertainty,
+		formatEstimateDays,
 	} from '../lib/types'
 
 	interface Props {
@@ -274,8 +276,8 @@
 
 	/** Colspan for a horizon label: 3 fixed cols + opportunity cols through that horizon's last column */
 	function horizonLabelColspan(horizon: string | null): number {
-		if (!horizon) return 3
-		let cols = 3 // name, size, cert
+		if (!horizon) return 4
+		let cols = 4 // name, size, cert, est
 		for (const g of horizonGroups()) {
 			cols += g.span
 			if (g.horizon === horizon) break
@@ -461,7 +463,7 @@
 					<thead>
 						{#if horizonGroups().length > 0}
 						<tr class="horizon-group-row">
-							<th colspan="3"></th>
+							<th colspan="4"></th>
 							{#each horizonGroups() as group, ghi}
 								<th colspan={group.span} class="horizon-group-label" class:horizon-last={ghi < horizonGroups().length - 1} style="--hz-color: {horizonColor(group.horizon)}">{group.horizon}</th>
 							{/each}
@@ -475,12 +477,14 @@
 							</th>
 							<th class="matrix-col-label" style="--hz-opening: {horizonColor(openingHorizon())}">Size</th>
 							<th class="matrix-col-label" style="--hz-opening: {horizonColor(openingHorizon())}">Cert.</th>
+							<th class="matrix-col-label" style="--hz-opening: {horizonColor(openingHorizon())}">Est.</th>
 							{#each orderedCols as opp (opp.id)}
 								{@const covered = isFullyCovered(opp)}
 								{@const empty = hasNoLinks(opp)}
 								{@const oppLinks = linksForOpportunity(links, opp.id)}
 								{@const fullCount = oppLinks.filter(l => l.coverage === 'full').length}
 								{@const earlyStage = stageIndex(opp.stage) < 2}
+								{@const effort = opportunityEffort(opp.id, deliverables, links)}
 								<th
 									class="matrix-opp-header"
 									class:covered
@@ -498,6 +502,9 @@
 									<span class="matrix-opp-coverage" title="{fullCount} full, {oppLinks.length - fullCount} partial of {oppLinks.length} linked">
 										{oppLinks.length === 0 ? '' : `${fullCount}/${oppLinks.length}`}
 									</span>
+									{#if effort != null}
+										<span class="matrix-opp-effort" title="Estimated effort from linked deliverables">{effort < 10 ? effort.toFixed(1) : Math.round(effort)}d</span>
+									{/if}
 									{#if empty}
 										<span class="matrix-gap-badge" title="No deliverables linked yet">gap</span>
 									{/if}
@@ -591,7 +598,6 @@
 											<span class="matrix-row-badge partial-badge" title="All links partial — none fully covered">partial only</span>
 										{/if}
 										{#if lev > 0}<span class="leverage-score" title="Leverage score: opportunity value ÷ size. Higher = do first.">▴{lev.toFixed(1)}</span>{/if}
-										{#if deliverable.estimate}<span class="matrix-row-badge estimate-badge" title="Estimated: {deliverable.estimate.snappedValue} ({deliverable.estimate.n} estimators)">⚡</span>{/if}
 									</td>
 									<td class="matrix-size-cell">
 										<button class="btn-ghost size-btn" class:from-estimate={!!deliverable.estimate} onclick={() => cycleSize(deliverable)} title="{deliverable.estimate ? 'Estimated: ' + deliverable.estimate.snappedValue : 'Click to cycle size'}">
@@ -602,6 +608,13 @@
 										<button class="btn-ghost certainty-btn" class:from-estimate={!!deliverable.estimate} onclick={() => cycleCertainty(deliverable)} title="Confidence: {cert ? '~' + cert * 20 + '%' : 'unset'}" aria-label="Confidence: {cert ? '~' + cert * 20 + '%' : 'unset'}">
 											{cert ? '~' + cert * 20 + '%' : '–'}
 										</button>
+									</td>
+									<td class="matrix-estimate-cell">
+										{#if deliverable.estimate}
+											<span class="estimate-value" title="{deliverable.estimate.n} estimator{deliverable.estimate.n !== 1 ? 's' : ''} · {new Date(deliverable.estimate.estimatedAt).toLocaleDateString()}">{deliverable.estimate.snappedValue}</span>
+										{:else}
+											<span class="estimate-empty">–</span>
+										{/if}
 									</td>
 									{#each orderedCols as opp (opp.id)}
 										{@const link = findLink(opp.id, deliverable.id)}
@@ -1050,9 +1063,10 @@
 		background: var(--c-neutral-bg);
 	}
 
-	.estimate-badge {
+	.matrix-opp-effort {
 		font-size: var(--fs-xs);
-		margin-left: var(--sp-sm);
+		color: var(--c-accent);
+		font-weight: var(--fw-semibold);
 	}
 
 	.from-estimate {
@@ -1301,12 +1315,25 @@
 		border-bottom: 2px solid var(--hz-opening, var(--c-structure));
 	}
 
-	/* ── Size + Certainty cells ── */
+	/* ── Size + Certainty + Estimate cells ── */
 	.matrix-size-cell,
-	.matrix-certainty-cell {
+	.matrix-certainty-cell,
+	.matrix-estimate-cell {
 		text-align: center;
 		vertical-align: middle;
 		padding: 0 2px !important;
+	}
+
+	.estimate-value {
+		color: var(--c-accent);
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-semibold);
+		cursor: default;
+	}
+
+	.estimate-empty {
+		color: var(--c-text-ghost);
+		font-size: var(--fs-xs);
 	}
 
 	.size-btn {

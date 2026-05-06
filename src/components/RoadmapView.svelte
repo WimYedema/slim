@@ -18,6 +18,8 @@
 		daysInStage,
 		agingLevel,
 		stageLabel,
+		horizonBoxPlotData,
+		formatDays,
 	} from '../lib/types'
 
 	interface Props {
@@ -299,6 +301,7 @@
 			{#each horizons() as horizon}
 				{@const opps = grouped().get(horizon) ?? []}
 				{@const breakdown = horizonBreakdown(opps)}
+				{@const hzEffort = horizonBoxPlotData(opps.map(o => o.id), opportunities, deliverables, links)}
 				<tr
 					class="horizon-row"
 					class:drop-target={dropTargetHorizon === horizon}
@@ -356,6 +359,9 @@
 											<span class="effort-gap" title="{breakdown.unsized} deliverable{breakdown.unsized === 1 ? '' : 's'} not yet sized">{breakdown.unsized} unsized</span>
 										{/if}
 									</span>
+								{/if}
+								{#if hzEffort}
+									<span class="effort-estimate" title="Median estimate: {formatDays(hzEffort.combined.p50)}\nLikely range (P25–P75): {formatDays(hzEffort.combined.p25)} – {formatDays(hzEffort.combined.p75)}\n{hzEffort.estimatedCount} of {opps.length} opportunities estimated">≈{formatDays(hzEffort.combined.p50)}</span>
 								{/if}
 							</div>
 						{/if}
@@ -644,6 +650,16 @@
 	.effort-gap {
 		color: var(--c-warm);
 		font-style: italic;
+	}
+
+	.effort-estimate {
+		font-weight: var(--fw-semibold);
+		color: var(--c-accent);
+		background: var(--c-accent-bg, oklch(0.95 0.02 250));
+		padding: 1px 6px;
+		border-radius: var(--radius-sm);
+		font-size: var(--fs-xs);
+		cursor: default;
 	}
 
 	/* ── Opportunity rows ── */
