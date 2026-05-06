@@ -22,6 +22,7 @@ import {
 	encrypt,
 } from './crypto'
 import { expirationTag, RELAY_URLS, type SyncKeys } from './samen/nostr-config'
+import { compoundRoomCode } from './samen/types'
 import type { BoardData } from './store'
 import type { CellSignal, DeliverableEstimate, Perspective, Stage } from './types'
 
@@ -349,14 +350,15 @@ export async function subscribeScores(
 const CONSONANTS = 'bdfghjkmnprstvz'
 const VOWELS = 'aeiou'
 
-/** Generate a 4-syllable room code matching Skatting's format (~28 bits entropy). */
-export function generateEstimationRoom(): string {
+/** Generate a 4-syllable room code matching Skatting's format (~28 bits entropy).
+ *  If teamCode is provided, returns a compound code: `teamCode-sessionCode`. */
+export function generateEstimationRoom(teamCode?: string): string {
 	let id = ''
 	for (let i = 0; i < 4; i++) {
 		id += CONSONANTS[Math.floor(Math.random() * CONSONANTS.length)]
 		id += VOWELS[Math.floor(Math.random() * VOWELS.length)]
 	}
-	return id
+	return teamCode ? compoundRoomCode(teamCode, id) : id
 }
 
 // --- Bridge types ---

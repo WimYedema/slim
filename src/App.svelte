@@ -614,7 +614,8 @@
 	let estimationError = $state('')
 
 	async function createEstimationAndPublish() {
-		const room = generateEstimationRoom()
+		const teamCode = roomInfo?.roster?.roomCode
+		const room = generateEstimationRoom(teamCode)
 		estimationRoom = room
 		await publishEstimation(room)
 	}
