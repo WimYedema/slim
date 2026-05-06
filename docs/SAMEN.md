@@ -680,22 +680,22 @@ The current bridge uses direct Nostr queries — Slim publishes to a known d-tag
 
 Define the protocol that all tools will speak. This is the API contract — changes here are expensive later.
 
-- [ ] Define `SamenEvent` interface in `src/lib/samen/types.ts`
-- [ ] Define event type registry: `slim:estimation-request`, `skatting:verdicts` (migrate existing bridge)
-- [ ] Implement `publishEvent` and `queryEvents` in `src/lib/samen/events.ts`
-- [ ] Unit tests for envelope serialization, encryption round-trip
-- [ ] Migrate Slim→Skatting bridge to use Samen envelope (backward-compatible: accept both old and new format)
+- [x] Define `SamenEvent` interface in `src/lib/samen/types.ts`
+- [x] Define event type registry: `slim:estimation-request`, `skatting:verdicts` (migrate existing bridge)
+- [x] Implement `publishEvent` and `queryEvents` in `src/lib/samen/events.ts`
+- [x] Unit tests for envelope serialization, encryption round-trip
+- [x] Migrate Slim→Skatting bridge to use Samen envelope (backward-compatible: accept both old and new format)
 
 ### Phase 2: Identity — wire the existing roster
 
 The roster module exists and is tested. Wire it into both tools.
 
-- [ ] Slim: member picker component (autocomplete from roster, freeform fallback)
-- [ ] Slim: wire member picker into `CardDetail.svelte`, `DeliverableDetailPane.svelte`, `Commitment.to`
-- [ ] Slim: "Create team" toggle in `SyncPanel.svelte`, team section with roster management
-- [ ] Skatting: copy `src/lib/samen/` module, query roster on join, member picker in lobby
-- [ ] Skatting: skip name-conflict resolution for roster-identified members
-- [ ] Both: cache identity and roster in localStorage, refresh from relay on startup
+- [x] Slim: member picker component (autocomplete from roster, freeform fallback)
+- [x] Slim: wire member picker into `DetailPane.svelte`, `DeliverableDetailPane.svelte`, `CommitmentsAndPeople.svelte`
+- [x] Slim: "Create team" toggle in `SyncPanel.svelte`, team section with roster management
+- [x] Skatting: copy `src/lib/samen/` module (via git subtree), query roster on join, name pills in lobby
+- [x] Skatting: skip name-conflict resolution for roster-identified members
+- [x] Both: cache identity and roster in localStorage, refresh from relay on startup
 
 ### Phase 3: Data availability hardening
 
