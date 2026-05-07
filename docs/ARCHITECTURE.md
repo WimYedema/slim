@@ -80,15 +80,6 @@ Data volume is small (tens of opportunities). localStorage is synchronous, simpl
 
 Numeric scoring (WSJF, RICE) creates false precision and is easily gamed. Consent asks: "Has everyone been heard, and does anyone object?" -- more honest and actionable.
 
-## Unused Components
+## Removed Components (historical)
 
-These exist in the codebase but are not wired into the UI:
-
-- `ListView.svelte` -- original triage list (replaced by PipelineView)
-- `RoadmapView.svelte` -- original horizon-grouped table (folded into PipelineView)
-- `CardDetail.svelte` -- earlier card detail experiment
-- `CubeView.svelte` -- 3D portfolio cube visualization
-- `LanesView.svelte` -- Kanban-style lane layout
-- `PipelineBoard.svelte` -- earlier pipeline board experiment
-- `ScatterView.svelte` -- scatter plot visualization
-- `TernaryView.svelte` -- ternary triangle visualization
+Earlier iterations included `ListView`, `RoadmapView`, `CardDetail`, `CubeView`, `LanesView`, `PipelineBoard`, `ScatterView`, and `TernaryView`. Their functionality was either folded into `PipelineView` or never shipped. All were removed as dead code.

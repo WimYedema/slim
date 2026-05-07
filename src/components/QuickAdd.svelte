@@ -43,13 +43,13 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
-<div class="qa-overlay" role="dialog" aria-label="Quick add" onclick={onClose}>
+<div class="overlay qa-overlay" role="dialog" aria-label="Quick add" onclick={onClose}>
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="qa-dialog" onclick={(e) => e.stopPropagation()}>
-		<div class="qa-mode-tabs">
-			<button class="qa-tab" class:active={mode === 'opportunity'} onclick={() => mode = 'opportunity'}>Opportunity</button>
-			<button class="qa-tab" class:active={mode === 'deliverable'} onclick={() => mode = 'deliverable'}>Deliverable</button>
+	<div class="dialog qa-dialog" onclick={(e) => e.stopPropagation()}>
+		<div class="tab-bar">
+			<button class="tab" class:active={mode === 'opportunity'} onclick={() => mode = 'opportunity'}>Opportunity</button>
+			<button class="tab" class:active={mode === 'deliverable'} onclick={() => mode = 'deliverable'}>Deliverable</button>
 			<span class="qa-hint">Tab to switch</span>
 		</div>
 		<input
@@ -69,50 +69,14 @@
 
 <style>
 	.qa-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.3);
-		display: flex;
 		align-items: flex-start;
-		justify-content: center;
 		padding-top: 20vh;
 		z-index: 800;
 	}
 
 	.qa-dialog {
-		background: var(--c-surface);
-		border: 1px solid var(--c-border);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.25));
 		padding: var(--sp-md);
-		width: min(420px, 90vw);
-		font-family: var(--font);
-	}
-
-	.qa-mode-tabs {
-		display: flex;
-		gap: var(--sp-xs);
-		margin-bottom: var(--sp-sm);
-		align-items: center;
-	}
-
-	.qa-tab {
-		background: none;
-		border: 1px solid var(--c-border-soft);
-		font: inherit;
-		font-size: var(--fs-sm);
-		color: var(--c-text-muted);
-		cursor: pointer;
-		padding: var(--sp-xs) var(--sp-sm);
-		border-radius: var(--radius-sm);
-		transition: background var(--tr-fast), color var(--tr-fast), border-color var(--tr-fast);
-	}
-
-	.qa-tab.active {
-		color: var(--c-text);
-		font-weight: var(--fw-medium);
-		background: var(--c-hover);
-		border-color: var(--c-accent);
+		max-width: 420px;
 	}
 
 	.qa-hint {

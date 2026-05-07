@@ -7,13 +7,13 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
-<div class="kb-overlay" role="dialog" aria-label="Keyboard shortcuts" onclick={onClose}>
+<div class="overlay kb-overlay" role="dialog" aria-label="Keyboard shortcuts" onclick={onClose}>
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="kb-dialog" role="document" onclick={(e) => e.stopPropagation()}>
-		<header class="kb-header">
+	<div class="dialog kb-dialog" onclick={(e) => e.stopPropagation()}>
+		<header class="dialog-header">
 			<h2>Keyboard shortcuts</h2>
-			<button class="kb-close" onclick={onClose}>×</button>
+			<button class="btn-icon" onclick={onClose} aria-label="Close">×</button>
 		</header>
 		<div class="kb-columns">
 			<section class="kb-section">
@@ -58,46 +58,11 @@
 
 <style>
 	.kb-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.45);
-		display: flex;
-		align-items: center;
-		justify-content: center;
 		z-index: 900;
 	}
 
 	.kb-dialog {
-		background: var(--c-surface);
-		border: 1px solid var(--c-border);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.25));
-		padding: var(--sp-lg);
 		max-width: 640px;
-		width: 90vw;
-		font-family: var(--font);
-	}
-
-	.kb-header {
-		display: flex;
-		align-items: baseline;
-		justify-content: space-between;
-		margin-bottom: var(--sp-md);
-	}
-
-	.kb-header h2 {
-		margin: 0;
-		font-size: var(--fs-lg);
-	}
-
-	.kb-close {
-		background: none;
-		border: none;
-		font-size: var(--fs-lg);
-		cursor: pointer;
-		color: var(--c-text-muted);
-		padding: var(--sp-xs);
-		line-height: var(--lh-tight);
 	}
 
 	.kb-columns {

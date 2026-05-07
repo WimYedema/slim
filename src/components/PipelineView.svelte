@@ -551,7 +551,7 @@
 
 <div class="pl-container">
 	{#if onImportCSV || onExportCSV}
-		<div class="pl-toolbar">
+		<div class="toolbar">
 			{#if onImportCSV}
 				<button class="btn-solid" onclick={onImportCSV}>Import CSV…</button>
 			{/if}
@@ -927,17 +927,6 @@
 	.pl-container > * {
 		width: 100%;
 		max-width: 56rem;
-	}
-
-	.pl-toolbar {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-sm);
-		padding: var(--sp-xs) var(--sp-sm);
-		background: var(--c-surface-alt);
-		border: 1px solid var(--c-border-soft);
-		border-radius: var(--radius-sm);
-		font-size: var(--fs-xs);
 	}
 
 	/* --- Add input --- */

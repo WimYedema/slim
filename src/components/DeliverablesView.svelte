@@ -451,7 +451,7 @@
 
 <div class="deliverables-view">
 
-	<div class="dv-toolbar">
+	<div class="toolbar dv-toolbar">
 		{#if onShowImport}
 			<button class="btn-solid" onclick={onShowImport}>Import…</button>
 		{/if}
@@ -462,7 +462,7 @@
 			</label>
 		{/if}
 		{#if estimationRoom}
-			<span class="dv-toolbar-sep"></span>
+			<span class="toolbar-sep"></span>
 			<span class="dv-toolbar-label">Skatting: <code>{estimationRoom}</code></span>
 			<button class="btn-solid" disabled={estimationBusy} onclick={onPushDeliverables}>Push deliverables</button>
 			<button class="btn-solid" disabled={estimationBusy} onclick={onPullEstimates}>Pull estimates</button>
@@ -797,15 +797,7 @@
 	}
 
 	.dv-toolbar {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-sm);
-		padding: var(--sp-xs) var(--sp-sm);
 		margin: 0 var(--sp-sm) var(--sp-sm);
-		background: var(--c-surface-alt);
-		border: 1px solid var(--c-border-soft);
-		border-radius: var(--radius-sm);
-		font-size: var(--fs-xs);
 		min-height: 28px;
 	}
 
@@ -829,13 +821,6 @@
 	.dv-toolbar-zoom input[type="range"] {
 		width: 60px;
 		accent-color: var(--c-accent);
-	}
-
-	.dv-toolbar-sep {
-		width: 1px;
-		align-self: stretch;
-		background: var(--c-border-soft);
-		margin: 2px 0;
 	}
 
 	.dv-est-msg {

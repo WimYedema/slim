@@ -222,17 +222,17 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="id-overlay" onclick={onClose}>
-	<div class="id-dialog" role="dialog" aria-label="Import deliverables" onclick={(e) => e.stopPropagation()}>
-		<div class="id-header">
-			<h2 class="id-title">Import deliverables</h2>
+<div class="overlay id-overlay" onclick={onClose}>
+	<div class="dialog id-dialog" role="dialog" aria-label="Import deliverables" onclick={(e) => e.stopPropagation()}>
+		<div class="dialog-header">
+			<h2>Import deliverables</h2>
 			<button class="btn-icon" onclick={onClose} aria-label="Close">✕</button>
 		</div>
 
-		<div class="id-tabs">
-			<button class="id-tab" class:active={tab === 'github'} onclick={() => switchTab('github')}>GitHub</button>
-			<button class="id-tab" class:active={tab === 'connector'} onclick={() => switchTab('connector')}>Connector</button>
-			<button class="id-tab" class:active={tab === 'paste'} onclick={() => switchTab('paste')}>Paste</button>
+		<div class="tab-bar">
+			<button class="tab" class:active={tab === 'github'} onclick={() => switchTab('github')}>GitHub</button>
+			<button class="tab" class:active={tab === 'connector'} onclick={() => switchTab('connector')}>Connector</button>
+			<button class="tab" class:active={tab === 'paste'} onclick={() => switchTab('paste')}>Paste</button>
 		</div>
 
 		{#if tab === 'github'}
@@ -375,70 +375,11 @@
 
 <style>
 	.id-overlay {
-		position: fixed;
-		inset: 0;
-		background: var(--c-overlay);
-		display: flex;
-		align-items: center;
-		justify-content: center;
 		z-index: 850;
 	}
 
 	.id-dialog {
-		background: var(--c-surface);
-		border: 1px solid var(--c-border);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-lg);
-		padding: var(--sp-lg);
-		width: 90vw;
 		max-width: 36rem;
-		max-height: 80vh;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
-	.id-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: var(--sp-sm);
-	}
-
-	.id-title {
-		margin: 0;
-		font-size: var(--fs-lg);
-		font-weight: var(--fw-semibold);
-	}
-
-	.id-tabs {
-		display: flex;
-		gap: var(--sp-xs);
-		margin-bottom: var(--sp-md);
-		border-bottom: 1px solid var(--c-border-soft);
-		padding-bottom: var(--sp-xs);
-	}
-
-	.id-tab {
-		background: none;
-		border: none;
-		padding: var(--sp-xs) var(--sp-sm);
-		font: inherit;
-		font-size: var(--fs-sm);
-		color: var(--c-text-muted);
-		cursor: pointer;
-		border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-		transition: color var(--tr-fast), background var(--tr-fast);
-	}
-
-	.id-tab:hover {
-		color: var(--c-text);
-	}
-
-	.id-tab.active {
-		color: var(--c-text);
-		background: var(--c-surface-alt);
-		font-weight: var(--fw-medium);
 	}
 
 	.id-config {

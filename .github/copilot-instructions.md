@@ -143,6 +143,16 @@ All visual values use CSS custom properties from `:root` in `index.html`:
 
 Never use raw hex colors, pixel values, or magic numbers in component CSS. Per-instance dynamic values use scoped inline custom properties.
 
+### Global utility classes
+
+Reusable widget classes defined in `index.html` (never duplicate in component CSS):
+- **Buttons**: `.btn-solid`, `.btn-ghost`, `.btn-icon`
+- **Overlay/dialog**: `.overlay` (fixed backdrop), `.dialog` (modal box), `.dialog-header` (title + close row)
+- **Toolbar**: `.toolbar` (flex row, surface-alt background, border), `.toolbar-sep` (vertical divider)
+- **Tabs**: `.tab-bar` (flex row), `.tab` (individual tab button, `.active` state)
+
+Components override only size/position (e.g. `max-width`, `z-index`, `margin`) via scoped CSS classes composed with the utility class.
+
 ### Content-width layout
 
 Scrollable views use a **full-width container / constrained content** pattern to keep the scrollbar at the viewport edge while centering a readable content column:

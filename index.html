@@ -221,6 +221,79 @@
         justify-content: center;
         z-index: 20;
       }
+
+      .dialog {
+        background: var(--c-surface);
+        border: 1px solid var(--c-border);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-lg);
+        padding: var(--sp-lg);
+        width: 90vw;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .dialog-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: var(--sp-sm);
+      }
+
+      .dialog-header h2 {
+        margin: 0;
+        font-size: var(--fs-lg);
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-sm);
+        padding: var(--sp-xs) var(--sp-sm);
+        background: var(--c-surface-alt);
+        border: 1px solid var(--c-border-soft);
+        border-radius: var(--radius-sm);
+        font-size: var(--fs-xs);
+      }
+
+      .toolbar-sep {
+        width: 1px;
+        align-self: stretch;
+        background: var(--c-border-soft);
+        margin: 2px 0;
+      }
+
+      .tab-bar {
+        display: flex;
+        gap: var(--sp-xs);
+        align-items: center;
+        margin-bottom: var(--sp-sm);
+      }
+
+      .tab {
+        background: none;
+        border: 1px solid var(--c-border-soft);
+        font: inherit;
+        font-size: var(--fs-sm);
+        color: var(--c-text-muted);
+        cursor: pointer;
+        padding: var(--sp-xs) var(--sp-sm);
+        border-radius: var(--radius-sm);
+        transition: background var(--tr-fast), color var(--tr-fast), border-color var(--tr-fast);
+      }
+
+      .tab:hover {
+        color: var(--c-text);
+      }
+
+      .tab.active {
+        color: var(--c-text);
+        font-weight: var(--fw-medium);
+        background: var(--c-hover);
+        border-color: var(--c-accent);
+      }
     </style>
   </head>
   <body>
