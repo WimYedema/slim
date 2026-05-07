@@ -34,9 +34,15 @@
 		onSelectOpportunity: (id: string) => void
 		onSelectDeliverable: (id: string) => void
 		orderedIds?: string[]
+		estimationRoom?: string
+		estimationBusy?: boolean
+		estimationMessage?: string
+		estimationError?: string
+		onPushDeliverables?: () => void
+		onPullEstimates?: () => void
 	}
 
-	let { deliverables, links, opportunities, selectedId, onAdd, onUpdate, onRemove, onLink, onUnlink, onUpdateCoverage, onSelectOpportunity, onSelectDeliverable, orderedIds = $bindable([]) }: Props = $props()
+	let { deliverables, links, opportunities, selectedId, onAdd, onUpdate, onRemove, onLink, onUnlink, onUpdateCoverage, onSelectOpportunity, onSelectDeliverable, orderedIds = $bindable([]), estimationRoom, estimationBusy = false, estimationMessage = '', estimationError = '', onPushDeliverables, onPullEstimates }: Props = $props()
 
 	let newTitle = $state('')
 
@@ -444,6 +450,16 @@
 
 <div class="deliverables-view">
 
+	{#if estimationRoom}
+		<div class="dv-est-bar">
+			<span class="dv-est-label">Skatting: <code>{estimationRoom}</code></span>
+			<button class="btn-solid" disabled={estimationBusy} onclick={onPushDeliverables}>Push deliverables</button>
+			<button class="btn-solid" disabled={estimationBusy} onclick={onPullEstimates}>Pull estimates</button>
+			{#if estimationMessage}<span class="dv-est-msg">{estimationMessage}</span>{/if}
+			{#if estimationError}<span class="dv-est-err">{estimationError}</span>{/if}
+		</div>
+	{/if}
+
 	{#if orderedCols.length === 0}
 			<div class="dv-empty">
 				{#if deliverables.length === 0 && opportunities.length === 0}
@@ -768,6 +784,38 @@
 		flex: 1;
 		overflow-y: auto;
 		padding: var(--sp-sm) 0;
+	}
+
+	.dv-est-bar {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-sm);
+		padding: var(--sp-xs) var(--sp-sm);
+		margin: 0 var(--sp-sm) var(--sp-sm);
+		background: var(--c-surface-alt);
+		border: 1px solid var(--c-border-soft);
+		border-radius: var(--radius-sm);
+		font-size: var(--fs-xs);
+	}
+
+	.dv-est-label {
+		color: var(--c-text-muted);
+		flex-shrink: 0;
+	}
+
+	.dv-est-label code {
+		font-size: var(--fs-xs);
+		color: var(--c-text-soft);
+	}
+
+	.dv-est-msg {
+		color: var(--c-green);
+		font-size: var(--fs-xs);
+	}
+
+	.dv-est-err {
+		color: var(--c-red);
+		font-size: var(--fs-xs);
 	}
 
 	.dv-empty {

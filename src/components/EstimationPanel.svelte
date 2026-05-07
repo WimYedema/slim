@@ -6,8 +6,6 @@
 		message: string
 		error: string
 		onCreateAndPublish: () => void
-		onRepublish: () => void
-		onPullVerdicts: () => void
 		onDisconnect: () => void
 	}
 
@@ -18,8 +16,6 @@
 		message,
 		error,
 		onCreateAndPublish,
-		onRepublish,
-		onPullVerdicts,
 		onDisconnect,
 	}: Props = $props()
 
@@ -36,10 +32,8 @@
 <div class="ep">
 	{#if !roomCode}
 		<div class="ep-section">
-			<h3>Estimate deliverables</h3>
-			<p class="ep-hint">Send your deliverables to a Skatting room for team estimation. Estimates flow back automatically.</p>
 			<button
-				class="ep-btn primary"
+				class="btn-solid"
 				disabled={busy || deliverableCount === 0}
 				onclick={onCreateAndPublish}
 			>
@@ -51,27 +45,16 @@
 		</div>
 	{:else}
 		<div class="ep-section">
-			<h3>Estimation room</h3>
+			<p class="ep-hint">Share this room code with the team to start a Skatting estimation session.</p>
 			<div class="ep-room-row">
-				<button class="ep-room-code" onclick={copyCode} title="Copy to clipboard">
+				<button class="ep-room-code" onclick={copyCode} title="Copy room code">
 					{roomCode}
-					<span class="ep-copy">{copied ? '✓' : '⎘'}</span>
-				</button>
-			</div>
-			<p class="ep-hint">Share this code with the team to join in Skatting.</p>
-		</div>
-		<div class="ep-section">
-			<div class="ep-actions">
-				<button class="ep-btn" disabled={busy} onclick={onRepublish} title="Re-send the current deliverable list">
-					Republish
-				</button>
-				<button class="ep-btn primary" disabled={busy} onclick={onPullVerdicts}>
-					Pull estimates
+					<span class="ep-copy">{copied ? '✓ Copied' : 'Copy'}</span>
 				</button>
 			</div>
 		</div>
 		<div class="ep-section">
-			<button class="ep-btn danger" disabled={busy} onclick={onDisconnect}>
+			<button class="btn-ghost ep-danger" disabled={busy} onclick={onDisconnect}>
 				Disconnect
 			</button>
 		</div>
@@ -90,7 +73,6 @@
 
 <style>
 	.ep {
-		padding: var(--sp-md);
 		display: flex;
 		flex-direction: column;
 	}
@@ -145,53 +127,14 @@
 		color: var(--c-text-muted);
 	}
 
-	.ep-actions {
-		display: flex;
-		gap: var(--sp-xs);
-		padding: var(--sp-xs) 0;
-	}
-
-	.ep-btn {
-		padding: var(--sp-xs) var(--sp-sm);
-		border-radius: var(--radius-sm);
-		border: 1px solid var(--c-border);
-		background: none;
-		color: var(--c-text);
-		font: inherit;
-		font-size: var(--fs-sm);
-		cursor: pointer;
-		transition: background var(--tr-fast);
-	}
-
-	.ep-btn:hover:not(:disabled) {
-		background: var(--c-hover);
-	}
-
-	.ep-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.ep-btn.primary {
-		background: var(--c-accent);
-		color: var(--c-accent-text);
-		border-color: var(--c-accent);
-	}
-
-	.ep-btn.primary:hover:not(:disabled) {
-		background: var(--c-accent-hover);
-	}
-
-	.ep-btn.danger {
-		border: none;
+	.ep-danger {
 		color: var(--c-text-muted);
 		font-size: var(--fs-xs);
 		padding: var(--sp-xs) 0;
 	}
 
-	.ep-btn.danger:hover:not(:disabled) {
+	.ep-danger:hover:not(:disabled) {
 		color: var(--c-red);
-		background: none;
 	}
 
 	.ep-message {

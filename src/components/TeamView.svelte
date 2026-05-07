@@ -5,13 +5,31 @@
 	import { checkRelayHealth, RELAY_URLS } from '../lib/samen/nostr-config'
 	import { queryEvents } from '../lib/samen/events'
 	import { parseRoomCode } from '../lib/samen/types'
+	import EstimationPanel from './EstimationPanel.svelte'
 
 	interface Props {
 		roomInfo: RoomInfo
 		onLeaveRoom: () => void
+		estimationRoom?: string
+		deliverableCount: number
+		estimationBusy: boolean
+		estimationMessage: string
+		estimationError: string
+		onCreateEstimation: () => void
+		onDisconnectEstimation: () => void
 	}
 
-	let { roomInfo, onLeaveRoom }: Props = $props()
+	let {
+		roomInfo,
+		onLeaveRoom,
+		estimationRoom,
+		deliverableCount,
+		estimationBusy,
+		estimationMessage,
+		estimationError,
+		onCreateEstimation,
+		onDisconnectEstimation,
+	}: Props = $props()
 
 	// ── Room info ──
 	let copyStatus = $state('')
@@ -184,6 +202,21 @@
 		</section>
 	{/if}
 
+	<!-- Estimation (Skatting bridge) -->
+	<section class="tv-section">
+		<h3 class="tv-section-title">Estimation</h3>
+		<p class="tv-hint">Send deliverables to a Skatting session for team estimation. Estimates flow back automatically.</p>
+		<EstimationPanel
+			roomCode={estimationRoom}
+			{deliverableCount}
+			busy={estimationBusy}
+			message={estimationMessage}
+			error={estimationError}
+			onCreateAndPublish={onCreateEstimation}
+			onDisconnect={onDisconnectEstimation}
+		/>
+	</section>
+
 	<!-- Activity log -->
 	<section class="tv-section">
 		<div class="tv-section-header">
@@ -347,13 +380,15 @@
 	}
 
 	.tv-status-ok {
-		background: oklch(0.95 0.03 145);
-		color: var(--c-green, oklch(0.55 0.15 145));
+		background: var(--c-green-bg);
+		color: var(--c-green);
+		border: 1px solid var(--c-green-border);
 	}
 
 	.tv-status-down {
-		background: oklch(0.95 0.03 25);
-		color: var(--c-negative, oklch(0.55 0.15 25));
+		background: var(--c-red-bg);
+		color: var(--c-red);
+		border: 1px solid var(--c-red-border);
 	}
 
 	/* Sections */
@@ -602,11 +637,11 @@
 	}
 
 	.tv-relay-up {
-		background: var(--c-green, oklch(0.55 0.15 145));
+		background: var(--c-green);
 	}
 
 	.tv-relay-down {
-		background: var(--c-negative, oklch(0.65 0.2 25));
+		background: var(--c-red);
 	}
 
 	.tv-relay-url {
