@@ -10,6 +10,7 @@
 	import SyncPanel from './components/SyncPanel.svelte'
 	import ContributorView from './components/ContributorView.svelte'
 	import RoomPanel from './components/RoomPanel.svelte'
+	import TeamView from './components/TeamView.svelte'
 	import WelcomePage from './components/WelcomePage.svelte'
 	import BrainDump from './components/BrainDump.svelte'
 	import type { ContributorInfo, RoomInfo } from './components/SyncPanel.svelte'
@@ -38,7 +39,7 @@
 	import BoardPicker from './components/BoardPicker.svelte'
 	import EstimationPanel from './components/EstimationPanel.svelte'
 
-	type ViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'meetings'
+	type ViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'meetings' | 'team'
 	type ContributorViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'assignments'
 
 	const WELCOMED_KEY = 'slim-welcomed'
@@ -222,7 +223,7 @@
 		window.dispatchEvent(new CustomEvent('slim:open-exit-menu'))
 	}
 
-	const VIEW_KEYS: Record<string, ViewMode> = { '1': 'briefing', '2': 'pipeline', '3': 'deliverables', '4': 'meetings' }
+	const VIEW_KEYS: Record<string, ViewMode> = { '1': 'briefing', '2': 'pipeline', '3': 'deliverables', '4': 'meetings', '5': 'team' }
 
 	$effect(() => {
 		function onKeydown(e: KeyboardEvent) {
@@ -786,7 +787,7 @@
 					opportunities = updatedOpps
 				}}
 				onClose={() => (showRoomPanel = false)}
-				onLeaveRoom={() => { roomInfo?.leaveRoom(); showRoomPanel = false }}
+				onGoToTeam={() => { showRoomPanel = false; switchView('team') }}
 			/>
 		</div>
 	{:else if selectedOpportunity}
@@ -852,6 +853,9 @@
 			<button class="view-tab" class:active={view === 'pipeline'} onclick={() => switchView('pipeline')}>Pipeline{#if opportunities.length === 0}<span class="tab-hint">where things stand</span>{/if}</button>
 			<button class="view-tab" class:active={view === 'deliverables'} onclick={() => switchView('deliverables')}>Deliverables{#if opportunities.length === 0}<span class="tab-hint">what to build</span>{/if}</button>
 			<button class="view-tab" class:active={view === 'meetings'} onclick={() => switchView('meetings')}>Meetings{#if opportunities.length === 0}<span class="tab-hint">who to talk to</span>{/if}</button>
+			{#if roomInfo}
+				<button class="view-tab" class:active={view === 'team'} onclick={() => switchView('team')}>Team</button>
+			{/if}
 		</nav>
 		{:else}
 		<nav class="view-tabs">
@@ -870,7 +874,7 @@
 					opportunities = updatedOpps
 				}}
 				onContributorChange={(info) => { contributorInfo = info }}
-				onRoomInfoChange={(info) => { roomInfo = info; if (!info) showRoomPanel = false }}
+				onRoomInfoChange={(info) => { roomInfo = info; if (!info) { showRoomPanel = false; if (view === 'team') view = 'briefing' } }}
 				onOpenRoomPanel={() => { selectedId = null; selectedDeliverableId = null; showRoomPanel = true }}
 			/>
 			{#if !contributorInfo}
@@ -1128,6 +1132,11 @@
 		</div>
 		{@render detailSidebar()}
 	</div>
+	{:else if view === 'team' && roomInfo}
+	<TeamView
+		{roomInfo}
+		onLeaveRoom={() => { roomInfo?.leaveRoom(); showRoomPanel = false }}
+	/>
 	{/if}
 </main>
 

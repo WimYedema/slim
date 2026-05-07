@@ -781,8 +781,12 @@ function normInv(p: number): number {
 	const flip = p < 0.5
 	const pp = flip ? p : 1 - p
 	const t = Math.sqrt(-2 * Math.log(pp))
-	const c0 = 2.515517, c1 = 0.802853, c2 = 0.010328
-	const d1 = 1.432788, d2 = 0.189269, d3 = 0.001308
+	const c0 = 2.515517,
+		c1 = 0.802853,
+		c2 = 0.010328
+	const d1 = 1.432788,
+		d2 = 0.189269,
+		d3 = 0.001308
 	const x = t - (c0 + c1 * t + c2 * t * t) / (1 + d1 * t + d2 * t * t + d3 * t * t * t)
 	return flip ? -x : x
 }
@@ -802,14 +806,16 @@ export interface BoxPlotRow {
  * Fenton-Wilkinson approximation: combine independent log-normals into a single log-normal.
  * Each entry has (mu, sigma, weight). Weight is 1 for full coverage, 0.5 for partial.
  */
-export function combineLognormals(entries: Array<{ mu: number; sigma: number; weight: number }>): { mu: number; sigma: number } | null {
+export function combineLognormals(
+	entries: Array<{ mu: number; sigma: number; weight: number }>,
+): { mu: number; sigma: number } | null {
 	if (entries.length === 0) return null
 	// Mean and variance of the sum of scaled log-normals
 	let meanSum = 0
 	let varSum = 0
 	for (const e of entries) {
 		const w = e.weight
-		meanSum += w * Math.exp(e.mu + e.sigma * e.sigma / 2)
+		meanSum += w * Math.exp(e.mu + (e.sigma * e.sigma) / 2)
 		varSum += w * w * Math.exp(2 * e.mu + e.sigma * e.sigma) * (Math.exp(e.sigma * e.sigma) - 1)
 	}
 	// Match moments to a log-normal
@@ -897,7 +903,12 @@ export function horizonBoxPlotData(
 	opportunities: Opportunity[],
 	deliverables: Deliverable[],
 	links: OpportunityDeliverableLink[],
-): { rows: BoxPlotRow[]; combined: BoxPlotRow; estimatedCount: number; totalDeliverableCount: number } | null {
+): {
+	rows: BoxPlotRow[]
+	combined: BoxPlotRow
+	estimatedCount: number
+	totalDeliverableCount: number
+} | null {
 	const allEntries: Array<{ mu: number; sigma: number; weight: number }> = []
 	const rows: BoxPlotRow[] = []
 	let totalDelCount = 0

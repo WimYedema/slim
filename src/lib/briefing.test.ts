@@ -4,7 +4,6 @@ import {
 	type BriefingItem,
 	buildReadItems,
 	buildReturnSummary,
-	CONDITION_VERBS,
 	computeAgeBand,
 	DECAY_MS,
 	deduplicateItems,
@@ -14,7 +13,6 @@ import {
 	isDecayed,
 	isGrouped,
 	reconcileFeed,
-	type StoredCondition,
 	snapshotBoard,
 } from './briefing'
 import type { MeetingData } from './meeting'
@@ -1241,7 +1239,7 @@ describe('WIP warnings in diffBoard', () => {
 			const opp = createOpportunity('Old Thing')
 			// Simulate an old snapshot
 			const snap = snapshotBoard(makeBoard())
-			const board = makeBoard([opp])
+			const _board = makeBoard([opp])
 			// Manually create items with old timestamps
 			const oldItems: BriefingItem[] = [
 				{

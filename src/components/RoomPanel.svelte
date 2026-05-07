@@ -9,66 +9,18 @@
 		opportunities: Opportunity[]
 		onApplyScores: (updatedOpportunities: Opportunity[], message: string) => void
 		onClose: () => void
-		onLeaveRoom: () => void
+		onGoToTeam: () => void
 	}
 
-	let { roomInfo, opportunities, onApplyScores, onClose, onLeaveRoom }: Props = $props()
+	let { roomInfo, opportunities, onApplyScores, onClose, onGoToTeam }: Props = $props()
 
 	let submissions = $state<ScoreSubmission[]>([])
 	let loading = $state(false)
 	let error = $state('')
 	let lastFetched = $state<number | null>(null)
-	let rotatingRoom = $state(false)
-	let newMemberName = $state('')
-
-	async function addNewMember() {
-		const name = newMemberName.trim()
-		if (!name || !roomInfo.addMember) return
-		const ok = await roomInfo.addMember(name)
-		if (ok) newMemberName = ''
-	}
 
 	// Group submissions by contributor name
 	let grouped = $derived(groupByContributor(submissions))
-
-	// Submitted contributor names (lowercased for matching)
-	let submittedNamesLower = $derived(new Set(grouped.map(g => g.name.toLowerCase())))
-
-	// Assigned contributors: people with perspective assignments on active opportunities
-	let assignedNamesLower = $derived.by(() => {
-		const set = new Set<string>()
-		for (const opp of opportunities) {
-			if (opp.discontinuedAt) continue
-			for (const person of opp.people) {
-				if (person.perspectives.length > 0) set.add(person.name.toLowerCase())
-			}
-		}
-		return set
-	})
-
-	interface TeamRow {
-		id: string
-		name: string
-		role: 'owner' | 'member'
-		assigned: boolean
-		submitted: boolean
-	}
-
-	// Unified team list: roster members annotated with contributor/submission status
-	let teamRows = $derived.by((): TeamRow[] => {
-		const roster = roomInfo.roster
-		if (!roster) return []
-		return roster.members.map(m => {
-			const lower = m.displayName.toLowerCase()
-			return {
-				id: m.id,
-				name: m.displayName,
-				role: m.role,
-				assigned: assignedNamesLower.has(lower),
-				submitted: submittedNamesLower.has(lower),
-			}
-		})
-	})
 
 	// Track which scores the PO has accepted (by a composite key)
 	let accepted = $state<Set<string>>(new Set())
@@ -100,23 +52,6 @@
 		const opp = opportunities.find(o => o.id === entry.opportunityId)
 		if (!opp) return 'none'
 		return opp.signals[entry.stage]?.[entry.perspective]?.score ?? 'none'
-	}
-
-	let copyStatus = $state('')
-
-	function inviteText(): string {
-		if (location.protocol.startsWith('http')) {
-			const url = new URL(location.href)
-			url.searchParams.set('room', roomInfo.roomCode)
-			return url.toString()
-		}
-		return roomInfo.roomCode
-	}
-
-	function copyRoomCode() {
-		navigator.clipboard.writeText(inviteText())
-		copyStatus = 'Copied!'
-		setTimeout(() => { copyStatus = '' }, 2000)
 	}
 
 	async function fetchSubmissions() {
@@ -213,82 +148,20 @@
 
 <div class="room-panel">
 	<div class="rp-header">
-		<h2 class="rp-title">Room</h2>
+		<h2 class="rp-title">Score Review</h2>
 		<button class="rp-close" onclick={onClose} title="Close">✕</button>
 	</div>
 
 	<div class="rp-body">
-		<!-- Room info -->
-		<section class="rp-section">
-			<h3 class="rp-section-title">Room info</h3>
-			<div class="rp-info-row">
-				<span class="rp-label">Owner</span>
-				<span class="rp-value">{roomInfo.ownerName}</span>
-			</div>
-			<div class="rp-info-row">
-				<span class="rp-label">Code</span>
-				<div class="rp-code-row">
-					<code class="rp-code">{roomInfo.roomCode}</code>
-					<button class="rp-copy-btn" onclick={copyRoomCode} title="Copy invite link">
-						{copyStatus || '📋'}
-					</button>
-				</div>
-			</div>
-		</section>
-
-		<!-- Team -->
-		{#if roomInfo.roster}
-			<section class="rp-section">
-				<h3 class="rp-section-title">Team</h3>
-				<ul class="rp-member-list">
-					{#each teamRows as row}
-						<li class="rp-member" class:rp-member-submitted={row.submitted}>
-							<span class="rp-member-name">
-								{row.name}
-								{#if row.role === 'owner'}
-									<span class="rp-role-badge">owner</span>
-								{/if}
-							</span>
-							<span class="rp-member-meta">
-								{#if row.role !== 'owner'}
-									{#if row.submitted}
-										<span class="rp-member-status">✓ submitted</span>
-									{:else if row.assigned}
-										<span class="rp-member-status">⏳ not yet submitted</span>
-									{:else}
-										<span class="rp-member-status rp-status-muted">no assignments</span>
-									{/if}
-								{/if}
-								{#if row.role !== 'owner' && roomInfo.revokeMember}
-									<button
-										class="rp-remove-btn"
-										onclick={() => roomInfo.revokeMember?.(row.id)}
-										title="Remove {row.name}"
-									>✗</button>
-								{/if}
-							</span>
-						</li>
-					{/each}
-				</ul>
-				{#if roomInfo.addMember}
-					<div class="rp-add-member">
-						<input
-							class="rp-add-input"
-							type="text"
-							placeholder="Add member…"
-							bind:value={newMemberName}
-							onkeydown={(e) => { if (e.key === 'Enter') addNewMember() }}
-						/>
-						<button class="rp-btn" onclick={addNewMember} disabled={!newMemberName.trim()}>Add</button>
-					</div>
-				{/if}
-			</section>
-		{/if}
+		<!-- Go to team link -->
+		<button class="rp-team-link" onclick={onGoToTeam}>
+			Open Team view →
+		</button>
 
 		<!-- Submissions -->
 		<section class="rp-section">
 			<div class="rp-section-header">
-				<h3 class="rp-section-title">Score review</h3>
+				<h3 class="rp-section-title">Submissions</h3>
 				<button class="rp-refresh" onclick={fetchSubmissions} disabled={loading} title="Refresh">
 					{loading ? '⏳' : '↻'}
 				</button>
@@ -363,22 +236,6 @@
 				</button>
 			</div>
 		{/if}
-
-		<!-- Access concern -->
-		{#if roomInfo.rotateRoom}
-			<section class="rp-section">
-				<h3 class="rp-section-title">Suspect unauthorized access?</h3>
-				<p class="rp-hint">This generates a new room code. Team members will reconnect automatically.</p>
-				<button class="rp-btn rp-btn-warn" onclick={() => roomInfo.rotateRoom?.('Manual rotation')} disabled={rotatingRoom}>
-					{rotatingRoom ? 'Resetting…' : 'Reset access'}
-				</button>
-			</section>
-		{/if}
-
-		<!-- Leave room -->
-		<section class="rp-section rp-leave-section">
-			<button class="rp-btn rp-btn-danger" onclick={onLeaveRoom}>Leave Room</button>
-		</section>
 	</div>
 </div>
 
@@ -424,6 +281,24 @@
 		padding: var(--sp-md) var(--sp-lg);
 	}
 
+	.rp-team-link {
+		display: block;
+		width: 100%;
+		text-align: left;
+		background: none;
+		border: 1px solid var(--c-border-soft);
+		border-radius: var(--radius-sm);
+		padding: var(--sp-xs) var(--sp-sm);
+		margin-bottom: var(--sp-lg);
+		color: var(--c-accent);
+		cursor: pointer;
+		font-size: var(--fs-sm);
+	}
+
+	.rp-team-link:hover {
+		background: var(--c-surface-hover);
+	}
+
 	.rp-section {
 		margin-bottom: var(--sp-lg);
 	}
@@ -438,104 +313,6 @@
 		margin: 0 0 var(--sp-xs);
 		font-size: var(--fs-sm);
 		font-weight: var(--fw-semibold);
-	}
-
-	.rp-info-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-sm);
-		margin-bottom: var(--sp-xs);
-		font-size: var(--fs-sm);
-	}
-
-	.rp-label {
-		color: var(--c-text-muted);
-		min-width: 4rem;
-	}
-
-	.rp-code {
-		font-size: var(--fs-2xs);
-		background: var(--c-bg);
-		padding: var(--sp-2xs) var(--sp-xs);
-		border-radius: var(--radius-sm);
-		border: 1px solid var(--c-border);
-		word-break: break-all;
-		flex: 1;
-	}
-
-	.rp-code-row {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-xs);
-		flex: 1;
-	}
-
-	.rp-copy-btn {
-		background: none;
-		border: none;
-		cursor: pointer;
-		padding: var(--sp-2xs);
-		font-size: var(--fs-sm);
-		color: var(--c-text-muted);
-		flex-shrink: 0;
-	}
-
-	.rp-copy-btn:hover {
-		color: var(--c-text);
-	}
-
-	.rp-member-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2xs);
-	}
-
-	.rp-member {
-		font-size: var(--fs-sm);
-		padding: var(--sp-xs) var(--sp-sm);
-		background: var(--c-bg);
-		border: 1px solid var(--c-border-soft);
-		border-radius: var(--radius-sm);
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.rp-member-submitted {
-		border-color: var(--c-green-border, var(--c-border));
-	}
-
-	.rp-member-status {
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-	}
-
-	.rp-member-submitted .rp-member-status {
-		color: var(--c-green);
-	}
-
-	.rp-member-meta {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-xs);
-	}
-
-	.rp-status-muted {
-		opacity: 0.5;
-	}
-
-	.rp-leave-section {
-		border-top: 1px solid var(--c-border-soft);
-		padding-top: var(--sp-lg);
-		margin-top: var(--sp-md);
-	}
-
-	.rp-btn-danger {
-		color: var(--c-red);
-		border-color: var(--c-red-border, var(--c-border));
 	}
 
 	.rp-hint {
@@ -738,56 +515,5 @@
 		padding: var(--sp-md) 0;
 		background: var(--c-surface);
 		border-top: 1px solid var(--c-border-soft);
-	}
-
-	.rp-role-badge {
-		font-size: var(--fs-2xs);
-		color: var(--c-text-muted);
-		background: var(--c-bg);
-		padding: 1px var(--sp-2xs);
-		border-radius: var(--radius-sm);
-		border: 1px solid var(--c-border-soft);
-		margin-left: var(--sp-2xs);
-	}
-
-	.rp-btn-warn {
-		color: var(--c-yellow, oklch(0.7 0.15 85));
-		border-color: var(--c-yellow-border, var(--c-border));
-	}
-
-	.rp-remove-btn {
-		width: 20px;
-		height: 20px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border: none;
-		border-radius: var(--radius-sm);
-		background: transparent;
-		cursor: pointer;
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
-		padding: 0;
-	}
-
-	.rp-remove-btn:hover {
-		color: var(--c-red, oklch(0.65 0.2 25));
-		background: var(--c-surface-hover);
-	}
-
-	.rp-add-member {
-		display: flex;
-		gap: var(--sp-xs);
-		margin-top: var(--sp-sm);
-	}
-
-	.rp-add-input {
-		flex: 1;
-		padding: var(--sp-2xs) var(--sp-sm);
-		border: 1px solid var(--c-border);
-		border-radius: var(--radius-sm);
-		background: var(--c-bg);
-		color: var(--c-text);
-		font-size: var(--fs-sm);
 	}
 </style>

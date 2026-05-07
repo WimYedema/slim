@@ -8,7 +8,7 @@ import type {
 	Score,
 	Stage,
 } from './types'
-import { linksForDeliverable, PERSPECTIVES, STAGES, stageIndex, stageLabel } from './types'
+import { linksForDeliverable, PERSPECTIVES, stageIndex, stageLabel } from './types'
 
 // ── Types ──
 

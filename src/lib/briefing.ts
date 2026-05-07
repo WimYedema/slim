@@ -10,11 +10,11 @@ import {
 	PERSPECTIVES,
 	pacingSummary,
 	STAGES,
+	sizeFromEstimate,
 	stageIndex,
 	stageLabel,
 	wipLevel,
 	wipNudge,
-	sizeFromEstimate,
 } from './types'
 
 // ── Snapshot ──
@@ -993,7 +993,7 @@ export interface ReconciledFeed {
 export function reconcileFeed(
 	rawItems: BriefingItem[],
 	snapshot: BoardSnapshot | null,
-	meetingData?: MeetingData | null,
+	_meetingData?: MeetingData | null,
 ): ReconciledFeed {
 	const now = Date.now()
 
