@@ -37,6 +37,8 @@
 	import { parseImportText, materialize } from './lib/import-parser'
 	import { createSampleOpportunities, createSampleDeliverables, createSampleMeetingData } from './lib/sample-data'
 	import BoardPicker from './components/BoardPicker.svelte'
+	import ImportDeliverables from './components/ImportDeliverables.svelte'
+	import type { ExternalItem } from './lib/external-provider'
 
 	type ViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'meetings' | 'team'
 	type ContributorViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'assignments'
@@ -72,6 +74,7 @@
 	let showHelp = $state(false)
 	let showQuickAdd = $state(false)
 	let showDataMenu = $state(false)
+	let showImportDeliverables = $state(false)
 	let contributorInfo = $state(null as ContributorInfo | null)
 	let roomInfo = $state(null as RoomInfo | null)
 	let showRoomPanel = $state(false)
@@ -246,6 +249,7 @@
 			// Close dialogs / panes (layered)
 			if (e.key === 'Escape') {
 				if (showDataMenu) { showDataMenu = false; return }
+				if (showImportDeliverables) { showImportDeliverables = false; return }
 				if (showHelp) { showHelp = false; return }
 				if (showQuickAdd) { showQuickAdd = false; return }
 				if (selectedId) { selectedId = null; return }
@@ -772,6 +776,17 @@
 		}
 		input.click()
 	}
+
+	function importExternalDeliverables(items: ExternalItem[]) {
+		pushUndo('Import deliverables')
+		for (const item of items) {
+			const d = createDeliverable(item.title)
+			d.externalUrl = item.url
+			if (item.size) d.size = item.size
+			if (item.assignee) d.extraContributors = [item.assignee]
+			deliverables = [...deliverables, d]
+		}
+	}
 </script>
 
 {#snippet detailSidebar()}
@@ -1136,6 +1151,14 @@
 		onAddOpportunity={(title) => addOpportunity(title)}
 		onAddDeliverable={(title) => { addDeliverable(title) }}
 		onClose={() => showQuickAdd = false}
+	/>
+{/if}
+
+{#if showImportDeliverables}
+	<ImportDeliverables
+		{deliverables}
+		onImport={importExternalDeliverables}
+		onClose={() => showImportDeliverables = false}
 	/>
 {/if}
 

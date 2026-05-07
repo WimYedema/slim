@@ -733,6 +733,18 @@ interface ExternalItem {
 | Security | No code execution in Slim | Trusts the module (user adds URL explicitly) |
 | Best for | CORS-blocked APIs (Jira Cloud), custom internal tools | CORS-open APIs (GitHub, Linear), offline use |
 
+**What ships where:**
+
+| Component | Repo | Rationale |
+|---|---|---|
+| `ExternalItem` + `ExternalProvider` types | `slim` (`src/lib/external-provider.ts`) | Core contract, ships with Slim |
+| GitHub Issues provider | `slim` (`src/lib/github-provider.ts`) | Built-in: CORS works, PAT trivial, universal |
+| Import dialog UI | `slim` (`ImportDeliverables.svelte`) | Ships with Slim |
+| Jira DC connector | `slim-connector-jira` (Cloudflare Worker) | Reference connector: dogfoods the extension API |
+| Connector template | `slim-connector-template` | Empty scaffold for community connectors |
+
+GitHub is built-in because it requires zero infrastructure (CORS works, PAT is simple). Jira DC ships as a separate connector to dogfood the extension mechanism — if Jira can't be built as a connector, the API is too weak. The Jira repo doubles as real-world documentation for connector authors.
+
 **Provider config** stored in localStorage (`slim-providers`). Token + base URL per provider.
 
 **Roadmap:**
@@ -742,7 +754,7 @@ interface ExternalItem {
 - [ ] Built-in GitHub Issues provider (PAT, CORS works, `src/lib/github-provider.ts`)
 - [ ] Data-only connector support (approach A): fetch URL → JSON → import UI
 - [ ] Connector template repo: Cloudflare Worker scaffold + README ("deploy in 2 minutes")
-- [ ] Built-in Jira Server/DC provider (PAT, requires admin CORS config, `src/lib/jira-provider.ts`)
+- [ ] Jira DC connector repo: reference implementation using data-only approach
 - [ ] Dynamic `import()` connector support (approach B): load ES module from URL
 - [ ] Status sync: check if linked items are closed/done → prompt to mark Deliverable done
 - [ ] Paste/CSV fallback: tab-separated or CSV with Title + URL + Size columns (no provider needed)
