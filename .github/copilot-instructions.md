@@ -98,13 +98,16 @@ One runtime dependency: `nostr-tools` (P2P relay communication). No server, no d
 | `PipelineFunnel.svelte` | Proportional stage funnel SVG, interactive hover/click filtering |
 | `OpportunityRow.svelte` | Single opportunity row with density modes (compact/overview/zoomed) |
 | `DetailPane.svelte` | Opportunity detail: signal grid, stage navigation, exit states, commitments, notes, metadata |
-| `DeliverablesView.svelte` | Execution matrix: deliverable rows, opportunity columns, contributor columns, zoom, drag-reorder |
+| `DeliverablesView.svelte` | Execution matrix: deliverable rows, opportunity columns, contributor columns, zoom, drag-reorder; estimation toolbar (push/pull) when Skatting session is active |
 | `DeliverableDetailPane.svelte` | Deliverable detail: size, certainty, links, contributors, consumers |
 | `MeetingView.svelte` | Per-person agenda with role filter (All/Team/Stakeholders): entity-grouped changes, commitments, awaiting input, inline scoring, talking points for stakeholders, scoped stamp |
 | `ScoreToggle.svelte` | Reusable score radiogroup (none/positive/uncertain/negative) with keyboard nav |
 | `KeyboardHelp.svelte` | Shortcut reference overlay (? key) |
 | `QuickAdd.svelte` | Quick-add dialog (n key, Tab to switch opportunity/deliverable) |
 | `SyncPanel.svelte` | P2P room management: create/join rooms, publish/pull board, contributor mode |
+| `RoomPanel.svelte` | Score review sidebar + "Open Team view" link |
+| `TeamView.svelte` | Team tab (tab 5, visible when room is joined): room info, roster CRUD, estimation bridge, cross-tool event log, relay health, leave room |
+| `EstimationPanel.svelte` | Skatting estimation room lifecycle: create room, share code, disconnect (embedded in TeamView) |
 | `ContributorView.svelte` | Contributor scoring view: assigned perspective cells with inline scoring |
 | `BoardPicker.svelte` | Multi-board management: create, switch, delete boards |
 | `WelcomePage.svelte` | First-time onboarding page |

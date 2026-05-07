@@ -71,7 +71,7 @@ Samen is primarily a **protocol and shared TypeScript module**, not a mandatory 
 ```
 Samen = protocol   (event envelope + schemas + identity)
       + module     (pure TypeScript, embedded in each tool)
-      + dashboard  (optional standalone UI — room management, diagnostics)
+      + Team view  (built into Slim — room management, diagnostics)
 ```
 
 ### Serverless, but durable
@@ -153,12 +153,12 @@ All tools use Nostr kind 30078/30079 (parameterized replaceable events). These e
 - **Multi-relay redundancy** — publish to 2+ relays; query from all; single relay failure is invisible
 
 ```
-┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
-│   Slim   │  │ Skatting │  │  Bouwen  │  │Dashboard │
-└────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘
-     │publish      │publish      │publish      │read
-     │query        │query        │query        │
-     └─────────────┴──────┬──────┴─────────────┘
+┌──────────┐  ┌──────────┐  ┌──────────┐
+│   Slim   │  │ Skatting │  │  Bouwen  │
+└────┬─────┘  └────┬─────┘  └────┬─────┘
+     │publish      │publish      │publish
+     │query        │query        │query
+     └─────────────┴──────┬──────┘
                           │
               ┌───────────▼───────────┐
               │   Nostr relays (2+)   │
@@ -282,14 +282,14 @@ interface SamenEvent {
 |---|---|---|---|
 | `slim:estimation-request` | Slim | Skatting | Deliverables to estimate, unit, board name |
 | `skatting:verdicts` | Skatting | Slim | Estimation results per deliverable |
-| `slim:board-summary` | Slim | Dashboard, Bouwen | Opportunity/deliverable counts, pipeline health |
+| `slim:board-summary` | Slim | Bouwen | Opportunity/deliverable counts, pipeline health |
 | `bouwen:dependencies` | Bouwen | Slim | Deliverable dependency graph |
 
 **Extensibility:** a new tool or connector adds new event types. Existing tools ignore types they don't subscribe to. No coordination required — just publish to the room.
 
 ## User Flows
 
-All flows work from **any tool** — Slim, Skatting, or the Samen dashboard. The tool you happen to be in can create, join, and manage teams inline.
+All flows work from **any tool** — Slim, Skatting, or future tools. The tool you happen to be in can create, join, and manage teams inline. Slim's Team view provides the fullest management surface (roster, event log, relay health, estimation bridge).
 
 ### Create a team
 
@@ -375,27 +375,16 @@ src/lib/samen/
   nostr-config.ts   — Relay URLs, expiration defaults
 ```
 
-### Samen dashboard (optional standalone app)
+### Samen Team view (built into Slim)
 
-A dedicated Svelte 5 app for room management. Not a prerequisite — all CRUD works inline in any tool. Useful as:
-- Room diagnostic surface (relay health, event log, active tools)
-- Team management UI when no tool is open
-- Room index browser (see all rooms for this team across tools)
-- Deep-link target from tools ("Manage team →")
-
-```
-samen/
-  index.html
-  src/
-    App.svelte         — root state, URL routing
-    components/
-      Home.svelte      — recent teams, create/join
-      TeamView.svelte  — roster management
-      RoomView.svelte  — event log, relay health, active tools
-    lib/
-      samen/           — shared module (same files as above)
-      store.ts         — localStorage: recent teams
-```
+Slim's Team view (tab 5, visible when a room is joined) serves as the primary room management surface. No separate app needed — all CRUD works inline. Provides:
+- Room info and invite link
+- Roster management (add/remove members)
+- Estimation bridge (create Skatting session, share code, disconnect)
+- Cross-tool activity log (event feed from relay)
+- Relay health monitoring
+- Room security (key rotation placeholder)
+- Leave room
 
 ### Integration in existing tools
 
@@ -408,7 +397,7 @@ Each tool adds:
 
 ### Code sharing via git subtree
 
-The shared module lives in a dedicated **samen-protocol** repo — just the TypeScript source, tests, and a README. No build step, no npm publish. Each consuming tool (Slim, Skatting, Bouwen, Samen dashboard) pulls it in via `git subtree` at `src/lib/samen/`.
+The shared module lives in a dedicated **samen-protocol** repo — just the TypeScript source, tests, and a README. No build step, no npm publish. Each consuming tool (Slim, Skatting, Bouwen) pulls it in via `git subtree` at `src/lib/samen/`.
 
 **Why subtree over alternatives:**
 
@@ -464,7 +453,7 @@ Day 1 (Skatting): Create session → ✓ "Create team" → share room code
 Day 2 (Slim): Enter room code → "Welcome back, Alice" (from localStorage)
   Roster loaded from cache, refreshed from relay in background
 
-Day 5 (Samen dashboard): samen/?room=xyz → already identified → full management
+Day 5 (Slim Team view): navigate to Team tab → already identified → full management
 ```
 
 ### Cross-origin (custom domains, forks)
@@ -656,7 +645,7 @@ For teams handling sensitive data:
 
 Each tool-specific room is independent and carries a `teamCode` reference back to the team. No parent-child key derivation, no workspace record that must be updated before creating a room. The team code provides identity and discovery; room codes provide encryption isolation.
 
-The room index (stored on the team code) is a **convenience, not authority**. Tools can create rooms without updating it. The index helps the Samen dashboard and other tools answer "what rooms exist for this team?" but is not required for any room to function.
+The room index (stored on the team code) is a **convenience, not authority**. Tools can create rooms without updating it. The index helps Slim's Team view and other tools answer "what rooms exist for this team?" but is not required for any room to function.
 
 ### Roster write authority
 
@@ -707,14 +696,14 @@ Make relay-as-source-of-truth robust enough that clearing localStorage is a non-
 - [x] Relay health monitoring: detect when a relay is down, warn user, ensure at least one relay is reachable (`checkRelayHealth()` in samen module; SyncPanel shows warning when all relays unreachable)
 - [x] NIP-40 expiration: set appropriate TTLs (30 days for persistent state via `expirationTag()`, 7 days for transient sessions via `sessionExpirationTag()`)
 
-### Phase 4: Samen dashboard (optional)
+### Phase 4: Team view in Slim (done)
 
-Standalone room management UI. Not blocking phases 1–3.
+Room management built into Slim as a dedicated tab, replacing the originally planned standalone dashboard.
 
-- [ ] Scaffold Svelte 5 + Vite + vite-plugin-singlefile project
-- [ ] Room view: roster, event log, relay health, active tools
-- [ ] Create/join flow, recent teams list
-- [ ] Deep links: `samen/?room=xyz`
+- [x] TeamView component: room info, roster CRUD, estimation bridge, event log, relay health
+- [x] Estimation panel: create Skatting session, share room code, disconnect
+- [x] Push/pull deliverables toolbar in Deliverables view
+- [x] RoomPanel slimmed to score review + "Open Team view" link
 
 ### Phase 5: External integrations
 
