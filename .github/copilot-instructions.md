@@ -106,7 +106,7 @@ One runtime dependency: `nostr-tools` (P2P relay communication). No server, no d
 | `ScoreToggle.svelte` | Reusable score radiogroup (none/positive/uncertain/negative) with keyboard nav |
 | `KeyboardHelp.svelte` | Shortcut reference overlay (? key) |
 | `QuickAdd.svelte` | Quick-add dialog (n key, Tab to switch opportunity/deliverable) |
-| `SyncPanel.svelte` | P2P room management: create/join rooms, request scores/review scores, contributor mode |
+| `SyncPanel.svelte` | P2P room management: create/join rooms, request verdicts/review verdicts, contributor mode |
 | `RoomPanel.svelte` | Score review sidebar + "Open Team view" link |
 | `TeamView.svelte` | Team tab (tab 5, visible when room is joined): room info, roster CRUD, estimation bridge, cross-tool event log, relay health, leave room |
 | `EstimationPanel.svelte` | Skatting estimation room lifecycle: create room, share code, disconnect (embedded in TeamView) |

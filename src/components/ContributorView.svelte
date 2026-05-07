@@ -189,7 +189,7 @@
 				</button>
 				{#if pendingCount > 0}
 					<button class="cv-action-btn cv-action-primary" onclick={onSubmit} disabled={busy}>
-						Submit {pendingCount} score{pendingCount === 1 ? '' : 's'}
+						Submit {pendingCount} verdict{pendingCount === 1 ? '' : 's'}
 					</button>
 				{/if}
 			</div>

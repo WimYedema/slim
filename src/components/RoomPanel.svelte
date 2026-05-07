@@ -134,7 +134,7 @@
 		const board: BoardData = { opportunities: cloned, deliverables: [], links: [] }
 		const count = applyScores(board, filtered)
 		if (count > 0) {
-			onApplyScores(cloned, `Applied ${count} score${count === 1 ? '' : 's'} from review.`)
+			onApplyScores(cloned, `Applied ${count} verdict${count === 1 ? '' : 's'} from review.`)
 		}
 		// Clear reviewed items
 		accepted = new Set()
@@ -148,7 +148,7 @@
 
 <div class="room-panel">
 	<div class="rp-header">
-		<h2 class="rp-title">Score Review</h2>
+		<h2 class="rp-title">Verdict Review</h2>
 		<button class="rp-close" onclick={onClose} title="Close">✕</button>
 	</div>
 
@@ -183,7 +183,7 @@
 			<section class="rp-section rp-contributor">
 				<div class="rp-contributor-header">
 					<h3 class="rp-section-title">{contributor.name}</h3>
-					<span class="rp-score-count">{contributor.scores.length} score{contributor.scores.length === 1 ? '' : 's'}</span>
+					<span class="rp-score-count">{contributor.scores.length} verdict{contributor.scores.length === 1 ? '' : 's'}</span>
 				</div>
 				<p class="rp-hint">Submitted {new Date(contributor.timestamp).toLocaleString()}</p>
 
@@ -232,7 +232,7 @@
 		{#if acceptedCount > 0}
 			<div class="rp-apply-bar">
 				<button class="rp-btn rp-btn-primary" onclick={applyAccepted}>
-					Apply {acceptedCount} score{acceptedCount === 1 ? '' : 's'}
+					Apply {acceptedCount} verdict{acceptedCount === 1 ? '' : 's'}
 				</button>
 			</div>
 		{/if}

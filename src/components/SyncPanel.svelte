@@ -343,18 +343,18 @@
 	async function pullScores() {
 		if (!syncState || syncState.role !== 'owner') return
 		busy = true
-		status = 'Pulling scores…'
+		status = 'Pulling verdicts…'
 		try {
 			const submissions = await queryScores(syncState.roomCode, allRosterPubkeys)
 			if (submissions.length === 0) {
-				status = 'No score submissions found.'
+				status = 'No verdict submissions found.'
 			} else {
 				const clonedOpps: Opportunity[] = JSON.parse(JSON.stringify(opportunities))
 				const board: BoardData = { opportunities: clonedOpps, deliverables: JSON.parse(JSON.stringify(deliverables)), links: JSON.parse(JSON.stringify(links)) }
 				const count = applyScores(board, submissions)
 				if (count > 0) {
-					onApplyScores(clonedOpps, `Applied ${count} score${count === 1 ? '' : 's'} from ${submissions.length} submission${submissions.length === 1 ? '' : 's'}.`)
-					status = `Applied ${count} score${count === 1 ? '' : 's'} from ${submissions.length} submission${submissions.length === 1 ? '' : 's'}.`
+					onApplyScores(clonedOpps, `Applied ${count} verdict${count === 1 ? '' : 's'} from ${submissions.length} submission${submissions.length === 1 ? '' : 's'}.`)
+					status = `Applied ${count} verdict${count === 1 ? '' : 's'} from ${submissions.length} submission${submissions.length === 1 ? '' : 's'}.`
 					pendingSubmissionCount = 0
 					showPanel = false
 				} else {
@@ -471,14 +471,14 @@
 	async function submitScores() {
 		if (!syncState || syncState.role !== 'contributor' || contributorScores.length === 0) return
 		busy = true
-		status = 'Submitting scores…'
+		status = 'Submitting verdicts…'
 		try {
 			await publishScores(syncState.roomCode, syncState.keys, {
 				name: syncState.contributorName ?? 'Anonymous',
 				scores: contributorScores,
 				timestamp: Date.now(),
 			})
-			status = `Submitted ${contributorScores.length} score${contributorScores.length === 1 ? '' : 's'}. Your input has been sent to the PO.`
+			status = `Submitted ${contributorScores.length} verdict${contributorScores.length === 1 ? '' : 's'}. Your input has been sent to the PO.`
 			submittedScores = [...submittedScores, ...contributorScores]
 			contributorScores = []
 			showPanel = false
@@ -649,10 +649,10 @@
 		<!-- Owner: direct buttons, no dropdown -->
 		<div class="sync-owner-bar">
 			<button class="sync-btn primary" onclick={publishUpdate} disabled={busy}>
-				{busy ? 'Requesting…' : 'Request scores'}
+				{busy ? 'Requesting…' : 'Request verdicts'}
 			</button>
-			<button class="sync-toggle" onclick={() => onOpenRoomPanel?.()} title="Review submitted scores">
-				Review scores
+			<button class="sync-toggle" onclick={() => onOpenRoomPanel?.()} title="Review submitted verdicts">
+				Review verdicts
 				{#if pendingSubmissionCount > 0}
 					<span class="sync-badge">{pendingSubmissionCount}</span>
 				{/if}
@@ -699,12 +699,12 @@
 				<!-- Contributor panel -->
 				<div class="sync-section">
 					<h3>Contributing as {syncState.contributorName}</h3>
-					<p class="sync-hint">Score your assigned cells below, then submit.</p>
+					<p class="sync-hint">Provide your verdicts for assigned cells below, then submit.</p>
 					<div class="sync-actions">
 						<button class="sync-btn" onclick={refreshBoard} disabled={busy}>Refresh Board</button>
 						{#if contributorScores.length > 0}
 							<button class="sync-btn primary" onclick={submitScores} disabled={busy}>
-								Submit {contributorScores.length} score{contributorScores.length === 1 ? '' : 's'}
+								Submit {contributorScores.length} verdict{contributorScores.length === 1 ? '' : 's'}
 							</button>
 						{/if}
 						<button class="sync-btn danger" onclick={leaveRoom}>Leave</button>
