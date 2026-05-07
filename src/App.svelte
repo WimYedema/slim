@@ -36,7 +36,6 @@
 	import { rosterNames as getRosterNames } from './lib/samen/roster'
 	import { parseImportText, materialize } from './lib/import-parser'
 	import { createSampleOpportunities, createSampleDeliverables, createSampleMeetingData } from './lib/sample-data'
-	import BoardPicker from './components/BoardPicker.svelte'
 	import ImportDeliverables from './components/ImportDeliverables.svelte'
 	import type { ExternalItem } from './lib/external-provider'
 
@@ -73,7 +72,9 @@
 	let lens: Perspective | null = $state(null)
 	let showHelp = $state(false)
 	let showQuickAdd = $state(false)
-	let showDataMenu = $state(false)
+	let showBoardMenu = $state(false)
+	let boardMenuEditId = $state(null as string | null)
+	let boardMenuEditName = $state('')
 	let showImportDeliverables = $state(false)
 	let contributorInfo = $state(null as ContributorInfo | null)
 	let roomInfo = $state(null as RoomInfo | null)
@@ -248,7 +249,7 @@
 
 			// Close dialogs / panes (layered)
 			if (e.key === 'Escape') {
-				if (showDataMenu) { showDataMenu = false; return }
+				if (showBoardMenu) { showBoardMenu = false; boardMenuEditId = null; return }
 				if (showImportDeliverables) { showImportDeliverables = false; return }
 				if (showHelp) { showHelp = false; return }
 				if (showQuickAdd) { showQuickAdd = false; return }
@@ -846,16 +847,6 @@
 <main class="app">
 	<header class="app-header">
 		<h1>Slim</h1>
-		{#if !showWelcome && !showBrainDump && boardEntries.length > 0}
-		<BoardPicker
-			boards={boardEntries}
-			{activeBoardId}
-			onSwitch={switchBoard}
-			onNew={newBoard}
-			onRename={renameBoard}
-			onDelete={deleteBoard}
-		/>
-		{/if}
 		{#if showWelcome || showBrainDump}
 		<div class="header-actions">
 			<button class="help-btn" onclick={() => showHelp = true} title="Keyboard shortcuts (?)">?</button>
@@ -891,37 +882,55 @@
 				onOpenRoomPanel={() => { selectedId = null; selectedDeliverableId = null; showRoomPanel = true }}
 			/>
 			{#if !contributorInfo}
-			<div class="data-menu-container">
-				<button class="action-btn" onclick={() => showDataMenu = !showDataMenu} title="Import, export, and data management">
-					Data ↕
+			<div class="board-menu-container">
+				<button class="action-btn" onclick={() => showBoardMenu = !showBoardMenu} title="Board management">
+					{activeBoardEntry?.name ?? 'Board'} ▾
 				</button>
-				{#if showDataMenu}
+				{#if showBoardMenu}
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
-					<div class="data-menu-backdrop" onclick={() => showDataMenu = false}></div>
-					<div class="data-menu">
-						<div class="data-menu-group">
-							<span class="data-menu-label">Import</span>
-							<button class="data-menu-item" onclick={() => { importJSON('replace'); showDataMenu = false }}>
-								Replace board from JSON
+					<div class="board-menu-backdrop" onclick={() => { showBoardMenu = false; boardMenuEditId = null }}></div>
+					<div class="board-menu">
+						{#if boardEntries.length > 0}
+						<div class="board-menu-group">
+							<span class="board-menu-label">Boards</span>
+							{#each boardEntries as board (board.id)}
+								<div class="board-menu-board" class:active={board.id === activeBoardId}>
+									{#if boardMenuEditId === board.id}
+										<input
+											class="board-menu-rename"
+											bind:value={boardMenuEditName}
+											onblur={() => { if (boardMenuEditName.trim()) renameBoard(boardMenuEditId!, boardMenuEditName.trim()); boardMenuEditId = null }}
+											onkeydown={(e) => { if (e.key === 'Enter') { if (boardMenuEditName.trim()) renameBoard(boardMenuEditId!, boardMenuEditName.trim()); boardMenuEditId = null } if (e.key === 'Escape') boardMenuEditId = null }}
+											autofocus
+										/>
+									{:else}
+										<button class="board-menu-board-btn" onclick={() => { switchBoard(board.id); showBoardMenu = false }}>
+											{board.name}
+										</button>
+										<button class="board-menu-action" title="Rename" onclick={(e) => { e.stopPropagation(); boardMenuEditId = board.id; boardMenuEditName = board.name }}>✎</button>
+										{#if boardEntries.length > 1}
+											<button class="board-menu-action board-menu-action-delete" title="Delete" onclick={(e) => { e.stopPropagation(); deleteBoard(board.id) }}>✕</button>
+										{/if}
+									{/if}
+								</div>
+							{/each}
+							<button class="board-menu-item" onclick={() => { newBoard(); showBoardMenu = false }}>+ New board</button>
+						</div>
+						{/if}
+						<div class="board-menu-group">
+							<span class="board-menu-label">Save / Load</span>
+							<button class="board-menu-item" onclick={() => { exportJSON(); showBoardMenu = false }}>
+								Save as JSON
 							</button>
-							<button class="data-menu-item" onclick={() => { importJSON('merge'); showDataMenu = false }}>
-								Merge JSON into board
+							<button class="board-menu-item" onclick={() => { importJSON('replace'); showBoardMenu = false }}>
+								Load from JSON…
 							</button>
-							<button class="data-menu-item" onclick={() => { importCSV(); showDataMenu = false }}>
-								Import opportunities from CSV
+							<button class="board-menu-item" onclick={() => { importJSON('merge'); showBoardMenu = false }}>
+								Merge from JSON…
 							</button>
 						</div>
-						<div class="data-menu-group">
-							<span class="data-menu-label">Export</span>
-							<button class="data-menu-item" onclick={() => { exportJSON(); showDataMenu = false }}>
-								Full board as JSON
-							</button>
-							<button class="data-menu-item" onclick={() => { exportCSV(); showDataMenu = false }}>
-								Opportunities as CSV
-							</button>
-						</div>
-						<div class="data-menu-group">
-							<button class="data-menu-item danger" onclick={() => { resetBoard(); showDataMenu = false }}>
+						<div class="board-menu-group">
+							<button class="board-menu-item danger" onclick={() => { resetBoard(); showBoardMenu = false }}>
 								Reset to sample data
 							</button>
 						</div>
@@ -1075,6 +1084,8 @@
 				firstVisit={pipelineFirstVisit}
 				{lens}
 				onLensChange={(p) => { lens = p }}
+				onImportCSV={importCSV}
+				onExportCSV={exportCSV}
 			/>
 		</div>
 		{@render detailSidebar()}
@@ -1102,6 +1113,7 @@
 				{estimationError}
 				onPushDeliverables={() => publishEstimation()}
 				onPullEstimates={pullEstimationVerdicts}
+				onShowImport={() => { showImportDeliverables = true }}
 			/>
 		</div>
 		{@render detailSidebar()}
@@ -1249,16 +1261,16 @@
 		line-height: 1.2;
 	}
 
-	.data-menu-container {
+	.board-menu-container {
 		position: relative;
 	}
 
-	.data-menu {
+	.board-menu {
 		position: absolute;
 		top: 100%;
 		right: 0;
 		z-index: 100;
-		width: 240px;
+		width: 260px;
 		margin-top: var(--sp-2xs);
 		padding: var(--sp-xs) 0;
 		background: var(--c-surface);
@@ -1267,15 +1279,15 @@
 		box-shadow: var(--shadow-lg);
 	}
 
-	.data-menu-group {
+	.board-menu-group {
 		padding: var(--sp-2xs) 0;
 	}
 
-	.data-menu-group + .data-menu-group {
+	.board-menu-group + .board-menu-group {
 		border-top: 1px solid var(--c-border-soft);
 	}
 
-	.data-menu-label {
+	.board-menu-label {
 		display: block;
 		padding: var(--sp-xs) var(--sp-md) var(--sp-2xs);
 		font-size: var(--fs-2xs);
@@ -1285,7 +1297,7 @@
 		letter-spacing: 0.05em;
 	}
 
-	.data-menu-item {
+	.board-menu-item {
 		display: block;
 		width: 100%;
 		padding: var(--sp-xs) var(--sp-md);
@@ -1298,22 +1310,84 @@
 		text-align: left;
 	}
 
-	.data-menu-item:hover {
+	.board-menu-item:hover {
 		background: var(--c-hover);
 	}
 
-	.data-menu-item.danger {
+	.board-menu-item.danger {
 		color: var(--c-red);
 	}
 
-	.data-menu-item.danger:hover {
+	.board-menu-item.danger:hover {
 		background: var(--c-red-bg);
 	}
 
-	.data-menu-backdrop {
+	.board-menu-backdrop {
 		position: fixed;
 		inset: 0;
 		z-index: 99;
+	}
+
+	.board-menu-board {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2xs);
+		padding: var(--sp-2xs) var(--sp-md);
+	}
+
+	.board-menu-board.active {
+		background: var(--c-surface-alt);
+	}
+
+	.board-menu-board-btn {
+		flex: 1;
+		background: none;
+		border: none;
+		padding: var(--sp-2xs) var(--sp-xs);
+		font: inherit;
+		font-size: var(--fs-sm);
+		color: var(--c-text);
+		text-align: left;
+		cursor: pointer;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.board-menu-board-btn:hover {
+		color: var(--c-accent);
+	}
+
+	.board-menu-action {
+		background: none;
+		border: none;
+		padding: var(--sp-2xs);
+		font-size: var(--fs-xs);
+		color: var(--c-text-muted);
+		cursor: pointer;
+		flex-shrink: 0;
+		border-radius: var(--radius-sm);
+	}
+
+	.board-menu-action:hover {
+		color: var(--c-accent);
+		background: var(--c-bg-hover);
+	}
+
+	.board-menu-action-delete:hover {
+		color: var(--c-red);
+	}
+
+	.board-menu-rename {
+		flex: 1;
+		font: inherit;
+		font-size: var(--fs-sm);
+		padding: var(--sp-2xs) var(--sp-xs);
+		border: 1px solid var(--c-accent);
+		border-radius: var(--radius-sm);
+		background: var(--c-surface);
+		color: var(--c-text);
+		outline: none;
 	}
 
 	.header-actions {

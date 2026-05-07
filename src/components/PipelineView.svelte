@@ -49,6 +49,8 @@
 		firstVisit?: boolean
 		lens?: Perspective | null
 		onLensChange?: (lens: Perspective | null) => void
+		onImportCSV?: () => void
+		onExportCSV?: () => void
 	}
 
 	let {
@@ -70,14 +72,14 @@
 		firstVisit = false,
 		lens = null,
 		onLensChange,
+		onImportCSV,
+		onExportCSV,
 	}: Props = $props()
 
 	let newTitle = $state('')
 	let hoveredStage = $state<string | null>(null)
 	let filteredStage = $state<string | null>(null)
-	let addExpanded = $state(false)
 	let lastAddedId = $state<string | null>(null)
-	let addInputEl = $state<HTMLInputElement | null>(null)
 	let inlineTitle = $state('')
 
 	/** Sort priority for perspective lens: objection first, then unheard, then concern, then consent */
@@ -124,7 +126,6 @@
 		if (!trimmed) return
 		onAdd(trimmed)
 		newTitle = ''
-		addExpanded = false
 		setTimeout(() => {
 			const newOpp = opportunities.find(o => o.title === trimmed && o.stage === 'explore')
 			if (newOpp) {
@@ -138,18 +139,6 @@
 		const opp = opportunities.find(o => o.id === id)
 		if (!opp || !onUpdateOpportunity) return
 		onUpdateOpportunity({ ...opp, exitState: 'parked', discontinuedAt: Date.now() })
-	}
-
-	function expandAdd() {
-		addExpanded = true
-		setTimeout(() => addInputEl?.focus(), 0)
-	}
-
-	function collapseAdd() {
-		if (!newTitle.trim()) {
-			addExpanded = false
-			newTitle = ''
-		}
 	}
 
 	function inlineAdd() {
@@ -561,6 +550,16 @@
 </script>
 
 <div class="pl-container">
+	{#if onImportCSV || onExportCSV}
+		<div class="pl-toolbar">
+			{#if onImportCSV}
+				<button class="btn-solid" onclick={onImportCSV}>Import CSV…</button>
+			{/if}
+			{#if onExportCSV}
+				<button class="btn-solid" onclick={onExportCSV}>Export CSV</button>
+			{/if}
+		</div>
+	{/if}
 	{#if opportunities.length === 0}
 		<div class="pl-onboarding-hint">
 			Opportunities flow from Explore → Decompose. Start by adding one below.
@@ -603,19 +602,6 @@
 		{/if}
 
 		<div class="funnel-row">
-			{#if addExpanded}
-				<input
-					type="text"
-					class="funnel-add-input"
-					placeholder="Opportunity title…"
-					bind:value={newTitle}
-					bind:this={addInputEl}
-					onkeydown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { collapseAdd(); (e.target as HTMLInputElement).blur() } }}
-					onblur={collapseAdd}
-				/>
-			{:else}
-				<button class="funnel-add-btn" onclick={expandAdd} title="Add opportunity (n)">+</button>
-			{/if}
 			<PipelineFunnel {stageCounts} {hoveredStage} {filteredStage} {triageByStage} onHover={(s) => hoveredStage = s} onClick={handleFunnelClick} />
 			<span class="grouping-toggle">
 				<button class="grouping-btn" class:active={grouping === 'stage'} onclick={() => { zoomedGroup = null; filteredStage = null; grouping = 'stage' }}>Funnel</button>
@@ -943,6 +929,17 @@
 		max-width: 56rem;
 	}
 
+	.pl-toolbar {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-sm);
+		padding: var(--sp-xs) var(--sp-sm);
+		background: var(--c-surface-alt);
+		border: 1px solid var(--c-border-soft);
+		border-radius: var(--radius-sm);
+		font-size: var(--fs-xs);
+	}
+
 	/* --- Add input --- */
 	.pl-onboarding-hint {
 		font-size: var(--fs-sm);
@@ -1052,48 +1049,6 @@
 		align-items: center;
 		gap: var(--sp-sm);
 		padding: var(--sp-xs) var(--sp-sm);
-	}
-
-	.funnel-add-btn {
-		width: 32px;
-		height: 32px;
-		border-radius: 50%;
-		border: 1.5px dashed var(--c-border);
-		background: transparent;
-		color: var(--c-text-soft);
-		font-family: system-ui, sans-serif;
-		font-size: var(--fs-lg);
-		font-weight: var(--fw-bold);
-		line-height: 0;
-		padding: 0;
-		cursor: pointer;
-		display: grid;
-		place-items: center;
-		flex-shrink: 0;
-		transition: border-color var(--tr-fast), color var(--tr-fast), background var(--tr-fast);
-	}
-
-	.funnel-add-btn:hover {
-		border-color: var(--c-accent);
-		color: var(--c-accent);
-		background: color-mix(in srgb, var(--c-accent) var(--opacity-subtle), transparent);
-	}
-
-	.funnel-add-input {
-		font-family: var(--font);
-		font-size: var(--fs-sm);
-		color: var(--c-text);
-		background: transparent;
-		border: none;
-		border-bottom: 1.5px solid var(--c-accent);
-		padding: var(--sp-xs) 0;
-		width: 180px;
-		flex-shrink: 0;
-		outline: none;
-	}
-
-	.funnel-add-input::placeholder {
-		color: var(--c-text-ghost);
 	}
 
 	/* --- Grouping toggle --- */

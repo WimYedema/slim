@@ -40,9 +40,10 @@
 		estimationError?: string
 		onPushDeliverables?: () => void
 		onPullEstimates?: () => void
+		onShowImport?: () => void
 	}
 
-	let { deliverables, links, opportunities, selectedId, onAdd, onUpdate, onRemove, onLink, onUnlink, onUpdateCoverage, onSelectOpportunity, onSelectDeliverable, orderedIds = $bindable([]), estimationRoom, estimationBusy = false, estimationMessage = '', estimationError = '', onPushDeliverables, onPullEstimates }: Props = $props()
+	let { deliverables, links, opportunities, selectedId, onAdd, onUpdate, onRemove, onLink, onUnlink, onUpdateCoverage, onSelectOpportunity, onSelectDeliverable, orderedIds = $bindable([]), estimationRoom, estimationBusy = false, estimationMessage = '', estimationError = '', onPushDeliverables, onPullEstimates, onShowImport }: Props = $props()
 
 	let newTitle = $state('')
 
@@ -450,15 +451,25 @@
 
 <div class="deliverables-view">
 
-	{#if estimationRoom}
-		<div class="dv-est-bar">
-			<span class="dv-est-label">Skatting: <code>{estimationRoom}</code></span>
+	<div class="dv-toolbar">
+		{#if onShowImport}
+			<button class="btn-solid" onclick={onShowImport}>Import…</button>
+		{/if}
+		{#if orderedRows.length > 0}
+			<label class="dv-toolbar-zoom" title="Vertical zoom">
+				<span class="dv-toolbar-label">Zoom</span>
+				<input type="range" min="0.4" max="2" step="0.1" bind:value={vZoom} />
+			</label>
+		{/if}
+		{#if estimationRoom}
+			<span class="dv-toolbar-sep"></span>
+			<span class="dv-toolbar-label">Skatting: <code>{estimationRoom}</code></span>
 			<button class="btn-solid" disabled={estimationBusy} onclick={onPushDeliverables}>Push deliverables</button>
 			<button class="btn-solid" disabled={estimationBusy} onclick={onPullEstimates}>Pull estimates</button>
 			{#if estimationMessage}<span class="dv-est-msg">{estimationMessage}</span>{/if}
 			{#if estimationError}<span class="dv-est-err">{estimationError}</span>{/if}
-		</div>
-	{/if}
+		{/if}
+	</div>
 
 	{#if orderedCols.length === 0}
 			<div class="dv-empty">
@@ -487,7 +498,6 @@
 						{/if}
 						<tr>
 							<th class="matrix-corner" style="--hz-opening: {horizonColor(openingHorizon())}">
-								<input type="range" class="corner-zoom" min="0.4" max="2" step="0.1" bind:value={vZoom} title="Vertical zoom" />
 								<button class="corner-resort" onclick={resortRows} title="Re-sort rows by leverage score">↕ Sort</button>
 								{#if orphanCount > 0}<span class="corner-orphan" title="{orphanCount} deliverable{orphanCount !== 1 ? 's' : ''} not linked to any opportunity">{orphanCount} orphan{orphanCount !== 1 ? 's' : ''}</span>{/if}
 							</th>
@@ -786,7 +796,7 @@
 		padding: var(--sp-sm) 0;
 	}
 
-	.dv-est-bar {
+	.dv-toolbar {
 		display: flex;
 		align-items: center;
 		gap: var(--sp-sm);
@@ -796,16 +806,36 @@
 		border: 1px solid var(--c-border-soft);
 		border-radius: var(--radius-sm);
 		font-size: var(--fs-xs);
+		min-height: 28px;
 	}
 
-	.dv-est-label {
+	.dv-toolbar-label {
 		color: var(--c-text-muted);
 		flex-shrink: 0;
 	}
 
-	.dv-est-label code {
+	.dv-toolbar-label code {
 		font-size: var(--fs-xs);
 		color: var(--c-text-soft);
+	}
+
+	.dv-toolbar-zoom {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-xs);
+		cursor: pointer;
+	}
+
+	.dv-toolbar-zoom input[type="range"] {
+		width: 60px;
+		accent-color: var(--c-accent);
+	}
+
+	.dv-toolbar-sep {
+		width: 1px;
+		align-self: stretch;
+		background: var(--c-border-soft);
+		margin: 2px 0;
 	}
 
 	.dv-est-msg {
@@ -898,13 +928,6 @@
 		vertical-align: bottom;
 		padding: var(--sp-xs) var(--sp-sm) var(--sp-xs) 0 !important;
 		border-bottom: 2px solid var(--hz-opening, var(--c-structure));
-	}
-
-	.corner-zoom {
-		width: 60px;
-		accent-color: var(--c-accent);
-		display: block;
-		margin-bottom: 2px;
 	}
 
 	.corner-resort {

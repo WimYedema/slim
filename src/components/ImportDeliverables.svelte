@@ -68,6 +68,10 @@
 		}
 	}
 
+	const VALID_SIZES = ['XS', 'S', 'M', 'L', 'XL'] as const
+	const URL_RE = /https?:\/\/\S+/i
+	const SIZE_RE = /^(XS|S|M|L|XL)$/i
+
 	function parsePaste() {
 		error = ''
 		const lines = pasteText
@@ -82,27 +86,33 @@
 
 		const parsed: ExternalItem[] = []
 		for (const line of lines) {
-			// Try tab-separated: Title\tURL[\tSize]
-			const parts = line.split('\t')
-			if (parts.length >= 2) {
-				const title = parts[0].trim()
-				const url = parts[1].trim()
-				const size = parts[2]?.trim().toUpperCase()
-				const validSizes = ['XS', 'S', 'M', 'L', 'XL']
-				parsed.push({
-					externalId: url,
-					title,
-					url,
-					size: validSizes.includes(size ?? '') ? (size as ExternalItem['size']) : undefined,
-				})
-			} else {
-				// Plain text line — title only
-				parsed.push({
-					externalId: line,
-					title: line,
-					url: '',
-				})
+			// Split on tabs or 2+ spaces to support pasted spreadsheet data
+			const tokens = line.split(/\t|\s{2,}/)
+			let url = ''
+			let size: string | undefined
+			const titleParts: string[] = []
+
+			for (const tok of tokens) {
+				const trimmed = tok.trim()
+				if (!trimmed) continue
+				if (!url && URL_RE.test(trimmed)) {
+					url = trimmed
+				} else if (!size && SIZE_RE.test(trimmed)) {
+					size = trimmed.toUpperCase()
+				} else {
+					titleParts.push(trimmed)
+				}
 			}
+
+			const title = titleParts.join(' ')
+			if (!title) continue
+
+			parsed.push({
+				externalId: url || title,
+				title,
+				url,
+				size: (VALID_SIZES as readonly string[]).includes(size ?? '') ? (size as ExternalItem['size']) : undefined,
+			})
 		}
 
 		items = parsed
@@ -182,11 +192,11 @@
 			</div>
 		{:else}
 			<div class="id-config">
-				<p class="id-hint-block">Paste tab-separated lines: <code>Title → URL → Size</code> (URL and Size are optional)</p>
+				<p class="id-hint-block">One item per line. URLs and sizes (XS/S/M/L/XL) are detected automatically.</p>
 				<textarea
 					class="id-textarea"
 					rows="6"
-					placeholder="Payment flow&#9;https://jira.com/browse/PAY-123&#9;M&#10;Auth refactor&#9;https://jira.com/browse/AUTH-45&#9;L"
+					placeholder={"Payment flow  M  https://jira.com/browse/PAY-123\nAuth refactor  L\nLogin page"}
 					bind:value={pasteText}
 				></textarea>
 				<button class="btn-solid" onclick={parsePaste}>Parse</button>

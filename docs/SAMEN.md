@@ -749,12 +749,12 @@ GitHub is built-in because it requires zero infrastructure (CORS works, PAT is s
 
 **Roadmap:**
 
-- [ ] `ExternalItem` types + `ExternalProvider` interface (`src/lib/external-provider.ts`)
-- [ ] Import dialog UI: source picker, item list, select & import (`ImportDeliverables.svelte`)
-- [ ] Built-in GitHub Issues provider (PAT, CORS works, `src/lib/github-provider.ts`)
+- [x] `ExternalItem` types + `ExternalProvider` interface (`src/lib/external-provider.ts`)
+- [x] Import dialog UI: source picker, item list, select & import (`ImportDeliverables.svelte`)
+- [x] Built-in GitHub Issues provider (PAT, CORS works, `src/lib/github-provider.ts`)
+- [x] Paste fallback: freeform text with auto-detected URLs and sizes (no provider needed)
 - [ ] Data-only connector support (approach A): fetch URL → JSON → import UI
 - [ ] Connector template repo: Cloudflare Worker scaffold + README ("deploy in 2 minutes")
 - [ ] Jira DC connector repo: reference implementation using data-only approach
 - [ ] Dynamic `import()` connector support (approach B): load ES module from URL
 - [ ] Status sync: check if linked items are closed/done → prompt to mark Deliverable done
-- [ ] Paste/CSV fallback: tab-separated or CSV with Title + URL + Size columns (no provider needed)

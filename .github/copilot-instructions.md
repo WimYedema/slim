@@ -87,6 +87,8 @@ One runtime dependency: `nostr-tools` (P2P relay communication). No server, no d
 | `sync.ts` | Nostr relay pub/sub for P2P board sharing and score submission | `generateSyncKeys`, `publishBoard`, `queryBoard`, `publishScores`, `queryScores`, `applyScores` |
 | `merge.ts` | ID-based board merge with `updatedAt` conflict resolution | `mergeBoards`, `formatMergeStats`, `MergeResult` |
 | `csv.ts` | CSV import/export for opportunities | `opportunitiesToCsv`, `csvToOpportunities` |
+| `external-provider.ts` | Extensible connector API: ExternalItem shape, ProviderConfig, data-only connector fetch, localStorage persistence | `ExternalItem`, `ExternalProvider`, `ProviderConfig`, `fetchConnectorItems`, `loadProviders` |
+| `github-provider.ts` | Built-in GitHub Issues provider (PAT auth, pagination, PR filtering, size inference from labels) | `githubProvider` |
 | `samen/` | Shared protocol module (git subtree) — team identity, room index, event bus, crypto | See [samen/README.md](../src/lib/samen/README.md) |
 
 ### Component responsibilities
@@ -94,22 +96,22 @@ One runtime dependency: `nostr-tools` (P2P relay communication). No server, no d
 | Component | Purpose |
 |---|---|
 | `BriefingView.svelte` | Latest tab: News feed with aging bands (Fresh/Read/Older) + Board Health dashboard (aggregate metrics, shown on toggle or as empty state) |
-| `PipelineView.svelte` | Opportunities by stage or horizon, nested deliverables, zoom into single group |
+| `PipelineView.svelte` | Opportunities by stage or horizon, nested deliverables, zoom into single group, CSV import/export toolbar |
 | `PipelineFunnel.svelte` | Proportional stage funnel SVG, interactive hover/click filtering |
 | `OpportunityRow.svelte` | Single opportunity row with density modes (compact/overview/zoomed) |
 | `DetailPane.svelte` | Opportunity detail: signal grid, stage navigation, exit states, commitments, notes, metadata |
-| `DeliverablesView.svelte` | Execution matrix: deliverable rows, opportunity columns, contributor columns, zoom, drag-reorder; estimation toolbar (push/pull) when Skatting session is active |
+| `DeliverablesView.svelte` | Execution matrix: deliverable rows, opportunity columns, contributor columns, zoom, drag-reorder; toolbar with import + zoom + estimation actions |
 | `DeliverableDetailPane.svelte` | Deliverable detail: size, certainty, links, contributors, consumers |
 | `MeetingView.svelte` | Per-person agenda with role filter (All/Team/Stakeholders): entity-grouped changes, commitments, awaiting input, inline scoring, talking points for stakeholders, scoped stamp |
 | `ScoreToggle.svelte` | Reusable score radiogroup (none/positive/uncertain/negative) with keyboard nav |
 | `KeyboardHelp.svelte` | Shortcut reference overlay (? key) |
 | `QuickAdd.svelte` | Quick-add dialog (n key, Tab to switch opportunity/deliverable) |
-| `SyncPanel.svelte` | P2P room management: create/join rooms, publish/pull board, contributor mode |
+| `SyncPanel.svelte` | P2P room management: create/join rooms, request scores/review scores, contributor mode |
 | `RoomPanel.svelte` | Score review sidebar + "Open Team view" link |
 | `TeamView.svelte` | Team tab (tab 5, visible when room is joined): room info, roster CRUD, estimation bridge, cross-tool event log, relay health, leave room |
 | `EstimationPanel.svelte` | Skatting estimation room lifecycle: create room, share code, disconnect (embedded in TeamView) |
+| `ImportDeliverables.svelte` | Deliverable import dialog: GitHub Issues tab (PAT auth), Paste tab (freeform text with auto-detected sizes/URLs), dedup on externalUrl |
 | `ContributorView.svelte` | Contributor scoring view: assigned perspective cells with inline scoring |
-| `BoardPicker.svelte` | Multi-board management: create, switch, delete boards |
 | `WelcomePage.svelte` | First-time onboarding page |
 | `BrainDump.svelte` | Bulk text import for rapid board population |
 

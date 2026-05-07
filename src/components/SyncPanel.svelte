@@ -649,10 +649,10 @@
 		<!-- Owner: direct buttons, no dropdown -->
 		<div class="sync-owner-bar">
 			<button class="sync-btn primary" onclick={publishUpdate} disabled={busy}>
-				{busy ? 'Publishing…' : 'Publish'}
+				{busy ? 'Requesting…' : 'Request scores'}
 			</button>
-			<button class="sync-toggle" onclick={() => onOpenRoomPanel?.()} title="Open room panel">
-				🔗 Room
+			<button class="sync-toggle" onclick={() => onOpenRoomPanel?.()} title="Review submitted scores">
+				Review scores
 				{#if pendingSubmissionCount > 0}
 					<span class="sync-badge">{pendingSubmissionCount}</span>
 				{/if}
