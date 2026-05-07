@@ -707,6 +707,42 @@ Room management built into Slim as a dedicated tab, replacing the originally pla
 
 ### Phase 5: External integrations
 
-- [ ] Jira bookmarklet: scrape board view → clipboard in Slim import format
-- [ ] URL-based import: accept issue URLs, fetch via public API
-- [ ] Samen connector pattern: room-level API tokens, bidirectional sync via event bus
+Import deliverables from sprint-board tools (Jira, GitHub Issues, Linear, etc.) into Slim. Slim owns the "why" and "what"; sprint tools own the "how" and "when". The interface sits at the handoff boundary — Decompose stage output → sprint board input, status flowing back.
+
+**Core abstraction:** All providers map to a common `ExternalItem` shape (title, URL, size, status, labels, assignee). Slim deduplicates on `externalUrl` — items already imported show as "linked" and are hidden.
+
+```typescript
+interface ExternalItem {
+  externalId: string        // provider-specific ("PROJ-123", "#42")
+  title: string
+  url: string               // → Deliverable.externalUrl
+  size?: TShirtSize | null
+  status?: 'open' | 'done' | 'dropped'
+  labels?: string[]
+  assignee?: string         // → extraContributors candidate
+}
+```
+
+**Two connector approaches:**
+
+| | Data-only (A) | ES module (B) |
+|---|---|---|
+| How | Slim `fetch()`s a URL, gets `ExternalItem[]` JSON | Slim `import()`s an ES module implementing `ExternalProvider` |
+| Connector author | Deploys a serverless function (Cloudflare Worker, etc.) | Publishes a JS file (GitHub, esm.sh, unpkg) |
+| Solves CORS | Yes (proxy built-in) | No (client-side only) |
+| Security | No code execution in Slim | Trusts the module (user adds URL explicitly) |
+| Best for | CORS-blocked APIs (Jira Cloud), custom internal tools | CORS-open APIs (GitHub, Linear), offline use |
+
+**Provider config** stored in localStorage (`slim-providers`). Token + base URL per provider.
+
+**Roadmap:**
+
+- [ ] `ExternalItem` types + `ExternalProvider` interface (`src/lib/external-provider.ts`)
+- [ ] Import dialog UI: source picker, item list, select & import (`ImportDeliverables.svelte`)
+- [ ] Built-in GitHub Issues provider (PAT, CORS works, `src/lib/github-provider.ts`)
+- [ ] Data-only connector support (approach A): fetch URL → JSON → import UI
+- [ ] Connector template repo: Cloudflare Worker scaffold + README ("deploy in 2 minutes")
+- [ ] Built-in Jira Server/DC provider (PAT, requires admin CORS config, `src/lib/jira-provider.ts`)
+- [ ] Dynamic `import()` connector support (approach B): load ES module from URL
+- [ ] Status sync: check if linked items are closed/done → prompt to mark Deliverable done
+- [ ] Paste/CSV fallback: tab-separated or CSV with Title + URL + Size columns (no provider needed)
