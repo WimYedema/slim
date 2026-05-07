@@ -1,8 +1,14 @@
 <script lang="ts">
-	import type { ExternalItem, ProviderConfig } from '../lib/external-provider'
+	import type { ConnectorConfig, ExternalItem, ProviderConfig } from '../lib/external-provider'
 	import type { Deliverable } from '../lib/types'
 	import { githubProvider } from '../lib/github-provider'
-	import { loadProviders, saveProviders } from '../lib/external-provider'
+	import {
+		fetchConnectorItems,
+		loadConnectors,
+		loadProviders,
+		saveConnectors,
+		saveProviders,
+	} from '../lib/external-provider'
 
 	interface Props {
 		deliverables: Deliverable[]
@@ -13,7 +19,7 @@
 	let { deliverables, onImport, onClose }: Props = $props()
 
 	// ── State ──
-	let tab: 'github' | 'paste' = $state('github')
+	let tab: 'github' | 'connector' | 'paste' = $state('github')
 	let items: ExternalItem[] = $state([])
 	let selected = $state(new Set<string>())
 	let loading = $state(false)
@@ -30,6 +36,13 @@
 			token: '',
 			project: '',
 		},
+	)
+
+	// Connector tab
+	let savedConnectors = $state(loadConnectors())
+	let connectorIndex = $state(savedConnectors.length > 0 ? 0 : -1)
+	let connectorConfig = $state<ConnectorConfig>(
+		savedConnectors[0] ?? { label: '', url: '', token: '' },
 	)
 
 	// Paste tab
@@ -71,6 +84,63 @@
 	const VALID_SIZES = ['XS', 'S', 'M', 'L', 'XL'] as const
 	const URL_RE = /https?:\/\/\S+/i
 	const SIZE_RE = /^(XS|S|M|L|XL)$/i
+
+	async function fetchConnector() {
+		if (!connectorConfig.url) {
+			error = 'Enter a connector URL'
+			return
+		}
+		loading = true
+		error = ''
+		message = ''
+		items = []
+		selected = new Set()
+		try {
+			items = await fetchConnectorItems(connectorConfig)
+			selected = new Set(newItems.map((i) => i.url || i.title))
+			if (items.length === 0) message = 'No items returned'
+			// Save connector config
+			const label = connectorConfig.label || new URL(connectorConfig.url).hostname
+			const toSave = { ...connectorConfig, label }
+			if (connectorIndex >= 0) {
+				savedConnectors[connectorIndex] = toSave
+			} else {
+				savedConnectors = [...savedConnectors, toSave]
+				connectorIndex = savedConnectors.length - 1
+			}
+			connectorConfig = toSave
+			saveConnectors(savedConnectors)
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to fetch from connector'
+		} finally {
+			loading = false
+		}
+	}
+
+	function selectConnector(index: number) {
+		if (index === -1) {
+			// New connector
+			connectorIndex = -1
+			connectorConfig = { label: '', url: '', token: '' }
+		} else {
+			connectorIndex = index
+			connectorConfig = { ...savedConnectors[index] }
+		}
+		items = []
+		selected = new Set()
+		error = ''
+		message = ''
+	}
+
+	function deleteConnector() {
+		if (connectorIndex < 0) return
+		savedConnectors = savedConnectors.filter((_, i) => i !== connectorIndex)
+		saveConnectors(savedConnectors)
+		connectorIndex = savedConnectors.length > 0 ? 0 : -1
+		connectorConfig = savedConnectors[0] ?? { label: '', url: '', token: '' }
+		items = []
+		selected = new Set()
+	}
 
 	function parsePaste() {
 		error = ''
@@ -161,6 +231,7 @@
 
 		<div class="id-tabs">
 			<button class="id-tab" class:active={tab === 'github'} onclick={() => switchTab('github')}>GitHub</button>
+			<button class="id-tab" class:active={tab === 'connector'} onclick={() => switchTab('connector')}>Connector</button>
 			<button class="id-tab" class:active={tab === 'paste'} onclick={() => switchTab('paste')}>Paste</button>
 		</div>
 
@@ -188,6 +259,61 @@
 				</label>
 				<button class="btn-solid" onclick={fetchGitHub} disabled={loading}>
 					{loading ? 'Fetching…' : 'Fetch issues'}
+				</button>
+			</div>
+		{:else if tab === 'connector'}
+			<div class="id-config">
+				{#if savedConnectors.length > 0}
+					<label class="id-field">
+						<span class="id-label">Connector</span>
+						<div class="id-connector-row">
+							<select
+								class="id-select"
+								value={connectorIndex}
+								onchange={(e) => selectConnector(Number((e.target as HTMLSelectElement).value))}
+							>
+								{#each savedConnectors as c, i}
+									<option value={i}>{c.label || c.url}</option>
+								{/each}
+								<option value={-1}>+ New connector</option>
+							</select>
+							{#if connectorIndex >= 0}
+								<button class="btn-icon id-delete-btn" onclick={deleteConnector} title="Delete connector" aria-label="Delete connector">✕</button>
+							{/if}
+						</div>
+					</label>
+				{/if}
+				<label class="id-field">
+					<span class="id-label">Label <span class="id-hint">(optional)</span></span>
+					<input
+						class="id-input"
+						type="text"
+						placeholder="My Jira connector"
+						bind:value={connectorConfig.label}
+					/>
+				</label>
+				<label class="id-field">
+					<span class="id-label">URL <span class="id-hint">(returns ExternalItem[] JSON)</span></span>
+					<input
+						class="id-input"
+						type="url"
+						placeholder="https://my-connector.workers.dev/items"
+						bind:value={connectorConfig.url}
+						onkeydown={(e) => { if (e.key === 'Enter') fetchConnector() }}
+					/>
+				</label>
+				<label class="id-field">
+					<span class="id-label">Bearer token <span class="id-hint">(optional)</span></span>
+					<input
+						class="id-input"
+						type="password"
+						placeholder="secret-token"
+						bind:value={connectorConfig.token}
+						onkeydown={(e) => { if (e.key === 'Enter') fetchConnector() }}
+					/>
+				</label>
+				<button class="btn-solid" onclick={fetchConnector} disabled={loading}>
+					{loading ? 'Fetching…' : 'Fetch items'}
 				</button>
 			</div>
 		{:else}
@@ -467,5 +593,36 @@
 		padding-top: var(--sp-sm);
 		display: flex;
 		justify-content: flex-end;
+	}
+
+	.id-connector-row {
+		display: flex;
+		gap: var(--sp-xs);
+		align-items: center;
+	}
+
+	.id-select {
+		flex: 1;
+		font: inherit;
+		font-size: var(--fs-sm);
+		padding: var(--sp-xs) var(--sp-sm);
+		border: 1px solid var(--c-border);
+		border-radius: var(--radius-sm);
+		background: var(--c-bg);
+		color: var(--c-text);
+	}
+
+	.id-select:focus {
+		outline: 2px solid var(--c-accent);
+		outline-offset: -1px;
+	}
+
+	.id-delete-btn {
+		color: var(--c-text-muted);
+		flex-shrink: 0;
+	}
+
+	.id-delete-btn:hover {
+		color: var(--c-red);
 	}
 </style>

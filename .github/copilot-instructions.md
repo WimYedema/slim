@@ -110,7 +110,7 @@ One runtime dependency: `nostr-tools` (P2P relay communication). No server, no d
 | `RoomPanel.svelte` | Score review sidebar + "Open Team view" link |
 | `TeamView.svelte` | Team tab (tab 5, visible when room is joined): room info, roster CRUD, estimation bridge, cross-tool event log, relay health, leave room |
 | `EstimationPanel.svelte` | Skatting estimation room lifecycle: create room, share code, disconnect (embedded in TeamView) |
-| `ImportDeliverables.svelte` | Deliverable import dialog: GitHub Issues tab (PAT auth), Paste tab (freeform text with auto-detected sizes/URLs), dedup on externalUrl |
+| `ImportDeliverables.svelte` | Deliverable import dialog: GitHub Issues tab (PAT auth), Connector tab (data-only JSON endpoint), Paste tab (freeform text with auto-detected sizes/URLs), dedup on externalUrl |
 | `ContributorView.svelte` | Contributor scoring view: assigned perspective cells with inline scoring |
 | `WelcomePage.svelte` | First-time onboarding page |
 | `BrainDump.svelte` | Bulk text import for rapid board population |
