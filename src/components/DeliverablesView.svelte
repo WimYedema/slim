@@ -520,7 +520,7 @@
 									style="--hz-color: {horizonColor(opp.horizon)}; --hz-opening: {horizonColor(openingHorizon())}"
 								>
 									<button class="matrix-opp-title" onclick={() => onSelectOpportunity(opp.id)} title={opp.title}>
-										{opp.title}
+										{#if opp.ticketId}<span class="ticket-id-prefix">{opp.ticketId}</span>{/if}{opp.title}
 									</button>
 									<span class="matrix-opp-stage">
 										{STAGES.find((s) => s.key === opp.stage)?.label ?? opp.stage}
@@ -541,7 +541,7 @@
 									<th class="matrix-section-divider"></th>
 									{#each sketchOpps as opp (opp.id)}
 										<th class="matrix-opp-header early-stage">
-											<button class="matrix-opp-title" onclick={() => onSelectOpportunity(opp.id)} title={opp.title}>{opp.title}</button>
+											<button class="matrix-opp-title" onclick={() => onSelectOpportunity(opp.id)} title={opp.title}>{#if opp.ticketId}<span class="ticket-id-prefix">{opp.ticketId}</span>{/if}{opp.title}</button>
 											<span class="matrix-opp-stage">Sketch</span>
 										</th>
 									{/each}
@@ -558,7 +558,7 @@
 									<th class="matrix-section-divider"></th>
 									{#each exploreOpps as opp (opp.id)}
 										<th class="matrix-opp-header early-stage">
-											<button class="matrix-opp-title" onclick={() => onSelectOpportunity(opp.id)} title={opp.title}>{opp.title}</button>
+											<button class="matrix-opp-title" onclick={() => onSelectOpportunity(opp.id)} title={opp.title}>{#if opp.ticketId}<span class="ticket-id-prefix">{opp.ticketId}</span>{/if}{opp.title}</button>
 											<span class="matrix-opp-stage">Explore</span>
 										</th>
 									{/each}
@@ -613,7 +613,7 @@
 								>
 									<td class="matrix-del-name">
 										<span class="drag-handle" title="Drag to reorder">⠿</span>
-										{#if deliverable.ticketId}<span class="ticket-id-prefix">{deliverable.ticketId}</span> {/if}{deliverable.title}
+										{#if deliverable.ticketId}<span class="ticket-id-prefix">{deliverable.ticketId}</span>{/if}{deliverable.title}
 										{#if deliverable.kind === 'discovery'}<span class="matrix-row-badge discovery-badge" title="Discovery — learning, not building">discovery</span>{/if}
 										{#if deliverable.externalUrl}
 											<a class="matrix-del-link" href={deliverable.externalUrl} target="_blank" rel="noopener">↗</a>
@@ -778,7 +778,7 @@
 			<ul class="dv-archive-list">
 				{#each archivedDeliverables as del (del.id)}
 					<li class="dv-archive-item">
-						<button class="dv-archive-name" onclick={() => onSelectDeliverable(del.id)}>{#if del.ticketId}<span class="ticket-id-prefix">{del.ticketId}</span> {/if}{del.title}</button>
+						<button class="dv-archive-name" onclick={() => onSelectDeliverable(del.id)}>{#if del.ticketId}<span class="ticket-id-prefix">{del.ticketId}</span>{/if}{del.title}</button>
 						<span class="dv-archive-status" class:status-done={del.status === 'done'} class:status-dropped={del.status === 'dropped'}>{del.status}</span>
 						{#if del.kind === 'discovery'}<span class="dv-archive-kind">discovery</span>{/if}
 						{#if del.dropReason}<span class="dv-archive-reason" title={del.dropReason}>— {del.dropReason}</span>{/if}
@@ -1074,6 +1074,7 @@
 		font-size: var(--fs-2xs);
 		color: var(--c-text-muted);
 		font-weight: var(--fw-normal);
+		margin-right: var(--sp-xs);
 	}
 
 	.leverage-score {

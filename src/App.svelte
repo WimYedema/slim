@@ -22,6 +22,8 @@
 		type Perspective,
 		createOpportunity,
 		createDeliverable,
+		nextTicketId,
+		backfillTicketIds,
 		nextStage,
 		stageConsent,
 		canAdvanceToDeliver,
@@ -57,8 +59,8 @@
 	const hasRoomParam = new URLSearchParams(location.search).has('room')
 	let showWelcome = $state(!saved && boardEntries.length === 0 && !hasRoomParam && !localStorage.getItem(WELCOMED_KEY))
 
-	let opportunities: Opportunity[] = $state(saved?.opportunities ?? [])
-	let deliverables: Deliverable[] = $state(saved?.deliverables ?? [])
+	let opportunities: Opportunity[] = $state(backfillTicketIds(saved?.opportunities ?? [], 'OPP-'))
+	let deliverables: Deliverable[] = $state(backfillTicketIds(saved?.deliverables ?? [], 'DEL-'))
 	let links: OpportunityDeliverableLink[] = $state(saved?.links ?? [])
 	let customHorizons: string[] = $state(saved?.customHorizons ?? [])
 	let estimationRoom: string | undefined = $state(saved?.estimationRoom)
@@ -368,7 +370,9 @@
 	const nameAnnotations = $derived(mergedNames.annotations)
 
 	function addOpportunity(title: string) {
-		opportunities = [...opportunities, createOpportunity(title)]
+		const opp = createOpportunity(title)
+		opp.ticketId = nextTicketId('OPP-', opportunities)
+		opportunities = [...opportunities, opp]
 	}
 
 	function moveOpportunity(id: string, stage: Stage) {
@@ -411,6 +415,7 @@
 
 	function addDeliverable(title: string): Deliverable {
 		const d = createDeliverable(title)
+		d.ticketId = nextTicketId('DEL-', deliverables)
 		deliverables = [...deliverables, d]
 		return d
 	}
@@ -505,8 +510,8 @@
 		ensureBoard(boardName)
 		// Always update the name — ensureBoard may have returned an existing entry with a placeholder name
 		if (activeBoardId) renameBoard(activeBoardId, boardName)
-		opportunities = board.opportunities
-		deliverables = board.deliverables
+		opportunities = backfillTicketIds(board.opportunities, 'OPP-')
+		deliverables = backfillTicketIds(board.deliverables, 'DEL-')
 		links = board.links
 		briefingSnapshot = snapshotBoard({ opportunities, deliverables, links })
 		dismissWelcome()
@@ -543,8 +548,8 @@
 		activeBoardId = id
 		setActiveBoardId(id)
 		const data = loadBoard(id)
-		opportunities = data?.opportunities ?? []
-		deliverables = data?.deliverables ?? []
+		opportunities = backfillTicketIds(data?.opportunities ?? [], 'OPP-')
+		deliverables = backfillTicketIds(data?.deliverables ?? [], 'DEL-')
 		links = data?.links ?? []
 		customHorizons = data?.customHorizons ?? []
 		briefingSnapshot = data?.briefingSnapshot ?? null
@@ -727,13 +732,13 @@
 					if (mode === 'merge') {
 						const local: BoardData = { opportunities, deliverables, links }
 						const result = mergeBoards(local, data)
-						opportunities = result.opportunities
-						deliverables = result.deliverables
+						opportunities = backfillTicketIds(result.opportunities, 'OPP-')
+						deliverables = backfillTicketIds(result.deliverables, 'DEL-')
 						links = result.links
 						alert(formatMergeStats(result.stats))
 					} else {
-						opportunities = data.opportunities
-						deliverables = data.deliverables
+						opportunities = backfillTicketIds(data.opportunities, 'OPP-')
+						deliverables = backfillTicketIds(data.deliverables, 'DEL-')
 						links = data.links
 						customHorizons = data.customHorizons ?? []
 					}
@@ -768,7 +773,10 @@
 					}
 
 					pushUndo('Import CSV')
-					opportunities = [...opportunities, ...imported]
+					// Assign ticket IDs considering existing opportunities
+					let all = [...opportunities, ...imported]
+					all = backfillTicketIds(all, 'OPP-')
+					opportunities = all
 					const msg = `Imported ${imported.length} opportunity${imported.length === 1 ? '' : 'ies'}.`
 					const skipMsg = skipped.length > 0 ? `\nSkipped ${skipped.length}: ${skipped.join(', ')}` : ''
 					alert(msg + skipMsg)
@@ -783,13 +791,17 @@
 
 	function importExternalDeliverables(items: ExternalItem[]) {
 		pushUndo('Import deliverables')
+		const newDels: Deliverable[] = []
 		for (const item of items) {
 			const d = createDeliverable(item.title)
 			d.externalUrl = item.url
 			if (item.size) d.size = item.size
 			if (item.assignee) d.extraContributors = [item.assignee]
-			deliverables = [...deliverables, d]
+			newDels.push(d)
 		}
+		let all = [...deliverables, ...newDels]
+		all = backfillTicketIds(all, 'DEL-')
+		deliverables = all
 	}
 </script>
 

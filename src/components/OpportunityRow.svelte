@@ -245,7 +245,7 @@
 				{/if}
 			</button>
 			{/if}
-			<span class="pl-title">{#if opp.ticketId}<span class="ticket-id-prefix">{opp.ticketId}</span> {/if}{opp.title}</span>
+			<span class="pl-title">{#if opp.ticketId}<span class="ticket-id-prefix">{opp.ticketId}</span>{/if}{opp.title}</span>
 			{#if showStageBadge}
 				<span class="stage-badge stage-{opp.stage}">{stageLabel(opp.stage)}</span>
 			{/if}
@@ -363,7 +363,7 @@
 					class:full={link.coverage === 'full'}
 					title={link.coverage === 'full' ? 'Full coverage' : 'Partial coverage'}
 				>{link.coverage === 'full' ? '●' : '◐'}</span>
-				<span class="pl-del-title">{deliverable.title}</span>
+				<span class="pl-del-title">{#if deliverable.ticketId}<span class="ticket-id-prefix">{deliverable.ticketId}</span>{/if}{deliverable.title}</span>
 				<span class="pl-del-size">{deliverable.size ?? ''}</span>
 				<span class="pl-del-certainty" title={deliverable.certainty != null ? `Confidence: ~${deliverable.certainty * 20}%` : ''}>{deliverable.certainty != null ? `~${deliverable.certainty * 20}%` : ''}</span>
 			</div>
@@ -494,6 +494,7 @@
 		font-size: var(--fs-2xs);
 		color: var(--c-text-muted);
 		font-weight: var(--fw-normal);
+		margin-right: var(--sp-xs);
 	}
 
 	.pl-bucket-urgent .pl-title {

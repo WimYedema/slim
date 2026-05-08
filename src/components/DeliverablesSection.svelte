@@ -77,7 +77,7 @@
 					onclick={() => onUpdateLinkCoverage(opportunity.id, deliverable.id, link.coverage === 'full' ? 'partial' : 'full')}
 					title={link.coverage === 'full' ? 'Full coverage — click to mark partial' : 'Partial coverage — click to mark full'}
 				></button>
-				<span class="deliverable-title">{#if onNavigateToDeliverable}<button class="deliverable-nav" onclick={() => onNavigateToDeliverable(deliverable.id)}>{deliverable.title}</button>{:else if deliverable.externalUrl}<a href={deliverable.externalUrl} target="_blank" rel="noopener">{deliverable.title}</a>{:else}{deliverable.title}{/if}</span>
+				<span class="deliverable-title">{#if onNavigateToDeliverable}<button class="deliverable-nav" onclick={() => onNavigateToDeliverable(deliverable.id)}>{#if deliverable.ticketId}<span class="ticket-id-prefix">{deliverable.ticketId}</span>{/if}{deliverable.title}</button>{:else if deliverable.externalUrl}<a href={deliverable.externalUrl} target="_blank" rel="noopener">{#if deliverable.ticketId}<span class="ticket-id-prefix">{deliverable.ticketId}</span>{/if}{deliverable.title}</a>{:else}{#if deliverable.ticketId}<span class="ticket-id-prefix">{deliverable.ticketId}</span>{/if}{deliverable.title}{/if}</span>
 				{#if deliverable.size}
 					<span class="deliverable-size-badge">{deliverable.size}</span>
 				{/if}
@@ -239,6 +239,13 @@
 	.deliverable-title a:hover {
 		color: var(--c-accent-text);
 		text-decoration: underline;
+	}
+
+	.ticket-id-prefix {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+		font-weight: var(--fw-normal);
+		margin-right: var(--sp-xs);
 	}
 
 	.deliverable-nav {

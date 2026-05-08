@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
 	agingLevel,
+	backfillTicketIds,
 	type CellSignal,
 	canAdvanceToDeliver,
 	cellHasSignal,
@@ -23,6 +24,7 @@ import {
 	linksForOpportunity,
 	nextScore,
 	nextStage,
+	nextTicketId,
 	type Opportunity,
 	type OpportunityDeliverableLink,
 	opportunityEffort,
@@ -944,5 +946,53 @@ describe('commitmentStatuses', () => {
 		// deliver milestone at deliver stage → not met (same stage, not past)
 		expect(statuses[1].met).toBe(false)
 		expect(statuses[1].daysLeft).toBe(-1)
+	})
+})
+
+describe('nextTicketId', () => {
+	it('returns PREFIX1 for empty list', () => {
+		expect(nextTicketId('OPP-', [])).toBe('OPP-1')
+	})
+
+	it('increments from highest existing', () => {
+		const items = [{ ticketId: 'OPP-3' }, { ticketId: 'OPP-1' }]
+		expect(nextTicketId('OPP-', items)).toBe('OPP-4')
+	})
+
+	it('ignores items with different prefix', () => {
+		const items = [{ ticketId: 'DEL-5' }, { ticketId: 'OPP-2' }]
+		expect(nextTicketId('OPP-', items)).toBe('OPP-3')
+	})
+
+	it('handles items without ticketId', () => {
+		const items = [{ ticketId: 'OPP-2' }, {}, { ticketId: undefined }]
+		expect(nextTicketId('OPP-', items)).toBe('OPP-3')
+	})
+
+	it('is case-insensitive', () => {
+		const items = [{ ticketId: 'opp-7' }]
+		expect(nextTicketId('OPP-', items)).toBe('OPP-8')
+	})
+})
+
+describe('backfillTicketIds', () => {
+	it('assigns IDs to items without ticketId', () => {
+		const items = [{ ticketId: 'OPP-1' }, { title: 'no id' }, { title: 'also no id' }]
+		const result = backfillTicketIds(items, 'OPP-')
+		expect(result[0].ticketId).toBe('OPP-1')
+		expect(result[1].ticketId).toBe('OPP-2')
+		expect(result[2].ticketId).toBe('OPP-3')
+	})
+
+	it('returns same array reference if nothing to backfill', () => {
+		const items = [{ ticketId: 'OPP-1' }]
+		const result = backfillTicketIds(items, 'OPP-')
+		expect(result).toBe(items)
+	})
+
+	it('fills gaps correctly', () => {
+		const items = [{ ticketId: 'OPP-5' }, { title: 'new' }]
+		const result = backfillTicketIds(items, 'OPP-')
+		expect(result[1].ticketId).toBe('OPP-6')
 	})
 })

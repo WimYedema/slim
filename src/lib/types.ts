@@ -371,6 +371,45 @@ export function createDeliverable(title: string): Deliverable {
 	}
 }
 
+/** Extract the numeric suffix from a ticketId with the given prefix, or 0 */
+function ticketNumber(ticketId: string | undefined, prefix: string): number {
+	if (!ticketId) return 0
+	const upper = ticketId.toUpperCase()
+	const p = prefix.toUpperCase()
+	if (!upper.startsWith(p)) return 0
+	const n = Number.parseInt(upper.slice(p.length), 10)
+	return Number.isNaN(n) ? 0 : n
+}
+
+/** Return the next ticket ID for a given prefix, scanning existing items */
+export function nextTicketId(prefix: string, items: { ticketId?: string }[]): string {
+	let max = 0
+	for (const item of items) {
+		const n = ticketNumber(item.ticketId, prefix)
+		if (n > max) max = n
+	}
+	return `${prefix}${max + 1}`
+}
+
+/** Assign ticket IDs to items that don't have one */
+export function backfillTicketIds<T extends { ticketId?: string }>(
+	items: T[],
+	prefix: string,
+): T[] {
+	let max = 0
+	for (const item of items) {
+		const n = ticketNumber(item.ticketId, prefix)
+		if (n > max) max = n
+	}
+	let changed = false
+	const result = items.map((item) => {
+		if (item.ticketId) return item
+		changed = true
+		return { ...item, ticketId: `${prefix}${++max}` }
+	})
+	return changed ? result : items
+}
+
 export const TSHIRT_SIZES: TShirtSize[] = ['XS', 'S', 'M', 'L', 'XL']
 
 /** Row height in pixels per T-shirt size */

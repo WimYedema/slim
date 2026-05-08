@@ -105,6 +105,7 @@
 
 <div class="ddp">
 	<header class="ddp-header">
+		{#if deliverable.ticketId}<span class="ddp-ticket-prefix">{deliverable.ticketId}</span>{/if}
 		<input
 			type="text"
 			class="ddp-title-input"
@@ -114,21 +115,6 @@
 		/>
 		<button class="ddp-close" onclick={onClose} aria-label="Close">×</button>
 	</header>
-
-	<label class="ddp-field ddp-ticket-id">
-		<span class="ddp-label">Ticket ID</span>
-		<input
-			type="text"
-			class="ddp-input"
-			placeholder="e.g. DEL-7"
-			value={deliverable.ticketId ?? ''}
-			onblur={(e) => {
-				const v = (e.target as HTMLInputElement).value.trim()
-				if (v !== (deliverable.ticketId ?? '')) onUpdate({ ...deliverable, ticketId: v || undefined })
-			}}
-			onkeydown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }}
-		/>
-	</label>
 
 	<div class="ddp-summary-bar">
 		<div class="ddp-kind-picker">
@@ -228,7 +214,7 @@
 							onclick={() => onUpdateCoverage(opp.id, deliverable.id, link.coverage === 'full' ? 'partial' : 'full')}
 							title={link.coverage === 'full' ? 'Full → click for partial' : 'Partial → click for full'}
 						>{link.coverage === 'full' ? '●' : '◐'}</button>
-						<button class="ddp-opp-name" onclick={() => onSelectOpportunity(opp.id)}>{opp.title}</button>
+						<button class="ddp-opp-name" onclick={() => onSelectOpportunity(opp.id)}>{#if opp.ticketId}<span class="ticket-id-prefix">{opp.ticketId}</span>{/if}{opp.title}</button>
 						<span class="ddp-opp-stage">{STAGES.find((s) => s.key === opp.stage)?.label}</span>
 						<button class="ddp-unlink" onclick={() => onUnlink(opp.id, deliverable.id)} title="Unlink">×</button>
 					</div>
@@ -240,7 +226,7 @@
 				<div class="ddp-link-picker">
 					{#each unlinkedOpportunities as opp (opp.id)}
 						<button class="ddp-link-option" onclick={() => { onLink(opp.id, deliverable.id, 'partial'); linkingOpportunity = false }}>
-							{opp.title}
+							{#if opp.ticketId}<span class="ticket-id-prefix">{opp.ticketId}</span>{/if}{opp.title}
 							<span class="ddp-link-stage">{STAGES.find((s) => s.key === opp.stage)?.label}</span>
 						</button>
 					{/each}
@@ -333,8 +319,16 @@
 
 	.ddp-header {
 		display: flex;
-		align-items: flex-start;
+		align-items: baseline;
 		gap: var(--sp-sm);
+	}
+
+	.ddp-ticket-prefix {
+		flex-shrink: 0;
+		font-family: var(--font);
+		font-size: var(--fs-sm);
+		color: var(--c-text-muted);
+		font-weight: var(--fw-medium);
 	}
 
 	.ddp-title-input {
@@ -637,6 +631,13 @@
 
 	.ddp-opp-name:hover {
 		text-decoration: underline;
+	}
+
+	.ticket-id-prefix {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+		font-weight: var(--fw-normal);
+		margin-right: var(--sp-xs);
 	}
 
 	.ddp-opp-stage {

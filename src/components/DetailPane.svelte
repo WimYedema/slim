@@ -253,6 +253,7 @@
 
 <div class="detail-pane" class:discontinued={!!opportunity.discontinuedAt}>
 	<header class="pane-header">
+		{#if opportunity.ticketId}<span class="pane-ticket-prefix">{opportunity.ticketId}</span>{/if}
 		<input
 			type="text"
 			class="pane-title-input"
@@ -361,21 +362,6 @@
 					<option value={h}></option>
 				{/each}
 			</datalist>
-		</div>
-		<div class="pane-ticket-id">
-			<label class="ticket-id-label" for="ticket-id-input">Ticket ID</label>
-			<input
-				id="ticket-id-input"
-				class="ticket-id-input"
-				type="text"
-				placeholder="e.g. OPP-42"
-				value={opportunity.ticketId ?? ''}
-				onblur={(e) => {
-					const v = (e.target as HTMLInputElement).value.trim()
-					if (v !== (opportunity.ticketId ?? '')) onUpdate({ ...opportunity, ticketId: v || undefined })
-				}}
-				onkeydown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }}
-			/>
 		</div>
 	</div>
 
@@ -658,7 +644,7 @@
 	/* Title stays in the sketch font for visual continuity */
 	.pane-header {
 		display: flex;
-		align-items: flex-start;
+		align-items: baseline;
 		gap: var(--sp-sm);
 	}
 
@@ -742,36 +728,12 @@
 		border-style: solid;
 	}
 
-	.pane-ticket-id {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-sm);
-	}
-
-	.pane-ticket-id .ticket-id-label {
-		font-family: var(--font);
-		font-size: var(--fs-xs);
-		color: var(--c-text-muted);
+	.pane-ticket-prefix {
 		flex-shrink: 0;
+		font-family: var(--font);
+		font-size: var(--fs-sm);
+		color: var(--c-text-muted);
 		font-weight: var(--fw-medium);
-	}
-
-	.pane-ticket-id .ticket-id-input {
-		font: inherit;
-		font-size: var(--fs-xs);
-		color: var(--c-text);
-		background: transparent;
-		border: 1px dashed var(--c-border-soft);
-		border-radius: var(--radius-sm);
-		padding: 2px var(--sp-xs);
-		width: 100px;
-		outline: none;
-		transition: border-color var(--tr-fast);
-	}
-
-	.pane-ticket-id .ticket-id-input:focus {
-		border-color: var(--c-accent);
-		border-style: solid;
 	}
 
 	.stage-badge {
