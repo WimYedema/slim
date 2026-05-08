@@ -15,7 +15,7 @@
 	<div class="welcome-content">
 		<h1 class="welcome-title">Slim</h1>
 		<p class="welcome-subtitle">What to build next — and why it matters</p>
-		<p class="welcome-desc">Plan what matters before the sprint board. All data stays in your browser.</p>
+		<p class="welcome-desc">Track opportunities from first spark to fulfilled promise. All data stays in your browser.</p>
 
 		<!-- Abstract pipeline illustration — visual scent of the product -->
 		<svg class="welcome-illustration" viewBox="0 0 280 56" aria-hidden="true">

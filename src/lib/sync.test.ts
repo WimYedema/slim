@@ -16,7 +16,7 @@ function board(opps = [createOpportunity('Test')]): BoardData {
 
 function submission(
 	oppId: string,
-	stage: 'explore' | 'sketch' | 'validate' | 'decompose',
+	stage: 'explore' | 'sketch' | 'validate' | 'decompose' | 'deliver',
 	perspective: 'desirability' | 'feasibility' | 'viability',
 	score: 'positive' | 'uncertain' | 'negative',
 	name = 'Sam',

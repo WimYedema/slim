@@ -171,10 +171,10 @@ Aging, deadlines, and staleness are visible at every level, not buried in metada
 
 ### 19. Exit is a decision, not deletion
 
-Discontinuing an opportunity captures *why* and *how* -- kill, park, or merge.
+Discontinuing an opportunity captures *why* and *how* -- kill, park, merge, or done.
 
 - History (signals, verdicts, commitments) is preserved. Reactivation is one click.
-- Exit states serve future-self: "Why did we drop this?" is always answerable.
+- Exit states serve future-self: "Why did we drop this?" and "What did we deliver?" are always answerable.
 - The "exited" section is collapsed but accessible -- out of the workflow, not out of the system.
 
 ### 20. Data belongs to the user

@@ -1,6 +1,6 @@
 # Slim -- Product Guide
 
-> A planning tool for product owners, covering the work *before* the sprint board.
+> A planning tool for product owners, covering the opportunity lifecycle from first spark to fulfilled promise.
 
 ---
 
@@ -9,6 +9,8 @@
 Every agile tool in the market models the same thing: Todo -> Doing -> Done. That's the *production* pipeline -- the part developers live in. But the part where value decisions actually happen -- ideation, clarification, validation -- is treated as an undifferentiated "backlog."
 
 Product owners manage that messy upstream work in their heads, spreadsheets, Confluence pages, and Miro boards. None of these tools model the *flow* of an idea from first spark to "ready for sprint."
+
+And even when an idea *does* reach the sprint board, the PO's promises disappear. "We told the CEO this ships in Q3" lives in a Slack thread. The sprint tickets that should make it happen have no structural link back to that commitment. Whether the promise was kept is anyone's guess.
 
 Developers got Kanban boards fifteen years ago. Product owners got a text editor and good luck.
 
@@ -20,6 +22,7 @@ Developers got Kanban boards fifteen years ago. Product owners got a text editor
 - In R&D environments, half the pipeline is supply-driven ("we *can* build this"), but there's no gate for "but *should* we?" Technically exciting ideas sail past validation by default.
 - The link between business goals and the actual work gets lost in translation.
 - Prioritization is gut feel, because value, risk, and effort live in different tools at different fidelities.
+- Promises made to stakeholders during planning have no follow-through mechanism -- the PO can't tell whether what was committed actually shipped.
 
 ---
 
@@ -37,6 +40,7 @@ Slim makes the pivot explicit:
 - **Above the pivot** -- value decomposition, owned by the PO: *Why are we doing this? Is it worth it? What's the smallest valuable slice?*
 - **Below the pivot** -- work decomposition, owned by the dev team: *How do we build it? What are the tasks?*
 - **The Decompose stage is the pivot itself** -- where value-framed opportunities get translated into buildable deliverables.
+- **The Deliver stage watches across the pivot** -- the PO doesn't manage the sprint work, but tracks whether the decomposed work fulfilled the opportunity's promises to stakeholders.
 
 ### The relationship is a graph, not a tree
 
@@ -54,7 +58,11 @@ Enterprise architecture frameworks like ArchiMate model similar relationships be
 
 ## A pipeline with thinking modes
 
-Slim defines four stages with an opinionated flow. Each stage enforces a dominant way of thinking -- a principle drawn from Edward de Bono's work on separating creative and critical thought. When both happen simultaneously, criticism wins and ideas die before they're fully formed.
+Slim defines five stages with an opinionated flow. Each stage enforces a dominant way of thinking -- a principle drawn from Edward de Bono's work on separating creative and critical thought. When both happen simultaneously, criticism wins and ideas die before they're fully formed.
+
+The first four stages ask: "Are we building the *right* thing?" -- progressively sharpening the answer through open exploration, focused sketching, evidence-based validation, and structural decomposition. The fifth stage flips the question: "Did we build what was *promised*?" This validation-then-verification arc comes from systems engineering, where it's the standard quality model.
+
+Together, the five stages form a complete Deming cycle (Plan-Do-Check-Act) at the opportunity level. The PO plans what to build (Explore through Decompose), the team builds it (sprint board), the PO checks whether it landed (Deliver), and the outcome closes the loop (Done, or corrective action). Without Deliver, the cycle would be open-ended -- promises made but never structurally followed up.
 
 | Stage | Thinking mode | What happens here |
 |---|---|---|
@@ -62,6 +70,7 @@ Slim defines four stages with an opinionated flow. Each stage enforces a dominan
 | **Sketch** | Focused | Gather facts, define constraints, identify who's affected, describe what "done" looks like. |
 | **Validate** | Evaluative | Test assumptions against evidence. New ideas go back to Explore. |
 | **Decompose** | Structural | Split into deliverables, size them, map them to opportunities. The question of *whether* to build is already settled. |
+| **Deliver** | Observational | Track promises and watch deliverables land. The question of *what* to build is already answered. |
 
 Contributors opening a card can tell what kind of thinking is invited by the stage it's in.
 
@@ -101,6 +110,8 @@ The key shift is in the PO's question. Instead of "is this good enough?" (a judg
 ### The funnel should narrow
 
 Many ideas enter. Few should survive. A healthy pipeline looks like 47 -> 12 -> 5 -> 3. A pipeline reading 47 -> 45 -> 44 -> 43 means nobody is saying no. Slim makes the funnel shape visible at a glance, so the PO can feel the pressure without configuring dashboards or generating reports.
+
+The Deliver stage sits past the funnel's narrowest point. It's not part of the filter -- it's the output end, where the PO watches whether the surviving ideas actually fulfill their promises.
 
 ---
 
@@ -145,13 +156,16 @@ Slim doesn't manage bugs or individual debt items. It makes the accumulation vis
 
 Not every opportunity advances. Some are rejected, some are shelved, some are absorbed into other opportunities. These exits are decisions with rationales -- not failures. Like architectural decision records for technical choices, Slim preserves product decisions so they can be referenced later rather than relitigated.
 
+Slim's commitment model draws on the Last Planner System from lean construction: a **promise** is the basic unit of coordination. A reliable promise names what will be done, who it's promised to, and by when. The accountability loop closes when the promise is kept, renegotiated, or explicitly abandoned -- never silently dropped. The Deliver stage makes this loop structural: commitments made during planning become the measure of success during delivery.
+
 | Exit state | What it means |
 |---|---|
 | **Killed** | Evaluated and rejected. A perspective failed, or priorities shifted. Can be reopened as a new opportunity linked to the original. |
 | **Parked** | Not rejected, just not now. Can set a horizon for revisitation. Returns to the stage it left when reactivated. |
 | **Merged** | Duplicate or subsumed by another opportunity. It *is* the other one now. |
+| **Done** | Delivered as promised. Commitments fulfilled, deliverables landed. The full decision trail is preserved as institutional memory. |
 
-Every exit captures *who* decided, *why*, and what the evidence looked like at that point. Over time, this builds institutional memory. "Why didn't we build X?" has a one-click answer.
+Every exit captures *who* decided, *why*, and what the evidence looked like at that point. Over time, this builds institutional memory. "Why didn't we build X?" and "Did we deliver what we promised?" each have a one-click answer.
 
 ---
 
@@ -171,7 +185,9 @@ The PO checks this first thing in the morning. Five minutes, context loaded.
 
 ### 2. Pipeline -- "What do I push?"
 
-The working view. All active opportunities, grouped by stage or by delivery horizon, with linked deliverables nested underneath. A funnel visualization at the top. Triage buckets (blocked -> needs input -> on track) sort items within each group so what needs attention surfaces first.
+The working view. All active opportunities, grouped by stage, by delivery horizon, or by promise status, with linked deliverables nested underneath. A funnel visualization at the top. Triage buckets (blocked -> needs input -> on track) sort items within each group so what needs attention surfaces first.
+
+The Promises grouping shows only Deliver-stage opportunities, organized by commitment urgency: at risk, on track, delivered, or no commitments. This gives the PO a single view to answer: "What did I promise, and where do things stand?"
 
 Clicking a stage header zooms into a focused view of everything at that stage -- signal grids, deliverables, commitments, people involved -- replacing the click-open-close-click cycle of working through a backlog.
 
@@ -226,9 +242,15 @@ Product owners don't follow a single career path. They arrive from business anal
 
 The "Product Owner" title also masks different scopes. Roman Pichler's taxonomy identifies at least six: full-product PO, feature owner, component owner, SAFe tactical PO, platform owner, portfolio owner. Most POs in practice are feature owners managing 10-30 opportunities, not strategic leaders steering an entire product. Slim is designed for that reality.
 
+### Feature teams need this most
+
+Marty Cagan (SVPG) distinguishes three team models: delivery teams (backlog administrators), feature teams (given a roadmap of features to build), and empowered product teams (given problems to solve). Only the last group routinely does structured product discovery. Yet most POs work in feature teams, where "value and business viability are the responsibility of the stakeholder who requested the feature."
+
+Slim doesn't require an empowered PO to be useful. It gives a feature-team PO the structure to *build the evidence base that earns empowerment*. When a PO can show the pipeline shape, the consent coverage, and the funnel narrowing, they're no longer just administering a backlog -- they're demonstrating product judgment. The signal grid makes upstream thinking visible and structured, even when the organization hasn't yet adopted a formal product operating model.
+
 ### Two personas
 
-**Alex, the tactical PO** works at a 30-150 person company, owns one or two product areas, and reports to a head of product. About 40% of the pipeline is supply-driven (engineers proposing capabilities). Alex manages 15-40 active opportunities, meets 3-5 stakeholders weekly, and loses track of who's waiting on what. The spreadsheet is the current tool. The need: say no to ideas with structural backing, not just gut feel.
+**Alex, the tactical PO** works at a 30-150 person company, owns one or two product areas, and reports to a head of product. About 40% of the pipeline is supply-driven (engineers proposing capabilities). Alex manages 15-40 active opportunities, meets 3-5 stakeholders weekly, and loses track of who's waiting on what. The spreadsheet is the current tool. The need: say no to ideas with structural backing, track promises through delivery, and never walk into a stakeholder meeting unprepared.
 
 **Jordan, the solo PO** works at a 10-30 person startup, wears multiple hats, and keeps everything in a Notion doc. No budget for enterprise tools, no time for configuration. The need: something that works in five minutes and replaces the spreadsheet for daily use.
 
@@ -244,7 +266,7 @@ The "Product Owner" title also masks different scopes. Roman Pichler's taxonomy 
 | Spreadsheets | *The actual incumbent* | Free and flexible, but zero flow visibility |
 | Miro / Confluence / Notion | Ad-hoc tooling | No structured pipeline |
 
-The real competitor is the spreadsheet. Slim must be easier for daily use while showing what the spreadsheet can't: where ideas are stuck, who's blocking what, whether the funnel is narrowing, and what to say in tomorrow's 1:1.
+The real competitor is the spreadsheet. Slim must be easier for daily use while showing what the spreadsheet can't: where ideas are stuck, who's blocking what, whether the funnel is narrowing, whether promises are being kept, and what to say in tomorrow's 1:1.
 
 ---
 
@@ -255,7 +277,7 @@ The real competitor is the spreadsheet. Slim must be easier for daily use while 
 | Latest view (news feed with aging model + overview sub-view) | Done |
 | Pipeline view with stage/horizon grouping + funnel + zoom | Done |
 | Triage list with smart sort and contextual nudges | Done |
-| Signal grid (4 stages x 3 perspectives) with consent gating | Done |
+| Signal grid (5 stages x 3 perspectives) with consent gating | Done |
 | Coverage matrix with contributor columns | Done |
 | Roadmap with horizon grouping and size breakdown | Done |
 | Meeting prep with snapshot-based change detection and role filter | Done |
@@ -263,7 +285,7 @@ The real competitor is the spreadsheet. Slim must be easier for daily use while 
 | People links, delegation, commitments | Done |
 | Local persistence (localStorage) | Done |
 | Card aging (time-in-stage visual decay) | Done |
-| Full exit states (kill / park / merge) with reason capture | Done |
+| Full exit states (kill / park / merge / done) with reason capture | Done |
 | Origin types (demand / supply / incident / debt) | Done |
 | Import / export (JSON + CSV, merge import) | Done |
 | WIP limits per stage (funnel coloring, badges, nudges) | Done |

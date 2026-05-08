@@ -111,6 +111,14 @@ function backfillBoard(data: BoardData): BoardData {
 		for (const p of opp.people) {
 			if ((p.role as string) === 'blocker') p.role = 'approver'
 		}
+		// Backfill deliver signals for boards created before the Deliver stage
+		if (!opp.signals.deliver) {
+			opp.signals.deliver = {
+				desirability: { score: 'none', source: 'manual', verdict: '', evidence: '', owner: '' },
+				feasibility: { score: 'none', source: 'manual', verdict: '', evidence: '', owner: '' },
+				viability: { score: 'none', source: 'manual', verdict: '', evidence: '', owner: '' },
+			}
+		}
 	}
 	for (const del of data.deliverables) {
 		if (!del.kind) del.kind = 'delivery'

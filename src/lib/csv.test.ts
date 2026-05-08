@@ -123,8 +123,8 @@ describe('round-trip: opportunitiesToCsv → csvToOpportunities', () => {
 		expect(imported[0].signals.explore.viability.score).toBe('none')
 	})
 
-	it('handles all four stages', () => {
-		const stages = ['explore', 'sketch', 'validate', 'decompose'] as const
+	it('handles all five stages', () => {
+		const stages = ['explore', 'sketch', 'validate', 'decompose', 'deliver'] as const
 		for (const stage of stages) {
 			const opp = makeOpp({ title: `Test ${stage}` })
 			opp.stage = stage

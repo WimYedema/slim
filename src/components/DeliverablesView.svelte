@@ -138,7 +138,7 @@
 	}
 
 	/** Stage maturity weight: later stages = higher confidence in value */
-	const STAGE_WEIGHT: Record<string, number> = { explore: 0.25, sketch: 0.5, validate: 0.75, decompose: 1.0 }
+	const STAGE_WEIGHT: Record<string, number> = { explore: 0.25, sketch: 0.5, validate: 0.75, decompose: 1.0, deliver: 1.0 }
 
 	/** Leverage score: sum of linked opportunity maturity weights / effort. Higher = do first. */
 	function leverageScore(deliverableId: string): number {

@@ -21,11 +21,13 @@
 		ORIGIN_TYPES,
 		PERSON_ROLES,
 		cellHasSignal,
+		canAdvanceToDeliver,
 		nextStage,
 		prevStage,
 		perspectiveWeight,
 		perspectiveAssignment,
 		commitmentUrgency,
+		commitmentStatuses,
 		stageConsent,
 		stageIndex,
 		daysInStage,
@@ -33,6 +35,7 @@
 		scoreClass,
 		formatDaysLeft,
 	} from '../lib/types'
+	import { linksForOpportunity } from '../lib/queries'
 	import ScoreToggle from './ScoreToggle.svelte'
 	import MemberPicker from './MemberPicker.svelte'
 	import DeliverablesSection from './DeliverablesSection.svelte'
@@ -81,6 +84,10 @@
 	// Compute gap prompts for the current stage
 	const gapPrompts = $derived.by(() => {
 		const stage = opportunity.stage
+
+		// Deliver stage: no consent prompts (no signal grid)
+		if (stage === 'deliver') return []
+
 		const consent = stageConsent(opportunity)
 		const prompts: { perspective: Perspective; question: string; isObjection: boolean }[] = []
 
@@ -101,6 +108,19 @@
 				isObjection: false,
 			})
 		}
+
+		// Gate: decompose → deliver requires linked deliverables
+		if (stage === 'decompose' && prompts.length === 0) {
+			const gate = canAdvanceToDeliver(opportunity, links)
+			if (!gate.ok && gate.reason !== 'consent') {
+				prompts.push({
+					perspective: 'feasibility',
+					question: gate.reason!,
+					isObjection: false,
+				})
+			}
+		}
+
 		return prompts
 	})
 
@@ -278,7 +298,12 @@
 					onclick={() => { const next = nextStage(opportunity.stage); if (next) onUpdate({ ...opportunity, stage: next, stageEnteredAt: Date.now() }) }}
 				>{#if canAdvance}→ {STAGES.find((s) => s.key === nextStage(opportunity.stage))?.label}{:else if objCount > 0}{objCount} objection{objCount > 1 ? 's' : ''} blocking{:else}{unheardCount} unheard{/if}</button>
 			{:else}
-				<span class="stage-done">✓ fully assessed</span>
+				{@const allFulfilled = opportunity.stage === 'deliver' && opportunity.commitments.length > 0 && commitmentStatuses(opportunity).every(s => s.met)}
+				{#if allFulfilled}
+					<button class="advance-inline ready" onclick={() => { showExitMenu = true }}>✓ All commitments met — done?</button>
+				{:else}
+					<span class="stage-done">{opportunity.stage === 'deliver' ? 'In delivery' : '✓ fully assessed'}</span>
+				{/if}
 			{/if}
 			{#if showExitMenu}
 				<div class="exit-menu">
@@ -292,13 +317,13 @@
 							{/each}
 						</datalist>
 					</div>
-					{#each EXIT_STATES.filter(es => es.key !== 'parked') as es}
+					{#each EXIT_STATES.filter(es => es.key !== 'parked' && (es.key !== 'done' || opportunity.stage === 'deliver')) as es}
 						<button class="btn-solid exit-option" onclick={() => handleExit(es.key)} title={es.description}>{es.icon} {es.label}</button>
 					{/each}
 					<button class="btn-ghost exit-cancel" onclick={() => { showExitMenu = false; exitReasonInput = ''; parkUntilInput = '' }}>Cancel</button>
 				</div>
 			{:else}
-				<button class="btn-ghost discontinue-btn" onclick={() => showExitMenu = true} title="Kill, park, or merge this opportunity">Exit…</button>
+				<button class="btn-ghost discontinue-btn" onclick={() => showExitMenu = true} title="{opportunity.stage === 'deliver' ? 'Done, kill, park, or merge this opportunity' : 'Kill, park, or merge this opportunity'}">Exit…</button>
 			{/if}
 		{/if}
 	</div>
@@ -365,7 +390,65 @@
 		</div>
 	{/if}
 
-	<div class="signal-grid">
+	{#if opportunity.stage === 'deliver'}
+		<!-- Deliver stage: commitments first, then deliverables, then evidence trail -->
+		<CommitmentsAndPeople {opportunity} {knownNames} {nameAnnotations} {onUpdate} />
+
+		<DeliverablesSection
+			{opportunity}
+			{deliverables}
+			{links}
+			{onUpdate}
+			{onAddDeliverable}
+			{onLinkDeliverable}
+			{onUnlinkDeliverable}
+			{onUpdateLinkCoverage}
+			{onNavigateToDeliverable}
+		/>
+
+		{#if stageIndex(opportunity.stage) > 0}
+			<div class="signal-grid">
+				<div class="history-section">
+					<div class="section-heading">
+						<span class="section-heading-label">Evidence trail</span>
+					</div>
+					{#each PERSPECTIVES as p}
+						{@const completedStages = STAGES.filter((_, i) => i < stageIndex(opportunity.stage))}
+						{@const hasAny = completedStages.some(s => cellHasSignal(opportunity.signals[s.key][p]))}
+						{#if hasAny}
+							<div class="history-perspective">
+								<span class="history-perspective-label">{PERSPECTIVE_LABELS[p]}</span>
+								{#each completedStages as stage}
+									{@const signal = opportunity.signals[stage.key][p]}
+									{@const delegation = perspectiveAssignment(opportunity, p, stage.key)}
+									{#if cellHasSignal(signal)}
+										<div class="history-verdict">
+											<span class="history-stage">{stage.label}</span>
+											<span class="score-btn-mini {scoreClass(signal.score)}" role="img" aria-label="{SCORE_DISPLAY[signal.score].label}">{SCORE_SYMBOL[signal.score]}</span>
+											<span class="history-verdict-text">{signal.verdict || '—'}{#if delegation}<span class="compact-owner"> ({delegation.person.name})</span>{/if}</span>
+										</div>
+									{/if}
+								{/each}
+							</div>
+						{/if}
+					{/each}
+				</div>
+			</div>
+		{/if}
+
+		<label class="pane-field">
+			<span class="pane-label">Notes</span>
+			<textarea
+				class="desc-input"
+				placeholder="Notes…"
+				bind:value={editDescription}
+				onblur={() => { if (editDescription !== opportunity.description) onUpdate({ ...opportunity, description: editDescription }) }}
+				rows="2"
+			></textarea>
+		</label>
+	{:else}
+		<!-- Explore–Decompose: standard layout -->
+		<div class="signal-grid">
 		<!-- Section 1: Current Stage — action rows for all perspectives -->
 		<div class="current-stage-section">
 			<div class="section-heading">
@@ -542,6 +625,7 @@
 		{onUpdateLinkCoverage}
 		{onNavigateToDeliverable}
 	/>
+	{/if}
 </div>
 
 <style>

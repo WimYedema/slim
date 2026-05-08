@@ -58,7 +58,7 @@ export function opportunitiesToCsv(opportunities: Opportunity[]): string {
 	return [CSV_HEADER, ...rows].join('\n')
 }
 
-const VALID_STAGES = new Set<string>(['explore', 'sketch', 'validate', 'decompose'])
+const VALID_STAGES = new Set<string>(['explore', 'sketch', 'validate', 'decompose', 'deliver'])
 const VALID_ORIGINS = new Set<string>(['demand', 'supply', 'incident', 'debt'])
 const VALID_SCORES = new Set<string>(['none', 'uncertain', 'positive', 'negative'])
 

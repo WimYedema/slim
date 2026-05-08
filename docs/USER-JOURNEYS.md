@@ -59,7 +59,7 @@ Press **?** to see the full shortcut reference. Key bindings:
 
 ### 1.1 First Open
 
-1. Open the app -- the Opportunities tab loads with sample data (8 pre-populated opportunities across all four stages)
+1. Open the app -- the Opportunities tab loads with sample data (8 pre-populated opportunities across all five stages)
 2. The top of the list shows an **interactive funnel** -- a proportional visualization of how many opportunities are at each stage (e.g. Explore: 4, Sketch: 3, Validate: 1, Decompose: 1). Hovering a stage segment highlights matching items in the list
 3. Opportunities are grouped into **triage buckets**: Blocked (red), Needs Input (amber), On Track (green)
 4. Each card shows: stage pips, title with aging badge, health dots (per perspective at current stage), a contextual nudge, horizon and origin tags, and an advance button if consent is achieved
@@ -154,6 +154,7 @@ Stage advancement follows **consent-based gating**:
 | Explore to Sketch | All 3 perspectives heard, no objections | Nobody cares, or it's a solution without a problem |
 | Sketch to Validate | All 3 perspectives grounded, no objections | Can't articulate what done looks like |
 | Validate to Decompose | All 3 perspectives validated, no objections | Fails a lens -- not wanted, can't build it, or doesn't fit |
+| Decompose to Deliver | All 3 perspectives confirmed, ≥1 deliverable linked | Work wasn't sized, or cost isn't justified |
 
 4. An opportunity can also be moved **backward** using the back button -- useful when new information surfaces
 5. The list view also shows an advance arrow on each card when consent is ready -- click to advance without opening the detail pane
@@ -161,10 +162,11 @@ Stage advancement follows **consent-based gating**:
 ### 2.4 Exiting an Opportunity
 
 1. In the detail pane stage bar, click the exit button (or press **x**)
-2. An inline exit menu appears with three exit states and a reason field:
+2. An inline exit menu appears with four exit states and a reason field:
    - **Kill** -- permanently abandon this opportunity
    - **Park** -- pause for now, might return later
    - **Merge** -- absorbed into another opportunity
+   - **Done** -- delivered as promised, commitments fulfilled (only available in Deliver stage)
 3. Type a reason in the inline text field (optional but recommended)
 4. Click the exit state button -- the opportunity moves to the "Exited" section at the bottom of the list
 5. The exited section is collapsible and shows: title, exit icon, reason, and a **Reactivate** button

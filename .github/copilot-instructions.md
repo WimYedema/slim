@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Lean planning tool for product owners, covering the workflow *before* the sprint board. Models two entity types -- **Opportunities** (value axis) and **Deliverables** (work axis) -- connected by a many-to-many link graph. Fully local -- all data in localStorage, deployed as a single static HTML file.
+Lean planning tool for product owners, covering the opportunity lifecycle from first spark to fulfilled promise. Models two entity types -- **Opportunities** (value axis) and **Deliverables** (work axis) -- connected by a many-to-many link graph. Fully local -- all data in localStorage, deployed as a single static HTML file.
 
 See [PRODUCT.md](PRODUCT.md) for product concept and rationale, [ARCHITECTURE.md](ARCHITECTURE.md) for architecture decisions, [USER-JOURNEYS.md](USER-JOURNEYS.md) for feature walkthrough, [PRODUCT-GUIDE.md](PRODUCT-GUIDE.md) for non-technical intro, [UX-REVIEW.md](UX-REVIEW.md) for persona-based review, [UX-PRINCIPLES.md](UX-PRINCIPLES.md) for design governance, [SAMPLE-SCENARIO.md](SAMPLE-SCENARIO.md) for demo data.
 
@@ -10,12 +10,12 @@ See [PRODUCT.md](PRODUCT.md) for product concept and rationale, [ARCHITECTURE.md
 
 ### Two axes, many-to-many links
 
-**Opportunities** flow through a 4-stage pipeline: Explore, Sketch, Validate, Decompose.
+**Opportunities** flow through a 5-stage pipeline: Explore, Sketch, Validate, Decompose, Deliver.
 **Deliverables** are work items linked to opportunities via `OpportunityDeliverableLink` records (coverage: full or partial).
 
 ### Signal grid (the core data structure)
 
-Each opportunity has a 4x3 matrix: stages (explore/sketch/validate/decompose) x perspectives (desirability/feasibility/viability). Each cell carries:
+Each opportunity has a 5×3 matrix: stages (explore/sketch/validate/decompose/deliver) × perspectives (desirability/feasibility/viability). The Deliver row is structurally present but never scored. Each cell carries:
 - `score`: none | uncertain | positive | negative (consent-based, not numeric)
 - `verdict`: one-liner explaining the score
 - `evidence`: URL/reference
@@ -23,7 +23,7 @@ Each opportunity has a 4x3 matrix: stages (explore/sketch/validate/decompose) x 
 
 ### Consent-based gating
 
-Stage advancement requires all three perspectives scored (no `none`) and no objections (no `negative`). `uncertain` counts as consent.
+Stage advancement requires all three perspectives scored (no `none`) and no objections (no `negative`). `uncertain` counts as consent. The Deliver stage bypasses consent gating — `stageConsent()` always returns `ready` since there is nothing to score.
 
 ### Key types (all in `src/lib/types.ts`)
 
@@ -35,10 +35,10 @@ Stage advancement requires all three perspectives scored (no `none`) and no obje
 | `CellSignal` | Score + verdict + evidence + owner for one grid cell |
 | `PersonLink` | Expert/approver/stakeholder with perspective assignments |
 | `Commitment` | Promise with deadline and milestone |
-| `Stage` | 'explore' | 'sketch' | 'validate' | 'decompose' |
+| `Stage` | 'explore' | 'sketch' | 'validate' | 'decompose' | 'deliver' |
 | `Perspective` | 'desirability' | 'feasibility' | 'viability' |
 | `OriginType` | 'demand' | 'supply' | 'incident' | 'debt' |
-| `ExitState` | 'killed' | 'parked' | 'merged' |
+| `ExitState` | 'killed' | 'parked' | 'merged' | 'done' |
 | `AgingLevel` | 'fresh' | 'aging' | 'stale' (computed from days in stage) |
 
 ## Tech Stack
@@ -96,7 +96,7 @@ One runtime dependency: `nostr-tools` (P2P relay communication). No server, no d
 | Component | Purpose |
 |---|---|
 | `BriefingView.svelte` | Latest tab: News feed with aging bands (Fresh/Read/Older) + Board Health dashboard (aggregate metrics, shown on toggle or as empty state) |
-| `PipelineView.svelte` | Opportunities by stage or horizon, nested deliverables, zoom into single group, CSV import/export toolbar |
+| `PipelineView.svelte` | Opportunities by stage, horizon, or promises; nested deliverables, zoom into single group, CSV import/export toolbar |
 | `PipelineFunnel.svelte` | Proportional stage funnel SVG, interactive hover/click filtering |
 | `OpportunityRow.svelte` | Single opportunity row with density modes (compact/overview/zoomed) |
 | `DetailPane.svelte` | Opportunity detail: signal grid, stage navigation, exit states, commitments, notes, metadata |
@@ -178,9 +178,9 @@ Never put `max-width` on the scrollable container itself -- that pulls the scrol
 
 ## Key Invariants
 
-1. **Consent gates advancement** -- `stageConsent()` must return `ready` before an opportunity can advance. All three perspectives at the current stage must be scored with no objections.
-2. **Aging resets on stage change** -- `stageEnteredAt` is set to `Date.now()` whenever `stage` changes.
-3. **Exit preserves history** -- discontinuing sets `exitState`, `exitReason`, `discontinuedAt` but does not delete signals, verdicts, or commitments. Reactivation clears exit fields and restores the opportunity.
+1. **Consent gates advancement** -- `stageConsent()` must return `ready` before an opportunity can advance. All three perspectives at the current stage must be scored with no objections. Exception: the Deliver stage always returns `ready` (no signal grid).
+2. **Aging is stage-aware** -- `agingLevel()` uses per-stage thresholds: explore/sketch (5/10d), validate (7/14d), decompose (10/21d), deliver (14/28d). Horizon pressure `'now'` halves all thresholds. `stageEnteredAt` resets on stage change.
+3. **Exit preserves history** -- discontinuing sets `exitState`, `exitReason`, `discontinuedAt` but does not delete signals, verdicts, or commitments. Reactivation clears exit fields and restores the opportunity. The `done` exit state is a positive exit unique to the Deliver stage.
 4. **Meeting snapshots are per-person** -- each person has an independent snapshot. "Done" stamps only that person's snapshot, not a global one.
 5. **Undo captures full board state** -- the undo stack stores complete `BoardData` snapshots, not individual mutations.
 6. **Origins are metadata, not workflow** -- origin type (Request/Idea/Incident/Debt) affects display and triage hints but does not change pipeline behavior.
@@ -188,6 +188,9 @@ Never put `max-width` on the scrollable container itself -- that pulls the scrol
 8. **Coverage is binary choice** -- full or partial, no numeric percentages.
 9. **Deliverables are orphans until linked** -- a new deliverable has no links and shows an "orphan" badge.
 10. **No runtime dependencies beyond nostr-tools** -- the app runs on browser APIs (localStorage, crypto.randomUUID, DOM) plus nostr-tools for P2P relay communication.
+11. **Deliver stage has no signal grid** -- the 4×3 consent matrix applies only to Explore–Decompose. Deliver uses commitments as the primary tracking mechanism.
+12. **Advancement to Deliver requires linked deliverables** -- `canAdvanceToDeliver()` checks consent AND `linksForOpportunity().length > 0`. Enforced in both DetailPane (gap prompts) and App.svelte (keyboard shortcut).
+13. **Done is a positive exit** -- unlike Kill/Park/Merge, Done means "delivered as promised." Only available when `stage === 'deliver'`.
 
 ## Design Hygiene
 

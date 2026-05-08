@@ -1,0 +1,722 @@
+{
+  "opportunities": [
+    {
+      "id": "opp-deliver-stage",
+      "title": "Deliver stage",
+      "description": "Fifth pipeline stage for tracking delivery outcomes. Commitments-first layout, read-only evidence trail, Done exit state. Answers: did we land it?",
+      "stage": "deliver",
+      "createdAt": 1744934400000,
+      "updatedAt": 1746662400000,
+      "stageEnteredAt": 1746662400000,
+      "origin": "supply",
+      "horizon": "2026Q2",
+      "people": [],
+      "commitments": [
+        { "id": "c-ds-ship", "to": "Self (dogfooding)", "milestone": "deliver", "by": 1747699200000 }
+      ],
+      "stageHistory": [
+        { "stage": "explore", "enteredAt": 1744934400000 },
+        { "stage": "sketch", "enteredAt": 1745193600000 },
+        { "stage": "validate", "enteredAt": 1745452800000 },
+        { "stage": "decompose", "enteredAt": 1745884800000 },
+        { "stage": "deliver", "enteredAt": 1746662400000 }
+      ],
+      "signals": {
+        "explore": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "POs lose sight of opportunities after decompose — no stage for tracking delivery", "evidence": "UX Review personas", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "Natural extension of existing 4-stage model", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Completes the validation→verification arc; table stakes for real use", "evidence": "", "owner": "" }
+        },
+        "sketch": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Commitments-first layout, read-only evidence trail, Done exit", "evidence": "DELIVER-STAGE.md", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "Reuses existing signal grid, consent, aging infrastructure", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "No new dependencies; extends existing model cleanly", "evidence": "", "owner": "" }
+        },
+        "validate": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Dogfooding confirms the flow works end-to-end", "evidence": "", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "Implemented: 424 tests pass, builds clean", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "No runtime cost; extends existing UI patterns", "evidence": "", "owner": "" }
+        },
+        "decompose": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Spec complete: data model, queries, DetailPane, PipelineView, BriefingView", "evidence": "DELIVER-STAGE.md", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "All deliverables implemented and tested", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "No architectural risk; clean module boundaries", "evidence": "", "owner": "" }
+        },
+        "deliver": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        }
+      },
+      "decompositionComplete": true
+    },
+    {
+      "id": "opp-p2p-sharing",
+      "title": "P2P board sharing & contributor mode",
+      "description": "AES-256-GCM encrypted Nostr relay sharing. Room codes, contributor perspective assignment, score submission. Enables team collaboration without a server.",
+      "stage": "deliver",
+      "createdAt": 1743724800000,
+      "updatedAt": 1746662400000,
+      "stageEnteredAt": 1746316800000,
+      "origin": "supply",
+      "horizon": "2026Q2",
+      "people": [],
+      "commitments": [],
+      "stageHistory": [
+        { "stage": "explore", "enteredAt": 1743724800000 },
+        { "stage": "sketch", "enteredAt": 1744070400000 },
+        { "stage": "validate", "enteredAt": 1744675200000 },
+        { "stage": "decompose", "enteredAt": 1745452800000 },
+        { "stage": "deliver", "enteredAt": 1746316800000 }
+      ],
+      "signals": {
+        "explore": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Solo tool is useful but teams need shared visibility", "evidence": "UX Review", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "Nostr relays + WebCrypto API — no server needed", "evidence": "ARCHITECTURE.md", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Zero infrastructure cost; relay is free public resource", "evidence": "", "owner": "" }
+        },
+        "sketch": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Room code join, contributor view with assigned cells", "evidence": "", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "HKDF key derivation, replaceable events for state sync", "evidence": "crypto.ts", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Depends only on nostr-tools — single runtime dependency", "evidence": "", "owner": "" }
+        },
+        "validate": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Tested with Skatting estimation bridge", "evidence": "", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "Works across browsers and devices", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "No relay costs; public infrastructure sufficient", "evidence": "", "owner": "" }
+        },
+        "decompose": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Sync, scoring, merge, team roster — all implemented", "evidence": "", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "Full test coverage on crypto, sync, merge modules", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Shipped and stable", "evidence": "", "owner": "" }
+        },
+        "deliver": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        }
+      },
+      "decompositionComplete": true
+    },
+    {
+      "id": "opp-meeting-prep",
+      "title": "Meeting preparation & stakeholder agendas",
+      "description": "Per-person agendas with role filter (All/Team/Stakeholders). Entity-grouped changes, commitment urgency, talking points for external stakeholders. Scoped stamp per person.",
+      "stage": "deliver",
+      "createdAt": 1744329600000,
+      "updatedAt": 1746662400000,
+      "stageEnteredAt": 1746489600000,
+      "origin": "demand",
+      "horizon": "2026Q2",
+      "people": [],
+      "commitments": [],
+      "stageHistory": [
+        { "stage": "explore", "enteredAt": 1744329600000 },
+        { "stage": "sketch", "enteredAt": 1744675200000 },
+        { "stage": "validate", "enteredAt": 1745280000000 },
+        { "stage": "decompose", "enteredAt": 1745884800000 },
+        { "stage": "deliver", "enteredAt": 1746489600000 }
+      ],
+      "signals": {
+        "explore": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "POs spend 30+ min prepping for each 1:1 and stakeholder sync", "evidence": "UX Review", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "Change detection + person aggregation is deterministic", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Core PO workflow — builds daily habit", "evidence": "", "owner": "" }
+        },
+        "sketch": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Talking points for stakeholders, scoped per-person stamp", "evidence": "", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "Reuses briefing snapshot infrastructure", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Differentiator vs. Jira/Linear — they don't do meeting prep", "evidence": "", "owner": "" }
+        },
+        "validate": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Tested across 5 personas — high satisfaction", "evidence": "UX-REVIEW.md", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "36 tests pass for meeting module", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Retained in all persona evaluations", "evidence": "", "owner": "" }
+        },
+        "decompose": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "All meeting features implemented", "evidence": "", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "meeting.ts + stakeholders.ts fully tested", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Shipped", "evidence": "", "owner": "" }
+        },
+        "deliver": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        }
+      },
+      "decompositionComplete": true
+    },
+    {
+      "id": "opp-device-sync",
+      "title": "Cross-device sync",
+      "description": "localStorage doesn't sync across machines. POs working from laptop + phone + tablet lose state. Need cloud-optional sync or persistent session keys without requiring a server.",
+      "stage": "explore",
+      "createdAt": 1746662400000,
+      "updatedAt": 1746662400000,
+      "stageEnteredAt": 1746662400000,
+      "origin": "demand",
+      "horizon": "2026Q4",
+      "people": [],
+      "commitments": [],
+      "stageHistory": [
+        { "stage": "explore", "enteredAt": 1746662400000 }
+      ],
+      "signals": {
+        "explore": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Fatima persona: single-device is a blocker for government POs", "evidence": "UX-REVIEW.md", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "sketch": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "validate": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "decompose": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "deliver": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        }
+      }
+    },
+    {
+      "id": "opp-audit-trail",
+      "title": "Change history & audit trail",
+      "description": "Who changed what, when. Compliance-grade change log for regulated industries (medical device, government, finance). Per-board log with timestamps, actor, before/after state.",
+      "stage": "explore",
+      "createdAt": 1746662400000,
+      "updatedAt": 1746662400000,
+      "stageEnteredAt": 1746662400000,
+      "origin": "demand",
+      "horizon": "2026Q4",
+      "people": [],
+      "commitments": [],
+      "stageHistory": [
+        { "stage": "explore", "enteredAt": 1746662400000 }
+      ],
+      "signals": {
+        "explore": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Chiara persona: compliance requires knowing who scored what and when", "evidence": "UX-REVIEW.md", "owner": "" },
+          "feasibility": { "score": "uncertain", "source": "manual", "verdict": "Append-only log is simple but storage grows unbounded in localStorage", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "sketch": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "validate": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "decompose": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "deliver": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        }
+      }
+    },
+    {
+      "id": "opp-deliverable-deps",
+      "title": "Inter-deliverable dependencies",
+      "description": "Model sequencing between deliverables (API must ship before SDK). Dependency graph with topological sorting to surface critical path and blockers.",
+      "stage": "explore",
+      "createdAt": 1746662400000,
+      "updatedAt": 1746662400000,
+      "stageEnteredAt": 1746662400000,
+      "origin": "demand",
+      "horizon": "2026Q4",
+      "people": [],
+      "commitments": [],
+      "stageHistory": [
+        { "stage": "explore", "enteredAt": 1746662400000 }
+      ],
+      "signals": {
+        "explore": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Tomás persona: platform teams need build-order constraints", "evidence": "UX-REVIEW.md", "owner": "" },
+          "feasibility": { "score": "uncertain", "source": "manual", "verdict": "DAG model is straightforward but visual layout is complex", "evidence": "", "owner": "" },
+          "viability": { "score": "uncertain", "source": "manual", "verdict": "Risk of scope creep — could become a project management tool", "evidence": "", "owner": "" }
+        },
+        "sketch": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "validate": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "decompose": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "deliver": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        }
+      }
+    },
+    {
+      "id": "opp-github-import",
+      "title": "GitHub Issues import for deliverables",
+      "description": "Import GitHub Issues as deliverables via PAT. Dedup on externalUrl, infer size from labels, filter out PRs. Enables teams using GitHub for work tracking to bridge into Slim.",
+      "stage": "deliver",
+      "createdAt": 1745280000000,
+      "updatedAt": 1746662400000,
+      "stageEnteredAt": 1746489600000,
+      "origin": "supply",
+      "horizon": "2026Q2",
+      "people": [],
+      "commitments": [],
+      "stageHistory": [
+        { "stage": "explore", "enteredAt": 1745280000000 },
+        { "stage": "sketch", "enteredAt": 1745452800000 },
+        { "stage": "validate", "enteredAt": 1745884800000 },
+        { "stage": "decompose", "enteredAt": 1746144000000 },
+        { "stage": "deliver", "enteredAt": 1746489600000 }
+      ],
+      "signals": {
+        "explore": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Teams already track work in GitHub — bridge is natural", "evidence": "", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "GitHub REST API is well-documented, PAT auth is simple", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Reduces manual entry — lowers adoption friction", "evidence": "", "owner": "" }
+        },
+        "sketch": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Import dialog with tabs: GitHub, Connector, Paste", "evidence": "", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "PAT stored in localStorage, pagination, PR filtering", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "No backend needed — PAT auth direct from browser", "evidence": "", "owner": "" }
+        },
+        "validate": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "16 tests pass for GitHub provider", "evidence": "", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "Size inference from labels, dedup on URL", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Shipped and working", "evidence": "", "owner": "" }
+        },
+        "decompose": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Provider API extensible for other connectors", "evidence": "", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "Fully implemented: github-provider.ts + external-provider.ts", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Clean module boundary", "evidence": "", "owner": "" }
+        },
+        "deliver": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        }
+      },
+      "decompositionComplete": true
+    },
+    {
+      "id": "opp-portfolio-view",
+      "title": "Portfolio view across boards",
+      "description": "Unified view across multiple boards for agencies and multi-team orgs. Cross-board deliverable sharing, aggregate health metrics, resource allocation visibility.",
+      "stage": "explore",
+      "createdAt": 1746662400000,
+      "updatedAt": 1746662400000,
+      "stageEnteredAt": 1746662400000,
+      "origin": "demand",
+      "horizon": "2027Q1",
+      "people": [],
+      "commitments": [],
+      "stageHistory": [
+        { "stage": "explore", "enteredAt": 1746662400000 }
+      ],
+      "signals": {
+        "explore": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Kenta persona: agency managing 3-5 client boards needs cross-board view", "evidence": "UX-REVIEW.md", "owner": "" },
+          "feasibility": { "score": "uncertain", "source": "manual", "verdict": "Multi-board localStorage is local — cross-device needs sync first", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "sketch": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "validate": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "decompose": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "deliver": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        }
+      }
+    },
+    {
+      "id": "opp-custom-perspectives",
+      "title": "Configurable perspectives",
+      "description": "Regulated industries need a 4th perspective (Regulatory/Compliance). Configurable lens count, capped to prevent spreadsheet creep. Structural change to signal grid.",
+      "stage": "explore",
+      "createdAt": 1746662400000,
+      "updatedAt": 1746662400000,
+      "stageEnteredAt": 1746662400000,
+      "origin": "demand",
+      "horizon": "2027Q1",
+      "people": [],
+      "commitments": [],
+      "stageHistory": [
+        { "stage": "explore", "enteredAt": 1746662400000 }
+      ],
+      "signals": {
+        "explore": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Chiara persona: medical device PO needs Regulatory perspective", "evidence": "UX-REVIEW.md", "owner": "" },
+          "feasibility": { "score": "negative", "source": "manual", "verdict": "Perspective count is deeply baked in: PERSPECTIVES constant, 3-column grid layout, consent logic, meeting prep, contributor assignment — extensive refactor", "evidence": "", "owner": "" },
+          "viability": { "score": "uncertain", "source": "manual", "verdict": "Opens a customization surface that could erode the opinionated simplicity — need a cap", "evidence": "", "owner": "" }
+        },
+        "sketch": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "validate": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "decompose": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "deliver": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        }
+      }
+    },
+    {
+      "id": "opp-explore-mode",
+      "title": "Lightweight explore mode",
+      "description": "Signal grid feels too heavy at Explore stage — filling 3 perspectives + verdicts is premature during brainstorming. Lighter ideas mode that skips signal scoring until Sketch.",
+      "stage": "sketch",
+      "createdAt": 1746662400000,
+      "updatedAt": 1746662400000,
+      "stageEnteredAt": 1746662400000,
+      "origin": "demand",
+      "horizon": "2026Q3",
+      "people": [],
+      "commitments": [],
+      "stageHistory": [
+        { "stage": "explore", "enteredAt": 1746662400000 },
+        { "stage": "sketch", "enteredAt": 1746662400000 }
+      ],
+      "signals": {
+        "explore": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Kenta persona: agency PO finds signal grid premature at Explore", "evidence": "UX-REVIEW.md", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "Simple: skip signal grid rendering at Explore, show free-text only", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Lowers barrier to entry — more ideas captured early", "evidence": "", "owner": "" }
+        },
+        "sketch": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "validate": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "decompose": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "deliver": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        }
+      }
+    },
+    {
+      "id": "opp-bulk-ops",
+      "title": "Bulk operations on opportunities",
+      "description": "Multi-select + context menu for batch advance, batch exit, batch horizon assignment. Currently every action is one-at-a-time.",
+      "stage": "explore",
+      "createdAt": 1746662400000,
+      "updatedAt": 1746662400000,
+      "stageEnteredAt": 1746662400000,
+      "origin": "supply",
+      "horizon": "2026Q3",
+      "people": [],
+      "commitments": [],
+      "stageHistory": [
+        { "stage": "explore", "enteredAt": 1746662400000 }
+      ],
+      "signals": {
+        "explore": {
+          "desirability": { "score": "uncertain", "source": "manual", "verdict": "Useful for large boards but unclear how often POs batch-operate", "evidence": "", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "Standard multi-select + action bar pattern", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "sketch": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "validate": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "decompose": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "deliver": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        }
+      }
+    },
+    {
+      "id": "opp-list-filtering",
+      "title": "Pipeline filtering by attributes",
+      "description": "Quick filters in Pipeline header: by origin, perspective score, aging level, bucket. Currently the only filter is the perspective lens toggle.",
+      "stage": "sketch",
+      "createdAt": 1746662400000,
+      "updatedAt": 1746662400000,
+      "stageEnteredAt": 1746662400000,
+      "origin": "supply",
+      "horizon": "2026Q3",
+      "people": [],
+      "commitments": [],
+      "stageHistory": [
+        { "stage": "explore", "enteredAt": 1746662400000 },
+        { "stage": "sketch", "enteredAt": 1746662400000 }
+      ],
+      "signals": {
+        "explore": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Boards with 20+ items need filtering — scrolling is not enough", "evidence": "", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "Filter chips in toolbar, derived arrays — straightforward", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Low complexity, high daily-use value", "evidence": "", "owner": "" }
+        },
+        "sketch": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "validate": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "decompose": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "deliver": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        }
+      }
+    },
+    {
+      "id": "opp-onboarding",
+      "title": "Improved onboarding & concept clarity",
+      "description": "Opportunity vs. Deliverable distinction confuses new POs. The pivot point concept needs plain language. Glossary tooltips, guided first-board wizard, contextual hints.",
+      "stage": "validate",
+      "createdAt": 1746662400000,
+      "updatedAt": 1746662400000,
+      "stageEnteredAt": 1746662400000,
+      "origin": "demand",
+      "horizon": "2026Q3",
+      "people": [],
+      "commitments": [],
+      "stageHistory": [
+        { "stage": "explore", "enteredAt": 1746662400000 },
+        { "stage": "sketch", "enteredAt": 1746662400000 },
+        { "stage": "validate", "enteredAt": 1746662400000 }
+      ],
+      "signals": {
+        "explore": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "Rosa persona: newly minted PO finds pivot point confusing", "evidence": "UX-REVIEW.md", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "Tooltips and wizard are UI-only — no data model changes", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Retention depends on first 5 minutes — onboarding is critical", "evidence": "", "owner": "" }
+        },
+        "sketch": {
+          "desirability": { "score": "positive", "source": "manual", "verdict": "PRODUCT-GUIDE.md exists but isn't surfaced in-app", "evidence": "PRODUCT-GUIDE.md", "owner": "" },
+          "feasibility": { "score": "positive", "source": "manual", "verdict": "WelcomePage already exists — extend with guided steps", "evidence": "", "owner": "" },
+          "viability": { "score": "positive", "source": "manual", "verdict": "Low effort, high impact on adoption", "evidence": "", "owner": "" }
+        },
+        "validate": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "decompose": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        },
+        "deliver": {
+          "desirability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "feasibility": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" },
+          "viability": { "score": "none", "source": "manual", "verdict": "", "evidence": "", "owner": "" }
+        }
+      }
+    }
+  ],
+  "deliverables": [
+    {
+      "id": "del-deliver-data",
+      "title": "Deliver stage data model & queries",
+      "kind": "delivery",
+      "status": "done",
+      "completedAt": 1746662400000,
+      "externalUrl": "",
+      "updatedAt": 1746662400000,
+      "extraContributors": [],
+      "extraConsumers": [],
+      "size": "M",
+      "certainty": 5,
+      "externalDependency": "",
+      "notes": "Stage type, ExitState, STAGES, stageConsent bypass, aging thresholds, WIP, CFD, lead times, canAdvanceToDeliver, commitmentStatuses"
+    },
+    {
+      "id": "del-deliver-ui",
+      "title": "Deliver stage UI (DetailPane, PipelineView, BriefingView)",
+      "kind": "delivery",
+      "status": "done",
+      "completedAt": 1746662400000,
+      "externalUrl": "",
+      "updatedAt": 1746662400000,
+      "extraContributors": [],
+      "extraConsumers": [],
+      "size": "L",
+      "certainty": 5,
+      "externalDependency": "",
+      "notes": "DetailPane deliver branch, Promises grouping, Board Health card, briefing verbs, Done prompt, OpportunityRow dot hiding"
+    },
+    {
+      "id": "del-deliver-tests",
+      "title": "Deliver stage tests",
+      "kind": "delivery",
+      "status": "done",
+      "completedAt": 1746662400000,
+      "externalUrl": "",
+      "updatedAt": 1746662400000,
+      "extraContributors": [],
+      "extraConsumers": [],
+      "size": "S",
+      "certainty": 5,
+      "externalDependency": "",
+      "notes": "canAdvanceToDeliver (4 cases), commitmentStatuses (2 cases), deliver aging, stageConsent bypass, nextStage/prevStage"
+    },
+    {
+      "id": "del-sync-module",
+      "title": "P2P sync module (Nostr relay)",
+      "kind": "delivery",
+      "status": "done",
+      "completedAt": 1746316800000,
+      "externalUrl": "",
+      "updatedAt": 1746316800000,
+      "extraContributors": [],
+      "extraConsumers": [],
+      "size": "L",
+      "certainty": 5,
+      "externalDependency": "",
+      "notes": "sync.ts: publishBoard, queryBoard, publishScores, queryScores, applyScores. crypto.ts: HKDF, AES-256-GCM, d-tag."
+    },
+    {
+      "id": "del-contributor-view",
+      "title": "Contributor scoring view",
+      "kind": "delivery",
+      "status": "done",
+      "completedAt": 1746316800000,
+      "externalUrl": "",
+      "updatedAt": 1746316800000,
+      "extraContributors": [],
+      "extraConsumers": [],
+      "size": "M",
+      "certainty": 5,
+      "externalDependency": "",
+      "notes": "ContributorView.svelte: read-only pipeline, assigned cells only, inline scoring, auto-publish"
+    },
+    {
+      "id": "del-meeting-module",
+      "title": "Meeting agenda engine",
+      "kind": "delivery",
+      "status": "done",
+      "completedAt": 1746489600000,
+      "externalUrl": "",
+      "updatedAt": 1746489600000,
+      "extraContributors": [],
+      "extraConsumers": [],
+      "size": "L",
+      "certainty": 5,
+      "externalDependency": "",
+      "notes": "meeting.ts + stakeholders.ts: collectPeople, buildMeetingAgenda, personUrgency, buildTalkingPoints. 54 tests."
+    },
+    {
+      "id": "del-github-provider",
+      "title": "GitHub Issues provider",
+      "kind": "delivery",
+      "status": "done",
+      "completedAt": 1746489600000,
+      "externalUrl": "",
+      "updatedAt": 1746489600000,
+      "extraContributors": [],
+      "extraConsumers": [],
+      "size": "M",
+      "certainty": 5,
+      "externalDependency": "",
+      "notes": "github-provider.ts: PAT auth, pagination, PR filtering, size inference from labels. 16 tests."
+    },
+    {
+      "id": "del-import-dialog",
+      "title": "Import deliverables dialog (GitHub + Connector + Paste)",
+      "kind": "delivery",
+      "status": "done",
+      "completedAt": 1746489600000,
+      "externalUrl": "",
+      "updatedAt": 1746489600000,
+      "extraContributors": [],
+      "extraConsumers": [],
+      "size": "M",
+      "certainty": 5,
+      "externalDependency": "",
+      "notes": "ImportDeliverables.svelte: 3-tab dialog, dedup on externalUrl, auto-detect sizes from paste"
+    }
+  ],
+  "links": [
+    { "opportunityId": "opp-deliver-stage", "deliverableId": "del-deliver-data", "coverage": "full" },
+    { "opportunityId": "opp-deliver-stage", "deliverableId": "del-deliver-ui", "coverage": "full" },
+    { "opportunityId": "opp-deliver-stage", "deliverableId": "del-deliver-tests", "coverage": "full" },
+    { "opportunityId": "opp-p2p-sharing", "deliverableId": "del-sync-module", "coverage": "full" },
+    { "opportunityId": "opp-p2p-sharing", "deliverableId": "del-contributor-view", "coverage": "full" },
+    { "opportunityId": "opp-meeting-prep", "deliverableId": "del-meeting-module", "coverage": "full" },
+    { "opportunityId": "opp-github-import", "deliverableId": "del-github-provider", "coverage": "full" },
+    { "opportunityId": "opp-github-import", "deliverableId": "del-import-dialog", "coverage": "full" }
+  ],
+  "customHorizons": ["2027Q1"]
+}

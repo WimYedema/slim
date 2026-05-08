@@ -93,7 +93,7 @@ export function createSampleOpportunities(): Opportunity[] {
 	sso.commitments = [{ id: 'c-ceo', to: 'CEO', milestone: 'validate', by: now + 5 * DAY }]
 
 	const webhooks = createOpportunity('Webhooks API')
-	webhooks.stage = 'decompose'
+	webhooks.stage = 'deliver'
 	webhooks.horizon = '2026Q2'
 	webhooks.origin = 'demand'
 	webhooks.createdAt = threeWeeksAgo
@@ -102,10 +102,11 @@ export function createSampleOpportunities(): Opportunity[] {
 		{ stage: 'explore', enteredAt: threeWeeksAgo },
 		{ stage: 'sketch', enteredAt: threeWeeksAgo + 3 * DAY },
 		{ stage: 'validate', enteredAt: threeWeeksAgo + 10 * DAY },
-		{ stage: 'decompose', enteredAt: now - 2 * DAY },
+		{ stage: 'decompose', enteredAt: now - 7 * DAY },
+		{ stage: 'deliver', enteredAt: now - 2 * DAY },
 	]
 	webhooks.description =
-		'Flagship feature this quarter. Fully validated, three integration partners beta-tested. Now decomposing into sprint-ready work.'
+		'Flagship feature this quarter. Fully validated, three integration partners beta-tested. Decomposed into sprint-ready work. Now tracking delivery and commitments.'
 	webhooks.signals.explore.desirability = {
 		score: 'positive',
 		source: 'manual',
@@ -191,6 +192,9 @@ export function createSampleOpportunities(): Opportunity[] {
 		owner: 'Alex',
 	}
 	webhooks.decompositionComplete = true
+	webhooks.commitments = [
+		{ id: 'c-partners', to: 'Integration partners', milestone: 'deliver', by: now + 21 * DAY },
+	]
 
 	// --- 2026Q3: next quarter ---
 

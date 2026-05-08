@@ -23,7 +23,7 @@ import {
 
 // ── Stage navigation ──
 
-const STAGE_ORDER: Stage[] = ['explore', 'sketch', 'validate', 'decompose']
+const STAGE_ORDER: Stage[] = ['explore', 'sketch', 'validate', 'decompose', 'deliver']
 
 export function stageIndex(stage: Stage): number {
 	return STAGE_ORDER.indexOf(stage)
@@ -89,20 +89,31 @@ export function daysInStage(opp: Opportunity): number {
 }
 
 /**
- * Aging thresholds shift based on horizon pressure:
- * - now:  tighter (fresh < 5d, aging 5-9, stale ≥ 10)
- * - next: standard (fresh < 7d, aging 7-13, stale ≥ 14)
- * - none: standard
+ * Stage-aware aging thresholds: discovery stages (explore/sketch) age faster
+ * than downstream stages (decompose) because upstream ideas should cycle quickly.
+ * Horizon pressure tightens all thresholds proportionally.
+ *
+ * Standard thresholds (no pressure):
+ *   explore/sketch: fresh < 5d, aging 5-9, stale ≥ 10
+ *   validate:       fresh < 7d, aging 7-13, stale ≥ 14
+ *   decompose:      fresh < 10d, aging 10-20, stale ≥ 21
+ *
+ * "now" pressure halves all thresholds (rounded up).
  */
+const AGING_THRESHOLDS: Record<Stage, { aging: number; stale: number }> = {
+	explore: { aging: 5, stale: 10 },
+	sketch: { aging: 5, stale: 10 },
+	validate: { aging: 7, stale: 14 },
+	decompose: { aging: 10, stale: 21 },
+	deliver: { aging: 14, stale: 28 },
+}
+
 export function agingLevel(opp: Opportunity, pressure: HorizonPressure = 'none'): AgingLevel {
 	const days = daysInStage(opp)
-	if (pressure === 'now') {
-		if (days >= 10) return 'stale'
-		if (days >= 5) return 'aging'
-		return 'fresh'
-	}
-	if (days >= 14) return 'stale'
-	if (days >= 7) return 'aging'
+	const base = AGING_THRESHOLDS[opp.stage] ?? { aging: 7, stale: 14 }
+	const scale = pressure === 'now' ? 0.5 : 1
+	if (days >= Math.ceil(base.stale * scale)) return 'stale'
+	if (days >= Math.ceil(base.aging * scale)) return 'aging'
 	return 'fresh'
 }
 
@@ -175,6 +186,21 @@ export function commitmentUrgency(
 	return { commitment, daysLeft }
 }
 
+/** All commitments with status info — used by Deliver stage detail view */
+export function commitmentStatuses(opp: Opportunity): {
+	commitment: Commitment
+	daysLeft: number
+	met: boolean
+}[] {
+	const now = Date.now()
+	const si = stageIndex(opp.stage)
+	return opp.commitments.map((c) => ({
+		commitment: c,
+		daysLeft: Math.ceil((c.by - now) / 86_400_000),
+		met: stageIndex(c.milestone) < si,
+	}))
+}
+
 // ── Stage scores & consent ──
 
 /** Get the D/F/V scores for the card's current stage */
@@ -229,6 +255,8 @@ export function stageConsent(opp: Opportunity): {
 	objections: Perspective[]
 	unheard: Perspective[]
 } {
+	// Deliver stage bypasses consent gating — the decision to build was already made
+	if (opp.stage === 'deliver') return { status: 'ready', objections: [], unheard: [] }
 	const objections: Perspective[] = []
 	const unheard: Perspective[] = []
 	for (const p of PERSPECTIVES) {
@@ -239,6 +267,21 @@ export function stageConsent(opp: Opportunity): {
 	if (objections.length > 0) return { status: 'urgent', objections, unheard }
 	if (unheard.length > 0) return { status: 'incomplete', objections, unheard }
 	return { status: 'ready', objections, unheard }
+}
+
+/** Check whether an opportunity can advance to the Deliver stage.
+ *  Requires consent at decompose AND at least one linked deliverable. */
+export function canAdvanceToDeliver(
+	opp: Opportunity,
+	links: OpportunityDeliverableLink[],
+): { ok: boolean; reason?: string } {
+	if (opp.stage !== 'decompose') return { ok: true }
+	const consent = stageConsent(opp)
+	if (consent.status !== 'ready') return { ok: false, reason: 'consent' }
+	const oppLinks = linksForOpportunity(links, opp.id)
+	if (oppLinks.length === 0)
+		return { ok: false, reason: 'Link at least one deliverable before advancing to Deliver' }
+	return { ok: true }
 }
 
 // ── People queries ──
@@ -365,6 +408,7 @@ export const WIP_THRESHOLDS: Record<Stage, { floor: number; ceiling: number }> =
 	sketch: { floor: 1, ceiling: 8 },
 	validate: { floor: 1, ceiling: 5 },
 	decompose: { floor: 1, ceiling: 3 },
+	deliver: { floor: 1, ceiling: 5 },
 }
 
 export type WipLevel = 'over' | 'under' | 'ok'
@@ -392,6 +436,9 @@ export function wipNudge(stage: Stage, count: number): string | null {
 	}
 	if (stage === 'decompose' && count === 0) {
 		return `Nothing in ${label} — upcoming sprints may run dry`
+	}
+	if (stage === 'deliver' && count === 0) {
+		return `Nothing in ${label} — are validated items reaching delivery?`
 	}
 	if (count < t.floor) {
 		return `${label} could use more items — only ${count} right now`
@@ -463,6 +510,14 @@ export interface BoardHealth {
 	avgLinksPerDeliverable: number
 	/** Origin balance: count per origin type */
 	originCounts: { origin: OriginType; count: number }[]
+	/** Discovery ratio: fraction of active opps in explore/sketch/validate (vs decompose+) */
+	discoveryRatio: number
+	/** Friendly nudge for discovery balance, or null if healthy */
+	discoveryNudge: string | null
+	/** Delivery tracking */
+	inDelivery: number
+	deliveryAtRisk: number
+	readyToClose: number
 }
 
 export function boardHealth(
@@ -548,6 +603,33 @@ export function boardHealth(
 		count: originTally.get(o.key) ?? 0,
 	})).filter((o) => o.count > 0)
 
+	// Discovery ratio: explore + sketch + validate vs total
+	const discoveryStages: Stage[] = ['explore', 'sketch', 'validate']
+	const discoveryCount = active.filter((o) => discoveryStages.includes(o.stage)).length
+	const discoveryRatio =
+		active.length > 0 ? Math.round((discoveryCount / active.length) * 100) / 100 : 0
+	let discoveryNudge: string | null = null
+	if (active.length >= 5) {
+		if (discoveryRatio < 0.2) {
+			discoveryNudge = 'Pipeline is mostly downstream — explore new ideas to keep the funnel fed'
+		} else if (discoveryRatio > 0.9) {
+			discoveryNudge = 'Lots of ideas, little shipping — consider advancing validated items'
+		}
+	}
+
+	// Delivery tracking
+	const deliverOpps = active.filter((o) => o.stage === 'deliver')
+	const inDelivery = deliverOpps.length
+	let deliveryAtRisk = 0
+	let readyToClose = 0
+	for (const opp of deliverOpps) {
+		const statuses = commitmentStatuses(opp)
+		if (statuses.length === 0) continue
+		const allMet = statuses.every((s) => s.met)
+		if (allMet) readyToClose++
+		else if (statuses.some((s) => !s.met && s.daysLeft <= 7)) deliveryAtRisk++
+	}
+
 	return {
 		totalOpps: active.length,
 		stageCounts: stageCounts.filter((s) => s.count > 0),
@@ -570,6 +652,11 @@ export function boardHealth(
 		avgLinksPerDeliverable:
 			activeDels.length > 0 ? Math.round((totalLinks / activeDels.length) * 10) / 10 : 0,
 		originCounts,
+		discoveryRatio,
+		discoveryNudge,
+		inDelivery,
+		deliveryAtRisk,
+		readyToClose,
 	}
 }
 
@@ -586,6 +673,7 @@ export interface CfdPoint {
 	sketch: number
 	validate: number
 	decompose: number
+	deliver: number
 }
 
 /**
@@ -633,6 +721,7 @@ export function buildCfd(opportunities: Opportunity[], maxDays = 60): CfdPoint[]
 		let sketch = 0
 		let validate = 0
 		let decompose = 0
+		let deliver = 0
 
 		for (const opp of active) {
 			const history = opp.stageHistory ?? [{ stage: opp.stage, enteredAt: opp.stageEnteredAt }]
@@ -647,9 +736,10 @@ export function buildCfd(opportunities: Opportunity[], maxDays = 60): CfdPoint[]
 			if (highestIdx >= 1) sketch++
 			if (highestIdx >= 2) validate++
 			if (highestIdx >= 3) decompose++
+			if (highestIdx >= 4) deliver++
 		}
 
-		points.push({ day: dayOffset, ts, explore, sketch, validate, decompose })
+		points.push({ day: dayOffset, ts, explore, sketch, validate, decompose, deliver })
 	}
 
 	return points
@@ -673,12 +763,13 @@ export interface LeadTimeStats {
  */
 export function leadTimeStats(opportunities: Opportunity[]): LeadTimeStats {
 	const active = opportunities.filter((o) => !o.discontinuedAt)
-	const stageKeys: Stage[] = ['explore', 'sketch', 'validate', 'decompose']
+	const stageKeys: Stage[] = ['explore', 'sketch', 'validate', 'decompose', 'deliver']
 	const stageDurations: Record<Stage, number[]> = {
 		explore: [],
 		sketch: [],
 		validate: [],
 		decompose: [],
+		deliver: [],
 	}
 	const totalDays: number[] = []
 	const DAY = 86_400_000

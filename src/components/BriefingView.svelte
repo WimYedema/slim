@@ -184,12 +184,14 @@
 		const sketchVals = data.map(p => p.sketch)
 		const validateVals = data.map(p => p.validate)
 		const decomposeVals = data.map(p => p.decompose)
+		const deliverVals = data.map(p => p.deliver)
 
 		const colors = {
 			explore: resolveColor('--c-stage-explore'),
 			sketch: resolveColor('--c-stage-sketch'),
 			validate: resolveColor('--c-stage-validate'),
 			decompose: resolveColor('--c-stage-decompose'),
+			deliver: resolveColor('--c-stage-deliver'),
 		}
 
 		const ghostColor = resolveColor('--c-text-ghost')
@@ -211,8 +213,8 @@
 		tooltipEl.style.display = 'none'
 		el.appendChild(tooltipEl)
 
-		const stageNames = ['Explore', 'Sketch', 'Validate', 'Decompose']
-		const stageColorValues = [colors.explore, colors.sketch, colors.validate, colors.decompose]
+		const stageNames = ['Explore', 'Sketch', 'Validate', 'Decompose', 'Deliver']
+		const stageColorValues = [colors.explore, colors.sketch, colors.validate, colors.decompose, colors.deliver]
 
 		const tooltipPlugin: uPlot.Plugin = {
 			hooks: {
@@ -276,17 +278,19 @@
 				areaSeries('Sketch', colors.sketch),
 				areaSeries('Validate', colors.validate),
 				areaSeries('Decompose', colors.decompose),
+				areaSeries('Deliver', colors.deliver),
 			],
 			bands: [
 				{ series: [1, 2], fill: colors.explore + 'cc' },
 				{ series: [2, 3], fill: colors.sketch + 'cc' },
 				{ series: [3, 4], fill: colors.validate + 'cc' },
+				{ series: [4, 5], fill: colors.decompose + 'cc' },
 			],
 		}
 
 		// Destroy previous instance before creating new
 		cfdChart?.destroy()
-		cfdChart = new uPlot(opts, [xs, exploreVals, sketchVals, validateVals, decomposeVals], el)
+		cfdChart = new uPlot(opts, [xs, exploreVals, sketchVals, validateVals, decomposeVals, deliverVals], el)
 
 		const ro = new ResizeObserver(() => {
 			if (cfdChart && el.clientWidth > 0) {
@@ -485,6 +489,21 @@
 					<span class="bh-detail">all on track</span>
 				{/if}
 			</div>
+			{#if health.inDelivery > 0}
+				<div class="bh-card">
+					<span class="bh-label">Promises</span>
+					<span class="bh-value">{health.inDelivery} in delivery</span>
+					{#if health.deliveryAtRisk > 0}
+						<span class="bh-flag bh-flag-alert">{health.deliveryAtRisk} at risk</span>
+					{/if}
+					{#if health.readyToClose > 0}
+						<span class="bh-flag bh-flag-ok">{health.readyToClose} ready to close</span>
+					{/if}
+					{#if health.deliveryAtRisk === 0 && health.readyToClose === 0}
+						<span class="bh-detail">all on track</span>
+					{/if}
+				</div>
+			{/if}
 			<button class="bh-card bh-card-nav" onclick={() => onSwitchView('deliverables')}>
 				<span class="bh-label">Deliverables</span>
 				<span class="bh-value">{health.totalDeliverables}</span>
@@ -513,6 +532,16 @@
 							<span class="bh-bar-seg bh-origin-{o.origin}" style="flex:{o.count}" title="{o.count} {label}">{o.count} {label}</span>
 						{/each}
 					</div>
+				</div>
+			{/if}
+			{#if health.totalOpps >= 5}
+				<div class="bh-card">
+					<span class="bh-label">Discovery balance</span>
+					<span class="bh-value">{Math.round(health.discoveryRatio * 100)}%</span>
+					<span class="bh-detail">of items in explore / sketch / validate</span>
+					{#if health.discoveryNudge}
+						<span class="bh-flag bh-flag-warn">{health.discoveryNudge}</span>
+					{/if}
 				</div>
 			{/if}
 			{#if leadTime.stageAvg.length > 0}
@@ -944,6 +973,7 @@
 	.bh-stage-sketch { background: var(--c-stage-sketch); }
 	.bh-stage-validate { background: var(--c-stage-validate); }
 	.bh-stage-decompose { background: var(--c-stage-decompose); }
+	.bh-stage-deliver { background: var(--c-stage-deliver); }
 
 	/* Consent arc */
 	.bh-arc-row {

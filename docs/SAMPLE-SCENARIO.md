@@ -32,7 +32,7 @@ Sarah and Marcus were pulled in specifically for the SSO validation stage -- Sar
 
 ### 2026Q2 horizon (this quarter -- shipping soon)
 
-**Webhooks API** -- *Decompose* -- The flagship feature this quarter. Fully validated across all three perspectives at every stage. Three integration partners beta-tested it. Budget allocated. The team is now decomposing it into sprint-ready work. Four deliverables are linked:
+**Webhooks API** -- *Deliver* -- The flagship feature this quarter. Fully validated across all three perspectives at every stage. Three integration partners beta-tested it. Budget allocated. Decomposed into sprint-ready work and now in active delivery -- Alex is tracking deliverables landing and a commitment to integration partners (due in 3 weeks). Four deliverables are linked:
 
 - **Webhook event bus** (L, certainty 4/5) -- core infrastructure, Alice + Bob
 - **Webhook retry & dead-letter queue** (M, certainty 3/5) -- resilience layer, DevOps + Bob
@@ -148,7 +148,7 @@ After scanning the briefing, Alex will:
 
 ### Why this scenario works for a demo
 
-1. **Each stage is represented** -- Explore (3), Sketch (3), Validate (1), Decompose (1). The funnel is bottom-heavy, which is realistic -- most ideas don't survive to validation.
+1. **Each stage is represented** -- Explore (3), Sketch (3), Validate (1), Deliver (1). The funnel is bottom-heavy, which is realistic -- most ideas don't survive to validation.
 
 2. **Each perspective combination is represented** -- Some items have only desirability scored (early explore). Some have all three green (webhooks). Some have objections (AI reports). Some have mixed uncertain/positive (SSO). This shows the signal grid's expressiveness.
 

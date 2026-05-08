@@ -2,14 +2,14 @@
 
 > **[!] Experimental** -- Slim is a personal playground / proof of concept. It is not ready for production use. APIs, data formats, and localStorage keys may change without notice. Use it to explore the ideas, not to run your actual planning.
 
-Slim is a planning tool for product owners, covering the workflow *before* the sprint board. It models **Opportunities** (value axis) and **Deliverables** (work axis) connected by a many-to-many link graph.
+Slim is a planning tool for product owners, covering the opportunity lifecycle from first spark to fulfilled promise. It models **Opportunities** (value axis) and **Deliverables** (work axis) connected by a many-to-many link graph.
 
 **[Try it live ->](https://wimyedema.github.io/slim/)**
 
 ## What it does
 
-- **4-stage pipeline** -- Explore -> Sketch -> Validate -> Decompose, with consent-based gating
-- **Signal grid** -- 3 perspectives (desirability / feasibility / viability) x 4 stages, scored as positive / uncertain / negative
+- **5-stage pipeline** -- Explore -> Sketch -> Validate -> Decompose -> Deliver, with consent-based gating
+- **Signal grid** -- 3 perspectives (desirability / feasibility / viability) x 4 analysis stages, scored as positive / uncertain / negative
 - **Deliverable matrix** -- T-shirt sized work items linked to opportunities
 - **Meeting prep** -- per-person agendas with change detection and inline scoring
 - **Briefing view** -- board-wide news feed with 5 importance tiers

@@ -3,6 +3,7 @@ import type { BoardData } from './store'
 import type { Deliverable, Opportunity, OpportunityDeliverableLink } from './types'
 import {
 	agingLevel,
+	commitmentStatuses,
 	commitmentUrgency,
 	type HorizonPressure,
 	isFutureHorizon,
@@ -81,6 +82,8 @@ export type ChangeVerb =
 	| 'revisit-due'
 	| 'wip-over'
 	| 'wip-under'
+	| 'commitment-fulfilled'
+	| 'delivery-stale'
 	| 'resolved'
 
 export type ImportanceTier = 1 | 2 | 3
@@ -138,6 +141,8 @@ const TIER_MAP: Record<ChangeVerb, ImportanceTier> = {
 	'revisit-due': 1,
 	'wip-over': 2,
 	'wip-under': 3,
+	'commitment-fulfilled': 1,
+	'delivery-stale': 2,
 	resolved: 3,
 }
 
@@ -147,6 +152,8 @@ const TIER_MAP: Record<ChangeVerb, ImportanceTier> = {
 export const CONDITION_VERBS: ReadonlySet<ChangeVerb> = new Set([
 	'commitment-overdue',
 	'commitment-due-soon',
+	'commitment-fulfilled',
+	'delivery-stale',
 	'stale',
 	'revisit-due',
 	'unscored-assignment',
@@ -192,6 +199,8 @@ export interface StoredReadItem {
 const RESOLUTION_LABELS: Partial<Record<ChangeVerb, string>> = {
 	'commitment-overdue': 'Commitment fulfilled',
 	'commitment-due-soon': 'Commitment met',
+	'commitment-fulfilled': 'New commitment added',
+	'delivery-stale': 'Delivery activity resumed',
 	stale: 'No longer stale',
 	'unscored-assignment': 'Input received',
 	'meeting-overdue': 'Meeting held',
@@ -364,6 +373,37 @@ function diffOpportunities(
 					timestamp: now,
 				})
 			}
+		}
+
+		// Delivery: all commitments fulfilled — ready to mark done
+		if (opp.stage === 'deliver' && opp.commitments.length > 0) {
+			const statuses = commitmentStatuses(opp)
+			if (statuses.every((s) => s.met)) {
+				items.push({
+					id: itemId(),
+					targetType: 'opportunity',
+					targetId: opp.id,
+					targetTitle: opp.title,
+					verb: 'commitment-fulfilled',
+					description: 'All commitments fulfilled — ready to mark done?',
+					tier: TIER_MAP['commitment-fulfilled'],
+					timestamp: now,
+				})
+			}
+		}
+
+		// Delivery stale — in deliver >14 days (uses aging model)
+		if (opp.stage === 'deliver' && agingLevel(opp, pressure) === 'stale') {
+			items.push({
+				id: itemId(),
+				targetType: 'opportunity',
+				targetId: opp.id,
+				targetTitle: opp.title,
+				verb: 'delivery-stale',
+				description: `Delivery stale — no progress in ${Math.floor((now - opp.stageEnteredAt) / 86_400_000)}d`,
+				tier: TIER_MAP['delivery-stale'],
+				timestamp: now,
+			})
 		}
 	}
 
@@ -833,6 +873,7 @@ const RETURN_THRESHOLD_MS = 4 * 60 * 60 * 1000
 const RETURN_VERB_LABELS: Partial<Record<ChangeVerb, [string, string]>> = {
 	'objection-added': ['objection', 'objections'],
 	'commitment-overdue': ['overdue commitment', 'overdue commitments'],
+	'commitment-fulfilled': ['delivery ready to close', 'deliveries ready to close'],
 	stale: ['stale item', 'stale items'],
 	exited: ['exit', 'exits'],
 	'revisit-due': ['revisit due', 'revisits due'],

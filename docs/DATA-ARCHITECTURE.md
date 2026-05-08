@@ -25,14 +25,14 @@ An opportunity tracks *why* something matters. A deliverable tracks *what* gets 
 | id | UUID | `crypto.randomUUID()` |
 | title | string | |
 | description | string | Freeform notes |
-| stage | `'explore' \| 'sketch' \| 'validate' \| 'decompose'` | Pipeline position |
+| stage | `'explore' \| 'sketch' \| 'validate' \| 'decompose' \| 'deliver'` | Pipeline position |
 | origin | `'demand' \| 'supply' \| 'incident' \| 'debt'` | Optional classification |
 | horizon | string | Freeform target (e.g. "2026Q3") |
-| signals | `Record<Stage, Record<Perspective, CellSignal>>` | 4×3 signal grid |
+| signals | `Record<Stage, Record<Perspective, CellSignal>>` | 5×3 signal grid (Deliver row is structurally present but unused) |
 | people | `PersonLink[]` | Linked experts, approvers, stakeholders |
 | commitments | `Commitment[]` | Promises with deadlines |
 | createdAt, updatedAt, stageEnteredAt | number | Epoch timestamps |
-| exitState | `'killed' \| 'parked' \| 'merged'` | Set when discontinued |
+| exitState | `'killed' \| 'parked' \| 'merged' \| 'done'` | Set when discontinued or delivered |
 | exitReason | string | Why it was discontinued |
 | discontinuedAt | number | When it was discontinued |
 | parkUntil | string | Horizon label for revisit |
@@ -40,7 +40,7 @@ An opportunity tracks *why* something matters. A deliverable tracks *what* gets 
 
 ### Signal grid
 
-Each opportunity carries a 4×3 matrix of `CellSignal` values — one per stage×perspective intersection:
+Each opportunity carries a 5×3 matrix of `CellSignal` values — one per stage×perspective intersection:
 
 ```
              desirability    feasibility     viability
@@ -48,7 +48,10 @@ explore      CellSignal      CellSignal      CellSignal
 sketch       CellSignal      CellSignal      CellSignal
 validate     CellSignal      CellSignal      CellSignal
 decompose    CellSignal      CellSignal      CellSignal
+deliver      (unused)        (unused)        (unused)
 ```
+
+The Deliver stage has no signal grid — the decision to build was already made. The row exists structurally for type consistency but is never scored.
 
 Each `CellSignal`:
 
@@ -60,9 +63,9 @@ Each `CellSignal`:
 | evidence | string | URL or reference |
 | owner | string | Who provided this signal |
 
-All 12 cells initialize to `{ score: 'none', source: 'manual', verdict: '', evidence: '', owner: '' }`.
+All 15 cells initialize to `{ score: 'none', source: 'manual', verdict: '', evidence: '', owner: '' }` (Deliver cells stay at defaults permanently).
 
-**Consent gating**: an opportunity can only advance when all three perspectives at the current stage have a score other than `none`, and none of them is `negative`. The `uncertain` score counts as consent — it means "I don't object, but I'm not confident."
+**Consent gating**: an opportunity can only advance when all three perspectives at the current stage have a score other than `none`, and none of them is `negative`. The `uncertain` score counts as consent — it means "I don't object, but I'm not confident." The Deliver stage bypasses consent gating — `stageConsent()` always returns `ready` for Deliver since there is nothing to score.
 
 ### PersonLink
 

@@ -11,6 +11,7 @@
 		CELL_QUESTIONS,
 		STAGES,
 		commitmentUrgency,
+		commitmentStatuses,
 		daysInStage,
 		agingLevel,
 		EXIT_STATES,
@@ -41,7 +42,7 @@
 		onAdd: (title: string) => void
 		orderedIds?: string[]
 		allHorizons?: string[]
-		grouping?: 'stage' | 'horizon'
+		grouping?: 'stage' | 'horizon' | 'promises'
 		customHorizons?: string[]
 		onUpdateOpportunity?: (opp: Opportunity) => void
 		onAddHorizon?: (name: string) => void
@@ -64,7 +65,7 @@
 		onAdd,
 		orderedIds = $bindable([]),
 		allHorizons = [],
-		grouping = $bindable('stage'),
+		grouping = $bindable('stage') as 'stage' | 'horizon' | 'promises',
 		customHorizons = [],
 		onUpdateOpportunity,
 		onAddHorizon,
@@ -202,13 +203,19 @@
 			feasibility: { zero: 'Break down the work', weak: 'Refine the estimates' },
 			viability: { zero: 'Final cost check', weak: 'Confirm it\'s worth it' },
 		},
+		deliver: {
+			desirability: { zero: 'Check user satisfaction', weak: 'Verify delivered value' },
+			feasibility: { zero: 'Track deliverable progress', weak: 'Monitor implementation' },
+			viability: { zero: 'Review commitment status', weak: 'Confirm promises kept' },
+		},
 	}
 
 	const NEXT_STAGE: Record<Stage, string> = {
 		explore: 'Ready to sketch',
 		sketch: 'Ready to validate',
 		validate: 'Ready to decompose',
-		decompose: 'Fully assessed — ship it',
+		decompose: 'Ready to deliver',
+		deliver: 'All commitments met — ready to mark done?',
 	}
 
 	function buildNudge(opp: Opportunity, gaps: GapInfo[], zeroCount: number, skipCommitment = false): string {
@@ -378,6 +385,7 @@
 		sketch: 'Converge — define the shape of a solution',
 		validate: 'Test — gather evidence for or against',
 		decompose: 'Structure — break into deliverable work',
+		deliver: 'Land it — track delivery and promises',
 	}
 
 	function oldestDays(items: PipelineItem[]): number {
@@ -515,10 +523,51 @@
 		return groups
 	})
 
+	// Promises grouping: deliver-stage opps grouped by commitment status
+	type PromiseBucket = 'at-risk' | 'on-track' | 'delivered' | 'no-commitments'
+	const PROMISE_LABELS: Record<PromiseBucket, string> = {
+		'at-risk': 'At risk',
+		'on-track': 'On track',
+		'delivered': 'Delivered',
+		'no-commitments': 'No commitments',
+	}
+	const PROMISE_ORDER: PromiseBucket[] = ['at-risk', 'on-track', 'delivered', 'no-commitments']
+
+	interface PromiseGroup {
+		bucket: PromiseBucket
+		label: string
+		items: PipelineItem[]
+	}
+
+	const promisesGroups = $derived.by((): PromiseGroup[] => {
+		const deliverOpps = activeOpps.filter(o => o.stage === 'deliver')
+		const buckets = new Map<PromiseBucket, PipelineItem[]>()
+		for (const b of PROMISE_ORDER) buckets.set(b, [])
+
+		for (const opp of deliverOpps) {
+			const item = buildItem(opp)
+			const statuses = commitmentStatuses(opp)
+			if (statuses.length === 0) {
+				buckets.get('no-commitments')!.push(item)
+			} else {
+				const allMet = statuses.every(s => s.met)
+				const anyAtRisk = statuses.some(s => !s.met && s.daysLeft <= 7)
+				if (allMet) buckets.get('delivered')!.push(item)
+				else if (anyAtRisk) buckets.get('at-risk')!.push(item)
+				else buckets.get('on-track')!.push(item)
+			}
+		}
+		return PROMISE_ORDER
+			.map(b => ({ bucket: b, label: PROMISE_LABELS[b], items: buckets.get(b)! }))
+			.filter(g => g.items.length > 0)
+	})
+
 	// Expose flat visual order to parent for keyboard navigation
 	$effect(() => {
 		if (grouping === 'stage') {
 			orderedIds = stageGroups.flatMap(g => g.items.map(i => i.opp.id))
+		} else if (grouping === 'promises') {
+			orderedIds = promisesGroups.flatMap(g => g.items.map(i => i.opp.id))
 		} else {
 			orderedIds = horizonGroups.flatMap(g => g.items.map(i => i.opp.id))
 		}
@@ -596,7 +645,7 @@
 	{:else}
 		{#if zoomedGroup}
 			<div class="pl-breadcrumb" class:sticky-breadcrumb={true}>
-				<button class="btn-ghost pl-breadcrumb-btn" onclick={zoomOut}>← All {grouping === 'stage' ? 'stages' : 'horizons'}</button>
+				<button class="btn-ghost pl-breadcrumb-btn" onclick={zoomOut}>← All {grouping === 'stage' ? 'stages' : grouping === 'promises' ? 'promises' : 'horizons'}</button>
 				<span class="pl-breadcrumb-label">{zoomedGroup}</span>
 			</div>
 		{/if}
@@ -606,6 +655,7 @@
 			<span class="grouping-toggle">
 				<button class="grouping-btn" class:active={grouping === 'stage'} onclick={() => { zoomedGroup = null; filteredStage = null; grouping = 'stage' }}>Funnel</button>
 				<button class="grouping-btn" class:active={grouping === 'horizon'} onclick={() => { zoomedGroup = null; filteredStage = null; grouping = 'horizon' }}>Horizon</button>
+				<button class="grouping-btn" class:active={grouping === 'promises'} onclick={() => { zoomedGroup = null; filteredStage = null; grouping = 'promises' }}>Promises</button>
 			</span>
 			<span class="lens-toggle">
 				{#each PERSPECTIVES as p}
@@ -769,7 +819,7 @@
 					</section>
 				{/if}
 			{/each}
-		{:else}
+		{:else if grouping === 'horizon'}
 			{#each horizonGroups as group}
 				{#if !zoomedGroup || zoomedGroup === group.horizon}
 					{@const breakdown = horizonBreakdown(group.items.map(i => i.opp))}
@@ -893,6 +943,43 @@
 					<button class="btn-ghost add-horizon-btn" onclick={handleAddHorizon} disabled={!newHorizonName.trim()}>+ Add horizon</button>
 				</div>
 			{/if}
+		{:else if grouping === 'promises'}
+			{#if promisesGroups.length === 0}
+				<div class="pl-empty-promises">No opportunities in the Deliver stage yet</div>
+			{/if}
+			{#each promisesGroups as group}
+				{#if !zoomedGroup || zoomedGroup === group.label}
+					<section class="pl-stage-group">
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<header class="pl-stage-header pl-zoomable" role="button" tabindex="0" style="--stage-color: var(--c-stage-deliver)" onclick={() => zoomedGroup ? zoomOut() : zoomIn(group.label)}>
+							<span class="pl-stage-name">{group.label}</span>
+							<span class="pl-stage-count">{group.items.length}</span>
+							{#if !zoomedGroup}
+								<span class="pl-zoom-hint" aria-hidden="true">⤢</span>
+							{/if}
+						</header>
+						{#if group.items.length > 0}
+							<div class="pl-rows">
+								{#each group.items as item (item.opp.id)}
+									<OpportunityRow
+										opp={item.opp}
+										bucket={item.bucket}
+										nudge={item.nudge}
+										{density}
+										selected={item.opp.id === selectedId}
+										linkedDeliverables={getLinkedDeliverables(item.opp.id)}
+										{onSelect}
+										{onAdvance}
+										{onSelectDeliverable}
+										onPark={handlePark}
+										{lens}
+									/>
+								{/each}
+							</div>
+						{/if}
+					</section>
+				{/if}
+			{/each}
 		{/if}
 
 		{#if discontinuedOpps.length > 0}
@@ -1206,6 +1293,13 @@
 		font-size: var(--fs-xs);
 		color: var(--c-text-ghost);
 		padding: var(--sp-xs) var(--sp-md);
+	}
+
+	.pl-empty-promises {
+		font-size: var(--fs-sm);
+		color: var(--c-text-ghost);
+		padding: var(--sp-md);
+		text-align: center;
 	}
 
 	.pl-rows {

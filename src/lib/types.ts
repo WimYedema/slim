@@ -1,6 +1,6 @@
 import { defaultHorizon as _defaultHorizon } from './queries'
 
-export type Stage = 'explore' | 'sketch' | 'validate' | 'decompose'
+export type Stage = 'explore' | 'sketch' | 'validate' | 'decompose' | 'deliver'
 
 export type Perspective = 'desirability' | 'feasibility' | 'viability'
 
@@ -29,7 +29,7 @@ export const ORIGIN_TYPES: { key: OriginType; label: string; description: string
 ]
 
 /** Exit state when an opportunity leaves the active pipeline */
-export type ExitState = 'killed' | 'parked' | 'merged'
+export type ExitState = 'killed' | 'parked' | 'merged' | 'done'
 
 export const EXIT_STATES: { key: ExitState; label: string; icon: string; description: string }[] = [
 	{
@@ -45,6 +45,7 @@ export const EXIT_STATES: { key: ExitState; label: string; icon: string; descrip
 		description: 'Not now — optionally set a horizon to revisit',
 	},
 	{ key: 'merged', label: 'Merge', icon: '⤵', description: 'Subsumed by another opportunity' },
+	{ key: 'done', label: 'Done', icon: '✓', description: 'Delivered — commitments fulfilled' },
 ]
 
 /** Role a person plays on an opportunity */
@@ -161,6 +162,7 @@ export const STAGES: { key: Stage; label: string; thinking: string }[] = [
 	{ key: 'sketch', label: 'Sketch', thinking: 'Focused' },
 	{ key: 'validate', label: 'Validate', thinking: 'Evaluative' },
 	{ key: 'decompose', label: 'Decompose', thinking: 'Structural' },
+	{ key: 'deliver', label: 'Deliver', thinking: 'Observational' },
 ]
 
 export const PERSPECTIVE_LABELS: Record<Perspective, string> = {
@@ -196,6 +198,11 @@ export const CELL_QUESTIONS: Record<Stage, Record<Perspective, string>> = {
 		desirability: 'Which deliverables serve this need?',
 		feasibility: 'What is the estimated effort?',
 		viability: 'Is it worth the cost?',
+	},
+	deliver: {
+		desirability: 'Did we deliver what users needed?',
+		feasibility: 'Did implementation match the plan?',
+		viability: 'Did we meet our commitments?',
 	},
 }
 
@@ -250,6 +257,7 @@ export function createOpportunity(title: string): Opportunity {
 			sketch: emptyStageSignals(),
 			validate: emptyStageSignals(),
 			decompose: emptyStageSignals(),
+			deliver: emptyStageSignals(),
 		},
 	}
 }
@@ -264,7 +272,9 @@ export type ConsentStatus = 'consent' | 'objection' | 'unheard'
 
 export {
 	agingLevel,
+	canAdvanceToDeliver,
 	cellHasSignal,
+	commitmentStatuses,
 	daysInStage,
 	nextStage,
 	originLabel,

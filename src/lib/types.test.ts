@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
 	agingLevel,
 	type CellSignal,
+	canAdvanceToDeliver,
 	cellHasSignal,
 	certaintyFromEstimate,
+	commitmentStatuses,
 	commitmentUrgency,
 	consentStatus,
 	createDeliverable,
@@ -87,15 +89,17 @@ describe('nextStage', () => {
 		expect(nextStage('explore')).toBe('sketch')
 		expect(nextStage('sketch')).toBe('validate')
 		expect(nextStage('validate')).toBe('decompose')
+		expect(nextStage('decompose')).toBe('deliver')
 	})
 
 	it('returns null at the end', () => {
-		expect(nextStage('decompose')).toBeNull()
+		expect(nextStage('deliver')).toBeNull()
 	})
 })
 
 describe('prevStage', () => {
 	it('moves back through the pipeline', () => {
+		expect(prevStage('deliver')).toBe('decompose')
 		expect(prevStage('decompose')).toBe('validate')
 		expect(prevStage('validate')).toBe('sketch')
 		expect(prevStage('sketch')).toBe('explore')
@@ -121,33 +125,61 @@ describe('daysInStage', () => {
 })
 
 describe('agingLevel', () => {
-	it('returns fresh for < 7 days', () => {
-		const opp = makeOpp({ stageEnteredAt: Date.now() - 3 * 86_400_000 })
+	it('returns fresh for explore < 5 days', () => {
+		const opp = makeOpp({ stage: 'explore', stageEnteredAt: Date.now() - 3 * 86_400_000 })
 		expect(agingLevel(opp)).toBe('fresh')
 	})
 
-	it('returns aging for 7-13 days', () => {
-		const opp = makeOpp({ stageEnteredAt: Date.now() - 10 * 86_400_000 })
+	it('returns aging for explore 5-9 days', () => {
+		const opp = makeOpp({ stage: 'explore', stageEnteredAt: Date.now() - 7 * 86_400_000 })
 		expect(agingLevel(opp)).toBe('aging')
 	})
 
-	it('returns stale for >= 14 days', () => {
-		const opp = makeOpp({ stageEnteredAt: Date.now() - 20 * 86_400_000 })
+	it('returns stale for explore >= 10 days', () => {
+		const opp = makeOpp({ stage: 'explore', stageEnteredAt: Date.now() - 12 * 86_400_000 })
 		expect(agingLevel(opp)).toBe('stale')
 	})
 
-	it('tightens thresholds for "now" pressure', () => {
-		const opp5 = makeOpp({ stageEnteredAt: Date.now() - 5 * 86_400_000 })
-		expect(agingLevel(opp5, 'now')).toBe('aging')
-		expect(agingLevel(opp5, 'none')).toBe('fresh')
+	it('uses longer thresholds for validate (7/14)', () => {
+		const opp6 = makeOpp({ stage: 'validate', stageEnteredAt: Date.now() - 6 * 86_400_000 })
+		expect(agingLevel(opp6)).toBe('fresh')
+		const opp10 = makeOpp({ stage: 'validate', stageEnteredAt: Date.now() - 10 * 86_400_000 })
+		expect(agingLevel(opp10)).toBe('aging')
+		const opp20 = makeOpp({ stage: 'validate', stageEnteredAt: Date.now() - 20 * 86_400_000 })
+		expect(agingLevel(opp20)).toBe('stale')
+	})
 
-		const opp10 = makeOpp({ stageEnteredAt: Date.now() - 10 * 86_400_000 })
-		expect(agingLevel(opp10, 'now')).toBe('stale')
-		expect(agingLevel(opp10, 'none')).toBe('aging')
+	it('uses longest thresholds for decompose (10/21)', () => {
+		const opp8 = makeOpp({ stage: 'decompose', stageEnteredAt: Date.now() - 8 * 86_400_000 })
+		expect(agingLevel(opp8)).toBe('fresh')
+		const opp15 = makeOpp({ stage: 'decompose', stageEnteredAt: Date.now() - 15 * 86_400_000 })
+		expect(agingLevel(opp15)).toBe('aging')
+		const opp25 = makeOpp({ stage: 'decompose', stageEnteredAt: Date.now() - 25 * 86_400_000 })
+		expect(agingLevel(opp25)).toBe('stale')
+	})
+
+	it('uses longest thresholds for deliver (14/28)', () => {
+		const opp10 = makeOpp({ stage: 'deliver', stageEnteredAt: Date.now() - 10 * 86_400_000 })
+		expect(agingLevel(opp10)).toBe('fresh')
+		const opp20 = makeOpp({ stage: 'deliver', stageEnteredAt: Date.now() - 20 * 86_400_000 })
+		expect(agingLevel(opp20)).toBe('aging')
+		const opp30 = makeOpp({ stage: 'deliver', stageEnteredAt: Date.now() - 30 * 86_400_000 })
+		expect(agingLevel(opp30)).toBe('stale')
+	})
+
+	it('tightens thresholds for "now" pressure (halved)', () => {
+		// explore with "now": aging at 3, stale at 5
+		const opp3 = makeOpp({ stage: 'explore', stageEnteredAt: Date.now() - 3 * 86_400_000 })
+		expect(agingLevel(opp3, 'now')).toBe('aging')
+		expect(agingLevel(opp3, 'none')).toBe('fresh')
+
+		const opp5 = makeOpp({ stage: 'explore', stageEnteredAt: Date.now() - 5 * 86_400_000 })
+		expect(agingLevel(opp5, 'now')).toBe('stale')
+		expect(agingLevel(opp5, 'none')).toBe('aging')
 	})
 
 	it('uses standard thresholds for "next" pressure', () => {
-		const opp = makeOpp({ stageEnteredAt: Date.now() - 8 * 86_400_000 })
+		const opp = makeOpp({ stage: 'explore', stageEnteredAt: Date.now() - 6 * 86_400_000 })
 		expect(agingLevel(opp, 'next')).toBe('aging')
 		expect(agingLevel(opp, 'none')).toBe('aging')
 	})
@@ -239,6 +271,14 @@ describe('stageConsent', () => {
 		let opp = makeOpp({ stage: 'decompose' })
 		opp = setStageScores(opp, 'decompose', 'positive', 'positive', 'positive')
 		expect(stageConsent(opp).status).toBe('ready')
+	})
+
+	it('always returns ready for deliver stage (no signal grid)', () => {
+		const opp = makeOpp({ stage: 'deliver' })
+		const result = stageConsent(opp)
+		expect(result.status).toBe('ready')
+		expect(result.objections).toHaveLength(0)
+		expect(result.unheard).toHaveLength(0)
 	})
 })
 
@@ -838,5 +878,71 @@ describe('opportunityEffort', () => {
 			{ opportunityId: opp.id, deliverableId: del2.id, coverage: 'full' },
 		]
 		expect(opportunityEffort(opp.id, [del1, del2], links)).toBeCloseTo(2)
+	})
+})
+
+describe('canAdvanceToDeliver', () => {
+	it('returns ok for non-decompose stages', () => {
+		const opp = makeOpp({ stage: 'sketch' })
+		expect(canAdvanceToDeliver(opp, []).ok).toBe(true)
+	})
+
+	it('blocks when decompose consent not ready', () => {
+		const opp = makeOpp({ stage: 'decompose' })
+		// no signals scored → consent not ready
+		const result = canAdvanceToDeliver(opp, [])
+		expect(result.ok).toBe(false)
+		expect(result.reason).toBe('consent')
+	})
+
+	it('blocks when decompose has consent but no linked deliverables', () => {
+		const opp = setStageScores(
+			makeOpp({ stage: 'decompose' }),
+			'decompose',
+			'positive',
+			'positive',
+			'positive',
+		)
+		const result = canAdvanceToDeliver(opp, [])
+		expect(result.ok).toBe(false)
+		expect(result.reason).toContain('deliverable')
+	})
+
+	it('allows when decompose has consent and linked deliverables', () => {
+		const opp = setStageScores(
+			makeOpp({ stage: 'decompose' }),
+			'decompose',
+			'positive',
+			'positive',
+			'positive',
+		)
+		const links: OpportunityDeliverableLink[] = [
+			{ opportunityId: opp.id, deliverableId: 'del-1', coverage: 'full' },
+		]
+		expect(canAdvanceToDeliver(opp, links).ok).toBe(true)
+	})
+})
+
+describe('commitmentStatuses', () => {
+	it('returns empty for opportunity with no commitments', () => {
+		const opp = makeOpp()
+		expect(commitmentStatuses(opp)).toEqual([])
+	})
+
+	it('computes daysLeft and met correctly', () => {
+		const now = Date.now()
+		const opp = makeOpp({ stage: 'deliver' })
+		opp.commitments = [
+			{ id: 'c1', to: 'Customer', milestone: 'validate', by: now + 7 * 86_400_000 },
+			{ id: 'c2', to: 'Partner', milestone: 'deliver', by: now - 1 * 86_400_000 },
+		]
+		const statuses = commitmentStatuses(opp)
+		expect(statuses).toHaveLength(2)
+		// validate < deliver → met
+		expect(statuses[0].met).toBe(true)
+		expect(statuses[0].daysLeft).toBe(7)
+		// deliver milestone at deliver stage → not met (same stage, not past)
+		expect(statuses[1].met).toBe(false)
+		expect(statuses[1].daysLeft).toBe(-1)
 	})
 })

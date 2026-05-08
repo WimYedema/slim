@@ -254,6 +254,7 @@
 					{#if opp.origin}<span class="origin-tag">{originLabel(opp.origin)}</span>{/if}
 				</span>
 			{/if}
+			{#if opp.stage !== 'deliver'}
 			<span class="pl-health" role="group" aria-label="Signal scores">
 				{#each PERSPECTIVES as p}
 					{#if !lens || lens === p}
@@ -262,6 +263,7 @@
 					{/if}
 				{/each}
 			</span>
+			{/if}
 			{#if days > 0}<span class="aging-badge aging-{aging}" title={pacing}>{days}d</span>{/if}
 			<span class="pl-advance">
 				{#if aging === 'stale' && onPark}
@@ -651,6 +653,7 @@
 	.stage-sketch { color: var(--c-stage-sketch); }
 	.stage-validate { color: var(--c-stage-validate); }
 	.stage-decompose { color: var(--c-stage-decompose); }
+	.stage-deliver { color: var(--c-stage-deliver); }
 
 	/* --- Drag --- */
 	.drag-handle {
