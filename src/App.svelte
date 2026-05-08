@@ -218,7 +218,7 @@
 		const consent = stageConsent(opp)
 		if (consent.status !== 'ready') return
 		// Gate: decompose → deliver requires linked deliverables
-		if (next === 'deliver' && !canAdvanceToDeliver(opp, links).ok) return
+		if (next === 'deliver' && !canAdvanceToDeliver(opp, links, deliverables).ok) return
 		moveOpportunity(opp.id, next)
 	}
 

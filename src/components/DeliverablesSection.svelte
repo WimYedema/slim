@@ -24,8 +24,10 @@
 			deliverable: deliverables.find((d) => d.id === link.deliverableId)!,
 		})).filter((x) => x.deliverable)
 	)
+	const activeLinked = $derived(linkedDeliverables.filter((x) => x.deliverable.status !== 'dropped'))
+	const droppedLinked = $derived(linkedDeliverables.filter((x) => x.deliverable.status === 'dropped'))
 	const unlinkedDeliverables = $derived(
-		deliverables.filter((d) => !oppLinks.some((l) => l.deliverableId === d.id))
+		deliverables.filter((d) => d.status !== 'dropped' && !oppLinks.some((l) => l.deliverableId === d.id))
 	)
 
 	let showLinkPicker = $state(false)
@@ -51,8 +53,8 @@
 	<div class="deliverables-section">
 		<div class="deliverables-header">
 			<span class="section-label">Deliverables</span>
-			{#if linkedDeliverables.length > 0}
-				<span class="deliverable-count">{linkedDeliverables.filter((x) => x.link.coverage === 'full').length}/{linkedDeliverables.length} full</span>
+			{#if activeLinked.length > 0}
+				<span class="deliverable-count">{activeLinked.filter((x) => x.link.coverage === 'full').length}/{activeLinked.length} full</span>
 			{/if}
 			{#if opportunity.stage === 'decompose'}
 				<label class="decomposition-complete-toggle" title={opportunity.decompositionComplete ? 'Decomposition complete' : 'Mark decomposition as complete'}>
@@ -65,7 +67,7 @@
 				</label>
 			{/if}
 		</div>
-		{#each linkedDeliverables as { link, deliverable } (deliverable.id)}
+		{#each activeLinked as { link, deliverable } (deliverable.id)}
 			{@const contributors = [...new Set([...opportunity.people.filter((p) => p.role === 'expert').map((p) => p.name), ...deliverable.extraContributors])]}
 			{@const consumers = [...new Set([...opportunity.people.filter((p) => p.role === 'stakeholder' || p.role === 'approver').map((p) => p.name), ...deliverable.extraConsumers])]}
 			<div class="deliverable-row">
@@ -84,6 +86,14 @@
 				{#if consumers.length > 0}
 					<span class="deliverable-stakeholders" title="Present to: {consumers.join(', ')}">→ {consumers.join(', ')}</span>
 				{/if}
+				<button class="deliverable-unlink" onclick={() => onUnlinkDeliverable(opportunity.id, deliverable.id)} title="Unlink">×</button>
+			</div>
+		{/each}
+		{#each droppedLinked as { link, deliverable } (deliverable.id)}
+			<div class="deliverable-row dropped">
+				<span class="coverage-dot-placeholder"></span>
+				<span class="deliverable-title dropped-title">{#if deliverable.ticketId}<span class="ticket-id-prefix">{deliverable.ticketId}</span>{/if}{deliverable.title}</span>
+				<span class="dropped-badge">dropped</span>
 				<button class="deliverable-unlink" onclick={() => onUnlinkDeliverable(opportunity.id, deliverable.id)} title="Unlink">×</button>
 			</div>
 		{/each}
@@ -173,6 +183,26 @@
 		align-items: center;
 		gap: var(--sp-xs);
 		padding: 2px 0;
+	}
+
+	.deliverable-row.dropped {
+		opacity: 0.5;
+	}
+
+	.coverage-dot-placeholder {
+		width: calc(10px + 2 * var(--sp-xs));
+		flex-shrink: 0;
+	}
+
+	.dropped-title {
+		text-decoration: line-through;
+	}
+
+	.dropped-badge {
+		font-size: var(--fs-2xs);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--c-text-muted);
 	}
 
 	.coverage-dot {

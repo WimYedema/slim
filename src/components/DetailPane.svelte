@@ -111,7 +111,7 @@
 
 		// Gate: decompose → deliver requires linked deliverables
 		if (stage === 'decompose' && prompts.length === 0) {
-			const gate = canAdvanceToDeliver(opportunity, links)
+			const gate = canAdvanceToDeliver(opportunity, links, deliverables)
 			if (!gate.ok && gate.reason !== 'consent') {
 				prompts.push({
 					perspective: 'feasibility',

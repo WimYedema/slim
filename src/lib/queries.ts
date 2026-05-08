@@ -270,16 +270,21 @@ export function stageConsent(opp: Opportunity): {
 }
 
 /** Check whether an opportunity can advance to the Deliver stage.
- *  Requires consent at decompose AND at least one linked deliverable. */
+ *  Requires consent at decompose AND at least one non-dropped linked deliverable. */
 export function canAdvanceToDeliver(
 	opp: Opportunity,
 	links: OpportunityDeliverableLink[],
+	deliverables: Deliverable[],
 ): { ok: boolean; reason?: string } {
 	if (opp.stage !== 'decompose') return { ok: true }
 	const consent = stageConsent(opp)
 	if (consent.status !== 'ready') return { ok: false, reason: 'consent' }
 	const oppLinks = linksForOpportunity(links, opp.id)
-	if (oppLinks.length === 0)
+	const activeLinks = oppLinks.filter((l) => {
+		const d = deliverables.find((del) => del.id === l.deliverableId)
+		return d && d.status !== 'dropped'
+	})
+	if (activeLinks.length === 0)
 		return { ok: false, reason: 'Link at least one deliverable before advancing to Deliver' }
 	return { ok: true }
 }
@@ -932,7 +937,7 @@ export function opportunityBoxPlotData(
 
 	for (const link of oppLinks) {
 		const del = deliverables.find((d) => d.id === link.deliverableId)
-		if (!del?.estimate) continue
+		if (!del?.estimate || del.status === 'dropped') continue
 		const { mu, sigma } = del.estimate
 		const weight = link.coverage === 'full' ? 1 : 0.5
 		entries.push({ mu, sigma, weight })
@@ -976,7 +981,7 @@ export function opportunityEffort(
 	let hasEstimate = false
 	for (const link of oppLinks) {
 		const del = deliverables.find((d) => d.id === link.deliverableId)
-		if (!del?.estimate) continue
+		if (!del?.estimate || del.status === 'dropped') continue
 		hasEstimate = true
 		const median = Math.exp(del.estimate.mu)
 		total += link.coverage === 'full' ? median : median * 0.5
@@ -1009,13 +1014,17 @@ export function horizonBoxPlotData(
 		if (!opp) continue
 		const oppLinks = linksForOpportunity(links, oppId)
 		if (oppLinks.length === 0) continue
-		totalDelCount += oppLinks.length
+		const activeOppLinks = oppLinks.filter((l) => {
+			const d = deliverables.find((del) => del.id === l.deliverableId)
+			return d && d.status !== 'dropped'
+		})
+		totalDelCount += activeOppLinks.length
 
 		const oppEntries: Array<{ mu: number; sigma: number; weight: number }> = []
 		let hasPartial = false
 		for (const link of oppLinks) {
 			const del = deliverables.find((d) => d.id === link.deliverableId)
-			if (!del?.estimate) continue
+			if (!del?.estimate || del.status === 'dropped') continue
 			const weight = link.coverage === 'full' ? 1 : 0.5
 			if (link.coverage === 'partial') hasPartial = true
 			oppEntries.push({ mu: del.estimate.mu, sigma: del.estimate.sigma, weight })

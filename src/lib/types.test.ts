@@ -881,18 +881,34 @@ describe('opportunityEffort', () => {
 		]
 		expect(opportunityEffort(opp.id, [del1, del2], links)).toBeCloseTo(2)
 	})
+
+	it('excludes dropped deliverables from effort', () => {
+		const opp = createOpportunity('Test')
+		const del1 = createDeliverable('Active')
+		del1.estimate = mkEstimate(Math.log(2), 0.4) // median = 2
+		const del2 = {
+			...createDeliverable('Dropped'),
+			status: 'dropped' as const,
+			estimate: mkEstimate(Math.log(10), 0.3),
+		}
+		const links: OpportunityDeliverableLink[] = [
+			{ opportunityId: opp.id, deliverableId: del1.id, coverage: 'full' },
+			{ opportunityId: opp.id, deliverableId: del2.id, coverage: 'full' },
+		]
+		expect(opportunityEffort(opp.id, [del1, del2], links)).toBeCloseTo(2)
+	})
 })
 
 describe('canAdvanceToDeliver', () => {
 	it('returns ok for non-decompose stages', () => {
 		const opp = makeOpp({ stage: 'sketch' })
-		expect(canAdvanceToDeliver(opp, []).ok).toBe(true)
+		expect(canAdvanceToDeliver(opp, [], []).ok).toBe(true)
 	})
 
 	it('blocks when decompose consent not ready', () => {
 		const opp = makeOpp({ stage: 'decompose' })
 		// no signals scored → consent not ready
-		const result = canAdvanceToDeliver(opp, [])
+		const result = canAdvanceToDeliver(opp, [], [])
 		expect(result.ok).toBe(false)
 		expect(result.reason).toBe('consent')
 	})
@@ -905,7 +921,7 @@ describe('canAdvanceToDeliver', () => {
 			'positive',
 			'positive',
 		)
-		const result = canAdvanceToDeliver(opp, [])
+		const result = canAdvanceToDeliver(opp, [], [])
 		expect(result.ok).toBe(false)
 		expect(result.reason).toContain('deliverable')
 	})
@@ -918,10 +934,28 @@ describe('canAdvanceToDeliver', () => {
 			'positive',
 			'positive',
 		)
+		const del = createDeliverable('Del 1')
 		const links: OpportunityDeliverableLink[] = [
-			{ opportunityId: opp.id, deliverableId: 'del-1', coverage: 'full' },
+			{ opportunityId: opp.id, deliverableId: del.id, coverage: 'full' },
 		]
-		expect(canAdvanceToDeliver(opp, links).ok).toBe(true)
+		expect(canAdvanceToDeliver(opp, links, [del]).ok).toBe(true)
+	})
+
+	it('blocks when all linked deliverables are dropped', () => {
+		const opp = setStageScores(
+			makeOpp({ stage: 'decompose' }),
+			'decompose',
+			'positive',
+			'positive',
+			'positive',
+		)
+		const del = { ...createDeliverable('Dropped Del'), status: 'dropped' as const }
+		const links: OpportunityDeliverableLink[] = [
+			{ opportunityId: opp.id, deliverableId: del.id, coverage: 'full' },
+		]
+		const result = canAdvanceToDeliver(opp, links, [del])
+		expect(result.ok).toBe(false)
+		expect(result.reason).toContain('deliverable')
 	})
 })
 

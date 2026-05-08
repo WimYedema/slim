@@ -190,9 +190,10 @@ Never put `max-width` on the scrollable container itself -- that pulls the scrol
 9. **Deliverables are orphans until linked** -- a new deliverable has no links and shows an "orphan" badge.
 10. **No runtime dependencies beyond nostr-tools** -- the app runs on browser APIs (localStorage, crypto.randomUUID, DOM) plus nostr-tools for P2P relay communication.
 11. **Deliver stage has no signal grid** -- the 4×3 consent matrix applies only to Explore–Decompose. Deliver uses commitments as the primary tracking mechanism.
-12. **Advancement to Deliver requires linked deliverables** -- `canAdvanceToDeliver()` checks consent AND `linksForOpportunity().length > 0`. Enforced in both DetailPane (gap prompts) and App.svelte (keyboard shortcut).
+12. **Advancement to Deliver requires linked deliverables** -- `canAdvanceToDeliver(opp, links, deliverables)` checks consent AND at least one non-dropped linked deliverable. Enforced in both DetailPane (gap prompts) and App.svelte (keyboard shortcut).
 13. **Done is a positive exit** -- unlike Kill/Park/Merge, Done means "delivered as promised." Only available when `stage === 'deliver'`.
 14. **Hash-based routing** -- `router.ts` manages URL hash state (`#board/{id}/pipeline/horizon`). `switchView()` and `switchBoard()` push history entries; grouping/lens changes replace. `popstate` restores view state. Welcome/braindump screens bypass routing.
+15. **Dropped deliverables are excluded from calculations** -- effort sums, box plots, coverage counts, advance-to-deliver gate, and PipelineView deliverable lists all filter out `status === 'dropped'`. Dropped deliverables still appear dimmed with strikethrough in DetailPane's DeliverablesSection and in the DeliverablesView archive.
 
 ## Design Hygiene
 

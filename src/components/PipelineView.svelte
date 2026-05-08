@@ -587,7 +587,7 @@
 		return oppLinks.map((link) => {
 			const del = deliverables.find((d) => d.id === link.deliverableId)
 			return del ? { link, deliverable: del } : null
-		}).filter((x): x is NonNullable<typeof x> => x !== null)
+		}).filter((x): x is NonNullable<typeof x> => x !== null && x.deliverable.status !== 'dropped')
 	}
 
 	const density = $derived<'overview' | 'zoomed'>(
