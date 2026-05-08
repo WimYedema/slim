@@ -520,8 +520,9 @@
 		view = 'pipeline'
 	}
 
-	function skipBrainDump() {
-		ensureBoard('My board')
+	function skipBrainDump(name: string) {
+		ensureBoard(name || 'My board')
+		if (activeBoardId && name) renameBoard(activeBoardId, name)
 		dismissWelcome()
 		showBrainDump = false
 		view = 'pipeline'
@@ -531,6 +532,53 @@
 		ensureBoard('My board')
 		dismissWelcome()
 		showSyncPanelOnMount = true
+	}
+
+	function welcomeImportFile() {
+		const input = document.createElement('input')
+		input.type = 'file'
+		input.accept = '.json,.csv'
+		input.onchange = () => {
+			const file = input.files?.[0]
+			if (!file) return
+			const reader = new FileReader()
+			reader.onload = () => {
+				try {
+					const text = reader.result as string
+					const name = file.name.replace(/\.(json|csv)$/i, '') || 'Imported board'
+					if (file.name.endsWith('.csv')) {
+						const { imported, skipped } = csvToOpportunities(text)
+						if (imported.length === 0) {
+							alert(skipped.length > 0 ? skipped[0] : 'No valid rows found')
+							return
+						}
+						ensureBoard(name)
+						if (activeBoardId) renameBoard(activeBoardId, name)
+						opportunities = backfillTicketIds(imported, 'OPP-')
+						dismissWelcome()
+						view = 'pipeline'
+					} else {
+						const data = JSON.parse(text) as BoardData
+						if (!Array.isArray(data.opportunities) || !Array.isArray(data.deliverables) || !Array.isArray(data.links)) {
+							alert('Invalid file format \u2014 expected Slim JSON export.')
+							return
+						}
+						ensureBoard(name)
+						if (activeBoardId) renameBoard(activeBoardId, name)
+						opportunities = backfillTicketIds(data.opportunities, 'OPP-')
+						deliverables = backfillTicketIds(data.deliverables, 'DEL-')
+						links = data.links
+						customHorizons = data.customHorizons ?? []
+						dismissWelcome()
+						view = 'pipeline'
+					}
+				} catch {
+					alert('Could not parse file.')
+				}
+			}
+			reader.readAsText(file)
+		}
+		input.click()
 	}
 
 	let showSyncPanelOnMount = $state(false)
@@ -962,6 +1010,7 @@
 		onSampleData={loadSampleData}
 		onEmptyBoard={startEmptyBoard}
 		onJoinRoom={welcomeJoinRoom}
+		onImportFile={welcomeImportFile}
 	/>
 	{:else if showBrainDump}
 	<BrainDump

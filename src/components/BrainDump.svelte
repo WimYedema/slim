@@ -4,16 +4,28 @@
 
 	interface Props {
 		onApply: (text: string) => void
-		onSkip: () => void
+		onSkip: (boardName: string) => void
 	}
 
 	let { onApply, onSkip }: Props = $props()
 
 	let text = $state(IMPORT_TEMPLATE)
+	let skipMode = $state(false)
+	let skipName = $state('')
+	let skipInput = $state<HTMLInputElement>()
 	let parsed = $derived(parseImportText(text))
 	let preview = $derived(toPreview(parsed))
-	let boardName = $derived(parsed.boardName)
 	let totalOpps = $derived(preview.opportunities.length)
+
+	function enterSkipMode() {
+		skipMode = true
+		// Focus the input after Svelte renders it
+		queueMicrotask(() => skipInput?.focus())
+	}
+
+	function confirmSkip() {
+		onSkip(skipName.trim() || 'My board')
+	}
 	let totalDels = $derived(
 		preview.opportunities.reduce((n, o) => n + o.deliverables.length, 0) + preview.orphanDeliverables.length
 	)
@@ -100,11 +112,26 @@
 
 	<div class="bd-footer">
 		<span class="bd-summary">
-			{#if boardName}<strong>{boardName}</strong> · {/if}{totalOpps} {totalOpps === 1 ? 'opportunity' : 'opportunities'} · {totalDels} {totalDels === 1 ? 'deliverable' : 'deliverables'} · {totalPeople} {totalPeople === 1 ? 'person' : 'people'}
+			{#if parsed.boardName}<strong>{parsed.boardName}</strong> · {/if}{totalOpps} {totalOpps === 1 ? 'opportunity' : 'opportunities'} · {totalDels} {totalDels === 1 ? 'deliverable' : 'deliverables'} · {totalPeople} {totalPeople === 1 ? 'person' : 'people'}
 		</span>
 		<div class="bd-actions">
-			<button class="bd-btn-skip" onclick={onSkip}>Skip — start empty</button>
-			<button class="bd-btn-create" disabled={totalOpps === 0 && totalDels === 0} onclick={() => onApply(text)}>Create board</button>
+			{#if skipMode}
+				<div class="bd-skip-name">
+					<input
+						class="bd-skip-input"
+						type="text"
+						bind:this={skipInput}
+						bind:value={skipName}
+						placeholder="My board"
+						onkeydown={(e) => { if (e.key === 'Enter') confirmSkip(); if (e.key === 'Escape') { skipMode = false } }}
+					/>
+					<button class="bd-btn-create" onclick={confirmSkip}>Start empty</button>
+					<button class="bd-btn-skip" onclick={() => { skipMode = false }}>Cancel</button>
+				</div>
+			{:else}
+				<button class="bd-btn-skip" onclick={enterSkipMode}>Skip — start empty</button>
+				<button class="bd-btn-create" disabled={totalOpps === 0 && totalDels === 0} onclick={() => onApply(text)}>Create board</button>
+			{/if}
 		</div>
 	</div>
 </div>
@@ -311,6 +338,27 @@
 
 	.bd-btn-skip:hover {
 		color: var(--c-text);
+	}
+
+	.bd-skip-name {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-xs);
+	}
+
+	.bd-skip-input {
+		font-size: var(--fs-sm);
+		color: var(--c-text);
+		background: var(--c-surface);
+		border: 1px solid var(--c-border-soft);
+		border-radius: var(--radius-sm);
+		padding: var(--sp-xs) var(--sp-sm);
+		width: 10rem;
+	}
+
+	.bd-skip-input:focus {
+		outline: none;
+		border-color: var(--c-accent);
 	}
 
 	.bd-btn-create {
