@@ -245,7 +245,7 @@
 				{/if}
 			</button>
 			{/if}
-			<span class="pl-title">{opp.title}</span>
+			<span class="pl-title">{#if opp.ticketId}<span class="ticket-id-prefix">{opp.ticketId}</span> {/if}{opp.title}</span>
 			{#if showStageBadge}
 				<span class="stage-badge stage-{opp.stage}">{stageLabel(opp.stage)}</span>
 			{/if}
@@ -488,6 +488,12 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		min-width: 0;
+	}
+
+	.ticket-id-prefix {
+		font-size: var(--fs-2xs);
+		color: var(--c-text-muted);
+		font-weight: var(--fw-normal);
 	}
 
 	.pl-bucket-urgent .pl-title {

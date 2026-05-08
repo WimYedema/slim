@@ -319,7 +319,7 @@
 		if (isGrouped(item) || item.targetType !== 'opportunity') return []
 		if (item.verb !== 'stale') return []
 		const opp = opportunities.find(o => o.id === item.targetId)
-		if (!opp) return []
+		if (!opp || opp.stage === 'deliver') return []
 		const questions: string[] = []
 		for (const p of PERSPECTIVES) {
 			if (opp.signals[opp.stage][p].score === 'none') {
@@ -689,7 +689,7 @@
 										</ul>
 									{/if}
 									<div class="bf-headline-footer">
-										{#if !isGrouped(item) && (item.verb === 'stale' || item.verb === 'revisit-due')}
+										{#if !isGrouped(item) && (item.verb === 'stale' || item.verb === 'delivery-stale' || item.verb === 'revisit-due')}
 											{#if parkingId === item.targetId}
 												<span class="bf-park-inline">
 													<input class="bf-park-input" type="text" placeholder="e.g. 2026Q3" bind:value={parkUntilInput} onclick={(e) => e.stopPropagation()} />

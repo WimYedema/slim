@@ -194,4 +194,19 @@ describe('csvToOpportunities edge cases', () => {
 		expect(imported[0].stage).toBe('validate')
 		expect(imported[0].signals.validate.desirability.score).toBe('positive')
 	})
+
+	it('round-trips ticketId', () => {
+		const opp = createOpportunity('With ticket')
+		opp.ticketId = 'OPP-42'
+		const csv = opportunitiesToCsv([opp])
+		expect(csv).toContain('OPP-42')
+		const { imported } = csvToOpportunities(csv)
+		expect(imported[0].ticketId).toBe('OPP-42')
+	})
+
+	it('imports rows without ticketId column', () => {
+		const csv = 'Title,Stage\nPlain item,explore'
+		const { imported } = csvToOpportunities(csv)
+		expect(imported[0].ticketId).toBeUndefined()
+	})
 })

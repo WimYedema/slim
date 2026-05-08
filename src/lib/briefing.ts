@@ -358,7 +358,7 @@ function diffOpportunities(
 				? 'next'
 				: 'now'
 			: 'none'
-		if (agingLevel(opp, pressure) === 'stale') {
+		if (agingLevel(opp, pressure) === 'stale' && opp.stage !== 'deliver') {
 			const oldOpp = prevMap.get(opp.id)
 			const wasStale = oldOpp && agingLevel(oldOpp, pressure) === 'stale'
 			if (!wasStale) {

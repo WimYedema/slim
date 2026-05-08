@@ -121,6 +121,8 @@ export interface StageTransition {
 
 export interface Opportunity {
 	id: string
+	/** User-facing ticket identifier (e.g. "OPP-42") — optional, freeform */
+	ticketId?: string
 	title: string
 	/** Optional longer description */
 	description: string
@@ -312,6 +314,8 @@ export interface DeliverableEstimate {
 
 export interface Deliverable {
 	id: string
+	/** User-facing ticket identifier (e.g. "DEL-7") — optional, freeform */
+	ticketId?: string
 	title: string
 	/** Build something (delivery) or learn something (discovery) */
 	kind: DeliverableKind

@@ -115,6 +115,21 @@
 		<button class="ddp-close" onclick={onClose} aria-label="Close">×</button>
 	</header>
 
+	<label class="ddp-field ddp-ticket-id">
+		<span class="ddp-label">Ticket ID</span>
+		<input
+			type="text"
+			class="ddp-input"
+			placeholder="e.g. DEL-7"
+			value={deliverable.ticketId ?? ''}
+			onblur={(e) => {
+				const v = (e.target as HTMLInputElement).value.trim()
+				if (v !== (deliverable.ticketId ?? '')) onUpdate({ ...deliverable, ticketId: v || undefined })
+			}}
+			onkeydown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }}
+		/>
+	</label>
+
 	<div class="ddp-summary-bar">
 		<div class="ddp-kind-picker">
 			<button class="ddp-kind-btn" class:active={deliverable.kind === 'delivery'} onclick={() => setKind('delivery')} title="Build something">Delivery</button>

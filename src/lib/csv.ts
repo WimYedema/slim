@@ -38,7 +38,7 @@ export function parseCsvRow(line: string): string[] {
 	return fields
 }
 
-const CSV_HEADER = 'Title,Stage,Origin,Horizon,Desirability,Feasibility,Viability,Created'
+const CSV_HEADER = 'Title,Stage,Origin,Horizon,Desirability,Feasibility,Viability,Created,TicketID'
 
 /** Build CSV string from opportunities */
 export function opportunitiesToCsv(opportunities: Opportunity[]): string {
@@ -53,6 +53,7 @@ export function opportunitiesToCsv(opportunities: Opportunity[]): string {
 			scores.feasibility.score,
 			scores.viability.score,
 			new Date(o.createdAt).toISOString().slice(0, 10),
+			csvEscape(o.ticketId ?? ''),
 		].join(',')
 	})
 	return [CSV_HEADER, ...rows].join('\n')
@@ -82,6 +83,7 @@ export function csvToOpportunities(text: string): CsvImportResult {
 	const stageIdx = headerFields.indexOf('stage')
 	const originIdx = headerFields.indexOf('origin')
 	const horizonIdx = headerFields.indexOf('horizon')
+	const ticketIdx = headerFields.indexOf('ticketid')
 	const _desIdx = headerFields.indexOf('desirability')
 	const _feasIdx = headerFields.indexOf('feasibility')
 	const _viaIdx = headerFields.indexOf('viability')
@@ -109,6 +111,9 @@ export function csvToOpportunities(text: string): CsvImportResult {
 		}
 		if (horizonIdx >= 0 && fields[horizonIdx]) {
 			opp.horizon = fields[horizonIdx]
+		}
+		if (ticketIdx >= 0 && fields[ticketIdx]) {
+			opp.ticketId = fields[ticketIdx]
 		}
 
 		for (const p of PERSPECTIVES) {
