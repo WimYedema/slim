@@ -41,8 +41,7 @@
 	import { createSampleOpportunities, createSampleDeliverables, createSampleMeetingData } from './lib/sample-data'
 	import ImportDeliverables from './components/ImportDeliverables.svelte'
 	import type { ExternalItem } from './lib/external-provider'
-
-	type ViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'meetings' | 'team'
+	import { parseHash, pushRoute, replaceRoute, onPopState, type ViewMode } from './lib/router'
 	type ContributorViewMode = 'briefing' | 'pipeline' | 'deliverables' | 'assignments'
 
 	const WELCOMED_KEY = 'slim-welcomed'
@@ -50,7 +49,12 @@
 	// ── Multi-board bootstrap ──
 	const migration = migrateToMultiBoard()
 	let boardEntries: BoardEntry[] = $state(migration.entries)
-	let activeBoardId: string | null = $state(migration.activeId)
+	// Restore view and board from hash on load
+	const initialRoute = parseHash(location.hash)
+	const initialBoardId = initialRoute?.boardId && migration.entries.some(e => e.id === initialRoute.boardId)
+		? initialRoute.boardId
+		: migration.activeId
+	let activeBoardId: string | null = $state(initialBoardId)
 	const activeBoardEntry = $derived(boardEntries.find(e => e.id === activeBoardId))
 
 	const saved = activeBoardId ? loadBoard(activeBoardId) : null
@@ -70,9 +74,9 @@
 	)
 	let selectedId: string | null = $state(null)
 	let selectedDeliverableId: string | null = $state(null)
-	let view: ViewMode = $state('briefing')
-	let pipelineGrouping: 'stage' | 'horizon' = $state('stage')
-	let lens: Perspective | null = $state(null)
+	let view: ViewMode = $state(initialRoute?.view ?? 'briefing')
+	let pipelineGrouping: 'stage' | 'horizon' = $state(initialRoute?.pipelineGrouping ?? 'stage')
+	let lens: Perspective | null = $state(initialRoute?.lens ?? null)
 	let showHelp = $state(false)
 	let showQuickAdd = $state(false)
 	let showBoardMenu = $state(false)
@@ -343,6 +347,42 @@
 		return () => window.removeEventListener('keydown', onKeydown)
 	})
 
+	// ── Hash router: popstate listener ──
+	$effect(() => {
+		return onPopState((route) => {
+			if (showWelcome || showBrainDump) return
+			routerSuppressed = true
+			if (route) {
+				view = route.view
+				if (route.pipelineGrouping) pipelineGrouping = route.pipelineGrouping
+				else if (route.view === 'pipeline') pipelineGrouping = 'stage'
+				lens = route.lens ?? null
+				if (route.boardId && route.boardId !== activeBoardId) {
+					const exists = boardEntries.some(e => e.id === route.boardId)
+					if (exists) switchBoard(route.boardId)
+				}
+			} else {
+				view = 'briefing'
+			}
+			selectedId = null
+			selectedDeliverableId = null
+			routerSuppressed = false
+		})
+	})
+
+	// ── Hash router: keep hash in sync with view state ──
+	let routerSuppressed = false
+	$effect(() => {
+		// Read reactive deps
+		const v = view
+		const g = pipelineGrouping
+		const l = lens
+		const b = activeBoardId
+		if (routerSuppressed) return
+		if (showWelcome || showBrainDump) return
+		replaceRoute({ view: v, boardId: b ?? undefined, pipelineGrouping: v === 'pipeline' ? g : undefined, lens: v === 'pipeline' ? l : undefined })
+	})
+
 	const selectedOpportunity = $derived(
 		selectedId ? opportunities.find((o) => o.id === selectedId) ?? null : null,
 	)
@@ -452,6 +492,7 @@
 		view = v
 		selectedId = null
 		selectedDeliverableId = null
+		pushRoute({ view: v, boardId: activeBoardId ?? undefined, pipelineGrouping: v === 'pipeline' ? pipelineGrouping : undefined, lens: v === 'pipeline' ? lens : undefined })
 	}
 
 	function navigateToOpportunity(id: string) {
@@ -606,6 +647,7 @@
 		selectedId = null
 		selectedDeliverableId = null
 		undoStack = []
+		pushRoute({ view, boardId: id, pipelineGrouping: view === 'pipeline' ? pipelineGrouping : undefined })
 	}
 
 	function newBoard() {

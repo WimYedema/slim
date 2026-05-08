@@ -87,6 +87,7 @@ One runtime dependency: `nostr-tools` (P2P relay communication). No server, no d
 | `sync.ts` | Nostr relay pub/sub for P2P board sharing and score submission | `generateSyncKeys`, `publishBoard`, `queryBoard`, `publishScores`, `queryScores`, `applyScores` |
 | `merge.ts` | ID-based board merge with `updatedAt` conflict resolution | `mergeBoards`, `formatMergeStats`, `MergeResult` |
 | `csv.ts` | CSV import/export for opportunities | `opportunitiesToCsv`, `csvToOpportunities` |
+| `router.ts` | Hash-based URL router: parse/serialize view+board state, pushState/replaceState, popstate listener | `parseHash`, `toHash`, `pushRoute`, `replaceRoute`, `onPopState`, `ViewMode`, `RouteState` |
 | `external-provider.ts` | Extensible connector API: ExternalItem shape, ProviderConfig, data-only connector fetch, localStorage persistence | `ExternalItem`, `ExternalProvider`, `ProviderConfig`, `fetchConnectorItems`, `loadProviders` |
 | `github-provider.ts` | Built-in GitHub Issues provider (PAT auth, pagination, PR filtering, size inference from labels) | `githubProvider` |
 | `samen/` | Shared protocol module (git subtree) — team identity, room index, event bus, crypto | See [samen/README.md](../src/lib/samen/README.md) |
@@ -191,6 +192,7 @@ Never put `max-width` on the scrollable container itself -- that pulls the scrol
 11. **Deliver stage has no signal grid** -- the 4×3 consent matrix applies only to Explore–Decompose. Deliver uses commitments as the primary tracking mechanism.
 12. **Advancement to Deliver requires linked deliverables** -- `canAdvanceToDeliver()` checks consent AND `linksForOpportunity().length > 0`. Enforced in both DetailPane (gap prompts) and App.svelte (keyboard shortcut).
 13. **Done is a positive exit** -- unlike Kill/Park/Merge, Done means "delivered as promised." Only available when `stage === 'deliver'`.
+14. **Hash-based routing** -- `router.ts` manages URL hash state (`#board/{id}/pipeline/horizon`). `switchView()` and `switchBoard()` push history entries; grouping/lens changes replace. `popstate` restores view state. Welcome/braindump screens bypass routing.
 
 ## Design Hygiene
 

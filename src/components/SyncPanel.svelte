@@ -834,7 +834,8 @@
 	}
 
 	.sync-btn.primary:hover:not(:disabled) {
-		opacity: 0.9;
+		background: var(--c-accent);
+		filter: brightness(0.85);
 	}
 
 	.sync-btn.danger {
